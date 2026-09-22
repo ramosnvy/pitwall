@@ -1,0 +1,49 @@
+## .NET
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+artifacts/
+BenchmarkDotNet.Artifacts/
+TestResults/
+project.lock.json
+*.nupkg
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.DotSettings.user
+
+## Sistema operacional
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+## Dados e resultados
+# O dataset da OpenF1 é baixado localmente e não é versionado.
+data/
+*.parquet
+*.db
+
+# Resultados brutos dos experimentos SÃO versionados (results/),
+# mas artefatos intermediários e logs não.
+logs/
+*.log
+results/**/raw-dump/
+
+## Python (análise)
+.venv/
+venv/
+__pycache__/
+.ipynb_checkpoints/
+
+## Segredos e configuração local
+.env
+*.local.json

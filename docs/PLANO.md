@@ -1,0 +1,91 @@
+# Plano de trabalho — TCC2
+
+Documento vivo. Registra as decisões de projeto e o cronograma. Atualizar conforme as decisões forem fechadas com o orientador.
+
+Premissa de prazo: **defesa no início de dezembro de 2026** (confirmar). O cronograma do TCC1 (março a setembro de 2026) está vencido e foi substituído pelo da seção 5.
+
+## 1. Decisões em aberto
+
+Pontos que não estavam definidos na proposta do TCC1 e que mudam a implementação.
+
+### 1a. A OpenF1 não é, por si só, uma fonte de alta frequência
+
+A telemetria é amostrada a 3,7 Hz por carro. Com 20 carros, são cerca de 75 eventos/s em `car_data`. Os limites do plano gratuito são 3 requisições/s e 30/min, e os dados ao vivo exigem assinatura paga.
+
+**Decisão proposta:** baixar os dados históricos uma vez para disco e reproduzi-los com um *replayer* que aplica fator de aceleração e multiplicação de carros. Os níveis de carga passam a ser taxas-alvo (por exemplo 1k, 10k, 50k e 100k eventos/s), mais um teste de saturação. A API não é chamada durante os experimentos.
+
+### 1b. Channels e Pipelines não são equivalentes
+
+`System.Threading.Channels` é uma fila produtor-consumidor de **objetos**. `System.IO.Pipelines` opera sobre **fluxos de bytes**.
+
+**Decisão proposta:**
+- **Channels:** o consumer desserializa a mensagem para objeto, escreve num `Channel<T>` limitado (bounded) e N workers processam.
+- **Pipelines:** o consumer escreve os bytes crus no `PipeWriter`, com enquadramento por prefixo de tamanho; o processamento lê do `PipeReader` e faz o parse sem alocação (`Utf8JsonReader` ou formato binário).
+
+A comparação deve ser apresentada no artigo como "processamento orientado a objetos com backpressure" contra "processamento de bytes com zero-copy", e não como duas formas intercambiáveis da mesma coisa.
+
+### 1c. Baseline
+
+Incluir a variante *Direct* (processamento no próprio callback do consumer, sem mecanismo interno). Sem ela não é possível separar o efeito do broker do efeito do mecanismo de processamento. A matriz passa a ser 2 brokers × 3 modos.
+
+### 1d. Definição de "processamento"
+
+A lógica precisa ser idêntica nas seis variantes e ter custo de CPU realista. Candidatos: agregações por piloto em janela (velocidade média e máxima), detecção de frenagem forte, contagem de trocas de marcha por volta.
+
+### 1e. O PostgreSQL pode mascarar as diferenças
+
+Se o banco saturar, todas as arquiteturas parecem iguais.
+
+**Decisão proposta:** persistir em lote com `COPY` binário do Npgsql; medir a latência até o fim do processamento, com a persistência medida em separado; executar também uma bateria com persistência desligada.
+
+### 1f. Equivalência de configuração entre os brokers
+
+Usar a mesma garantia de entrega (at-least-once) nos dois e publicar as configurações numa tabela do artigo.
+
+- Kafka: `acks=all`, `linger.ms` e `batch.size` documentados, partições = número de consumidores.
+- RabbitMQ: publisher confirms, `prefetch` definido, tipo de fila (quorum ou classic) documentado.
+
+## 2. Desenho experimental
+
+- **Fatores:** broker (2) × mecanismo (3) × nível de carga (4 a 5).
+- **Por execução:** warm-up de 30 a 60 s descartado, janela de medição fixa de 3 a 5 min, no mínimo 10 repetições por combinação, em ordem aleatória.
+- **Gerador de carga em malha aberta** (taxa fixa, independente do término do evento anterior), para evitar *coordinated omission* nos percentis.
+- **Análise:** projeto fatorial 2^k com replicação (Jain, 1991) para atribuir a variação a cada fator; ANOVA ou Kruskal-Wallis e intervalos de confiança.
+- **Ambiente:** hardware documentado, limites de CPU e memória fixos nos containers, execuções sem outros programas ativos. Preferência por máquina Linux dedicada; em Docker Desktop no Windows, registrar a configuração do WSL2.
+
+## 3. Medição
+
+- **Latência:** timestamp gravado na mensagem no momento da publicação, comparado no fim do processamento. Produtor e consumidor rodam na mesma máquina, então os relógios são comparáveis. Registrar em HdrHistogram.
+- **Recursos:** `System.Diagnostics.Metrics` com OpenTelemetry nos processos .NET; cAdvisor e Prometheus para todos os containers, inclusive os brokers.
+- **Microbenchmarks (opcional):** BenchmarkDotNet para isolar o custo de parse das variantes Channels e Pipelines.
+
+## 4. Riscos
+
+| Risco | Mitigação |
+| --- | --- |
+| Persistência vira o gargalo | Lote com `COPY`, bateria sem persistência, latência medida antes da escrita |
+| Variância do ambiente (Docker Desktop / WSL2) | Repetições, ordem aleatória, limites fixos de recurso, hardware documentado |
+| Configurações dos brokers não comparáveis | Garantias de entrega equivalentes e tabela de parâmetros no artigo |
+| Implementação atrasar e comprimir os experimentos | Marco de corte na semana 5 (ver cronograma) |
+
+## 5. Cronograma
+
+| Semanas | Período | Entregas |
+| --- | --- | --- |
+| 1–2 | 22/09 – 05/10 | Fechar as decisões da seção 1; baixar 2 ou 3 corridas da OpenF1; repositório e Docker Compose com brokers e PostgreSQL |
+| 3–5 | 06/10 – 26/10 | Replayer com taxa configurável; Processing.Core; consumers Kafka e RabbitMQ nos 3 modos; persistência |
+| 6–7 | 27/10 – 09/11 | Instrumentação de métricas; script da matriz de experimentos; experimento piloto para calibrar cargas e duração |
+| 8–9 | 10/11 – 23/11 | Execuções oficiais; análise; gráficos (CDF de latência, throughput × carga, CPU e memória) |
+| 10–11 | 24/11 – defesa | Resultados, discussão, ameaças à validade; revisão com o orientador; slides e ensaio |
+
+**Escrita em paralelo:** Fundamentação Teórica e Trabalhos Relacionados vêm do TCC1. A seção de Implementação deve ser escrita junto com o código, para que nas últimas semanas sobrem apenas Resultados e Discussão.
+
+**Marco de corte (semana 5):** se as seis variantes não estiverem funcionando ponta a ponta, reduzir escopo (menos níveis de carga, ou menos repetições) para preservar a janela de experimentos.
+
+## 6. Pendências no documento do TCC1
+
+- Nome do orientador truncado ("Prof. Dr. Evandro K."); campo de coorientador vazio.
+- Membros da banca ainda com texto de exemplo.
+- Legendas saem como "Figure" e "Table" no template SBC.
+- Atualizar as datas de "Acesso em: maio 2025" nas referências.
+- Atualizar a Figura 1 e os objetivos específicos para incluir a baseline e o replayer.
