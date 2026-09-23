@@ -95,9 +95,18 @@ Console.WriteLine($"Destino: {sink.Name} | alvo: {rate:N0} ev/s | " +
                   $"warmup: {warmup.TotalSeconds:0}s | medicao: {duration.TotalSeconds:0}s");
 
 var replayer = new OpenLoopReplayer(data, sink);
-var result = await replayer.RunAsync(
-    new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents },
-    cts.Token);
+// O laco de ritmo gira em espera ativa por design (malha aberta), entao ocupa
+// uma thread o tempo todo. Numa thread do pool, num container com 2 CPUs, ele
+// tomaria metade do minimo do pool e atrasaria as continuacoes de E/S do
+// cliente do broker -- o mesmo esgotamento corrigido no consumidor. Por isso
+// roda numa thread dedicada.
+var replayOptions = new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents };
+var result = await Task.Factory.StartNew(
+        () => replayer.RunAsync(replayOptions, cts.Token),
+        CancellationToken.None,
+        TaskCreationOptions.LongRunning,
+        TaskScheduler.Default)
+    .Unwrap();
 
 await sink.DisposeAsync();
 

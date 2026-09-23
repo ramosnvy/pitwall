@@ -76,6 +76,31 @@ O TCC1 exige CPU e memória "abrangendo todos os módulos do sistema". O consumi
 
 A [documentação da Microsoft](https://learn.microsoft.com/en-us/dotnet/standard/garbage-collection/workstation-server-gc) descreve o Server GC como "intended for server applications that need high throughput", e seria a escolha natural para um serviço. Mas a mesma página adverte que vários processos com Server GC na mesma máquina interferem entre si, com threads de coleta em `THREAD_PRIORITY_HIGHEST`. Aqui produtor, consumidor e os brokers dividem a máquina: as threads de coleta em prioridade máxima roubariam CPU dos brokers e distorceriam justamente a medição deles. **Mantido o Workstation GC, padrão para aplicações de console.** Numa implantação com o consumidor em máquina dedicada, a escolha se inverteria.
 
+### 1.9 Esgotamento do pool de threads no consumidor Kafka — exposto pela containerização
+
+**Sintoma.** Na primeira validação do modo containerizado, `kafka-channels` e `kafka-pipelines` tiveram latência média de ~200 ms e máxima de ~1 s em todas as 6 rodadas, enquanto `kafka-direct` ficava em 3 ms.
+
+**Causa.** O `Consume()` do Confluent.Kafka é síncrono. Os quatro laços de consumo rodavam via `Task.Run`, prendendo quatro threads do pool do .NET. Num container limitado a 3 CPUs, o mínimo do pool é 3 threads: com o pool esgotado, as continuações dos workers de Channels e Pipelines ficavam na fila esperando o pool injetar threads novas. A [documentação da Microsoft sobre ThreadPool starvation](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/debug-threadpool-starvation) descreve essa injeção como "1-2 per second" — o teto de ~1 s observado. O Direct processa na própria thread do laço e não depende de continuação, por isso escapou. No host Windows, com 12 núcleos, o pool tinha folga e o defeito ficava escondido.
+
+**Correção.** `TaskCreationOptions.LongRunning`: uma thread dedicada por partição, fora do pool (commit `d0874a6`).
+
+**Validação** — seis variantes, 10 mil ev/s, 2 rodadas cada, 10 s de aquecimento e 30 s de medição, clientes em containers:
+
+| Variante | Média | P99 | CPU do consumidor | CPU do produtor | CPU do broker |
+| --- | --- | --- | --- | --- | --- |
+| kafka-direct | 3,06 ms | 5,79 ms | 14% | 100% | 42% |
+| kafka-channels | 3,08 ms | 5,83 ms | 20% | 103% | 44% |
+| kafka-pipelines | 3,08 ms | 5,83 ms | 20% | 100% | 41% |
+| rabbitmq-direct | 0,57 ms | 2,27 ms | 64% | 172% | 211% |
+| rabbitmq-channels | 0,57 ms | 2,35 ms | 69% | 162% | 200% |
+| rabbitmq-pipelines | 0,56 ms | 2,22 ms | 71% | 172% | 212% |
+
+Zero falhas e digest idêntico nas 12 rodadas. O P99 do Kafka variou 0,7% entre rodadas, contra 6 a 49 ms no host.
+
+Leitura preliminar, a confirmar na matriz: o RabbitMQ tem latência ~5× menor em carga baixa, mas consome ~2,7× mais CPU somando os três módulos. Parte da latência do Kafka vem de `linger.ms=5`, que é o padrão da librdkafka: o produtor espera até 5 ms para agrupar, o que dá ~2,5 ms médios de espera deliberada. A CPU do produtor inclui a espera ativa do gerador em malha aberta, que custa perto de um núcleo nos dois brokers; a diferença entre eles é o custo do cliente de publicação.
+
+**Lição de método.** Os dois defeitos mais graves desta revisão — o caminho Windows→VM e o esgotamento do pool — mascaravam um ao outro. No host, a folga do pool escondia o segundo; no container, o primeiro desaparecia e o segundo aparecia. Nenhum dos dois seria visível sem mudar o ambiente de execução e medir de novo.
+
 ## 2. Achados que não comprometem a matriz em curso
 
 Ficam registrados para correção depois da execução. Nenhum invalida os resultados desta matriz; alguns limitam o que ela pode concluir.

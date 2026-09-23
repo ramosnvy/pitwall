@@ -1,7 +1,2 @@
 ﻿"architecture","max_sustained"
-"kafka-direct","200000"
-"kafka-channels","200000"
-"kafka-pipelines","200000"
-"rabbit-direct","20000"
-"rabbit-channels","20000"
-"rabbit-pipelines","30000"
+"rabbit-channels","60000"

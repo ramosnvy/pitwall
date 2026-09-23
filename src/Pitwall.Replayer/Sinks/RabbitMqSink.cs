@@ -22,7 +22,18 @@ public sealed class RabbitMqSink : IEventSink
     private readonly RabbitMqSinkOptions _options;
     private IConnection[] _connections = [];
     private IChannel[] _channels = [];
+
+    // Buffer duplo por faixa. Um lote enche enquanto o anterior aguarda
+    // confirmacao em segundo plano. A versao anterior esperava as confirmacoes
+    // DENTRO do laco de ritmo a cada lote cheio: como o RabbitMQ so confirma
+    // mensagem persistente depois do fsync, o gerador parava ali dezenas de
+    // milissegundos -- um trecho de malha fechada num gerador que precisa ser
+    // de malha aberta, e que penalizava so o RabbitMQ (o produtor Kafka
+    // confirma por callback e nunca bloqueia). Resultado: jitter de 30 a 40 ms
+    // ja a 10 mil ev/s.
     private ValueTask[][] _pending = [];
+    private ValueTask[][] _spare = [];
+    private Task?[] _draining = [];
     private int[] _pendingCount = [];
     private long _published;
 
@@ -67,6 +78,8 @@ public sealed class RabbitMqSink : IEventSink
 
         _channels = new IChannel[_options.Partitions];
         _pending = new ValueTask[_options.Partitions][];
+        _spare = new ValueTask[_options.Partitions][];
+        _draining = new Task?[_options.Partitions];
         _pendingCount = new int[_options.Partitions];
 
         for (var lane = 0; lane < _options.Partitions; lane++)
@@ -88,6 +101,8 @@ public sealed class RabbitMqSink : IEventSink
                 ct);
 
             _pending[lane] = new ValueTask[_options.ConfirmBatchSize];
+            _spare[lane] = new ValueTask[_options.ConfirmBatchSize];
+            _draining[lane] = null;
             _pendingCount[lane] = 0;
         }
 
@@ -132,8 +147,8 @@ public sealed class RabbitMqSink : IEventSink
         var lane = Lane(evt.DriverNumber, _options.Partitions);
 
         // A ValueTask so completa quando o broker confirma. Fica guardada num
-        // array de structs (sem alocar Task por mensagem) e e aguardada na
-        // barreira, mantendo varias publicacoes em voo por faixa.
+        // array de structs (sem alocar Task por mensagem), e o lote e aguardado
+        // em segundo plano quando enche.
         _pending[lane][_pendingCount[lane]++] = _channels[lane].BasicPublishAsync(
             exchange: _options.Exchange,
             routingKey: lane.ToString(),
@@ -144,7 +159,24 @@ public sealed class RabbitMqSink : IEventSink
 
         if (_pendingCount[lane] == _pending[lane].Length)
         {
-            await DrainAsync(lane);
+            // So bloqueia se o lote ANTERIOR ainda nao foi confirmado -- ou
+            // seja, com dois lotes inteiros em voo. Isso e contrapressao real
+            // do broker, nao uma barreira fixa a cada lote.
+            if (_draining[lane] is { } previous)
+            {
+                await previous;
+            }
+
+            var full = _pending[lane];
+            var count = _pendingCount[lane];
+
+            // O buffer reserva ja teve sua drenagem concluida (aguardada
+            // acima), entao pode ser reaproveitado.
+            _pending[lane] = _spare[lane];
+            _spare[lane] = full;
+            _pendingCount[lane] = 0;
+
+            _draining[lane] = DrainBatchAsync(full, count);
         }
     }
 
@@ -152,18 +184,17 @@ public sealed class RabbitMqSink : IEventSink
         PublishAsync(evt, ct);
 
     /// <summary>
-    /// Aguarda as confirmacoes pendentes de uma faixa. Publicacao nao
-    /// confirmada e falha de rodada, nao evento perdido em silencio.
+    /// Aguarda as confirmacoes de um lote. Publicacao nao confirmada e falha de
+    /// rodada, nao evento perdido em silencio: a excecao propaga no proximo
+    /// await deste Task.
     /// </summary>
-    private async ValueTask DrainAsync(int lane)
+    private async Task DrainBatchAsync(ValueTask[] batch, int count)
     {
-        for (var i = 0; i < _pendingCount[lane]; i++)
+        for (var i = 0; i < count; i++)
         {
-            await _pending[lane][i];
+            await batch[i];
             Interlocked.Increment(ref _published);
         }
-
-        _pendingCount[lane] = 0;
     }
 
     public async ValueTask FlushAsync(CancellationToken ct)
@@ -171,7 +202,14 @@ public sealed class RabbitMqSink : IEventSink
         // Sem isso, eventos ainda em voo ficariam de fora da contagem.
         for (var lane = 0; lane < _channels.Length; lane++)
         {
-            await DrainAsync(lane);
+            if (_draining[lane] is { } draining)
+            {
+                await draining;
+                _draining[lane] = null;
+            }
+
+            await DrainBatchAsync(_pending[lane], _pendingCount[lane]);
+            _pendingCount[lane] = 0;
         }
     }
 

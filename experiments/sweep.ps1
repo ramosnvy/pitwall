@@ -47,6 +47,12 @@ foreach ($broker in $Brokers) {
                 -Seconds $Seconds -Partitions $Partitions -Dataset $Dataset `
                 -ConsumerReport $Out -ProducerReport 'results/sweep-producer.csv' -HostProcesses:$HostProcesses
 
+            # A linha enriquecida (produtor, CPU e memoria de todos os modulos)
+            # vai para um CSV proprio; o CSV do consumidor so tem o lado dele.
+            if ($null -ne $row) {
+                $row | Export-Csv -Path (Join-Path $root ($Out -replace '.csv$', '-runs.csv')) -Append -NoTypeInformation -Encoding UTF8
+            }
+
             if ($null -eq $row) {
                 Write-Host ("  {0,8} ev/s  FALHOU (sem resultado)" -f $rate) -ForegroundColor Red
                 break

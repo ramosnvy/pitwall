@@ -184,7 +184,7 @@ function Invoke-PitwallRun {
         [double]$SyntheticCostUs = 0,
         [double]$ConsumerCpus = 3,
         [string]$ConsumerMemory = '1g',
-        [double]$ProducerCpus = 2,
+        [double]$ProducerCpus = 4,
         [string]$ProducerMemory = '1g',
         [string]$Commit = ''
     )
