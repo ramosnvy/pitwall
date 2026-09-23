@@ -1,5 +1,42 @@
 # Experimento piloto — varredura de saturação
 
+## Piloto vigente: clientes em containers (commit `d4b0b37`)
+
+**Este é o piloto que vale.** As seções seguintes descrevem o piloto anterior, com produtor e consumidor rodando no host Windows, e ficam como registro: seus tetos estavam distorcidos por três defeitos corrigidos depois — o caminho Windows→VM, o esgotamento do pool de threads no consumidor Kafka e o estrangulamento de CPU do produtor (docs/REVISAO-TECNICA.md, §1.1, §1.9 e §1.10).
+
+Configuração: produtor com 4 CPUs, consumidor com 3 CPUs, broker com 4 CPUs, 4 faixas, sem persistência, uma rodada por ponto.
+
+| Arquitetura | Teto sustentado | P99 no teto |
+| --- | --- | --- |
+| kafka-direct | > 400.000 ev/s | 5,6 ms |
+| kafka-channels | > 400.000 ev/s | 5,7 ms |
+| kafka-pipelines | > 400.000 ev/s | 41,5 ms |
+| rabbitmq (três modos) | ~60.000 ev/s | 16 a 24 ms |
+
+**Kafka.** Não saturou em nenhuma variante; 400 mil era o topo da varredura. O P99 fica praticamente plano, em torno de 5,5 ms, de 10 mil a 200 mil ev/s. O `kafka-pipelines` a 400 mil teve P99 de 41 ms — primeiro sinal de pressão, possivelmente o limite de 3 CPUs do consumidor, a confirmar.
+
+**RabbitMQ.** Sustenta 60 mil com jitter de 20 ms; a 80 mil o produtor acumula 127 ms de atraso. Com o produtor em 240% e o broker em 298% de CPU, nenhum dos dois estava no teto de seus containers: o limite parece estar no broker. Hipótese a verificar: cada fila clássica do RabbitMQ é um único processo Erlang, então a vazão escala com o número de filas, não dentro de uma fila. Com 4 filas, o teto por fila seria ~15 a 20 mil ev/s. Se confirmado, é um resultado arquitetural relevante — o análogo do limite por partição no Kafka, mas muito mais baixo.
+
+**A diferença entre variantes do RabbitMQ ainda é ruído.** Com o produtor sendo o mesmo código nas três, a saturação é decidida por ele e pelo broker, não pelo mecanismo do consumidor.
+
+### Níveis de carga propostos para a matriz refeita
+
+| Nível | Brokers | Papel |
+| --- | --- | --- |
+| 10.000 | ambos | Carga baixa |
+| 20.000 | ambos | |
+| 40.000 | ambos | |
+| 60.000 | ambos | Teto sustentado do RabbitMQ |
+| 100.000 | só Kafka | |
+| 200.000 | só Kafka | |
+| 400.000 | só Kafka | Topo medido |
+
+A faixa comum aos dois brokers dobrou em relação ao piloto no host (30 mil → 60 mil), porque parte do teto antigo do RabbitMQ era limite do instrumento.
+
+---
+
+## Piloto anterior: clientes no host Windows (substituído)
+
 Segunda varredura, 23/09/2026, após as correções. Uma execução por ponto, 10 s de medição, 4 faixas, sem persistência. Critério de saturação: vazão abaixo de 90% da taxa alvo, **ou** P99 acima de 1 s, **ou** jitter de emissão do produtor acima de 50 ms.
 
 **Estes números não são resultado do trabalho.** É uma execução única por ponto, e a variância entre execuções nesta máquina chega a três ordens de grandeza. O piloto serve para calibrar os níveis de carga e expor defeitos antes das rodadas que valem — e cumpriu esse papel: encontrou um estouro de tipo que contaminava toda carga acima de 30 mil ev/s.

@@ -101,6 +101,29 @@ Leitura preliminar, a confirmar na matriz: o RabbitMQ tem latência ~5× menor e
 
 **Lição de método.** Os dois defeitos mais graves desta revisão — o caminho Windows→VM e o esgotamento do pool — mascaravam um ao outro. No host, a folga do pool escondia o segundo; no container, o primeiro desaparecia e o segundo aparecia. Nenhum dos dois seria visível sem mudar o ambiente de execução e medir de novo.
 
+### 1.10 O produtor era estrangulado por CPU — e contaminava a latência do RabbitMQ
+
+**Sintoma.** No modo containerizado, o RabbitMQ tinha jitter de emissão de 30 a 40 ms já a 10 mil ev/s, contra 4 a 7 ms do Kafka.
+
+**Causa.** O container do produtor estava limitado a 2 CPUs. O cliente do RabbitMQ é bem mais caro em CPU que o do Kafka, e o produtor ficava no teto (174 a 179% de 200%). O kernel aplica cota de CPU por período (CFS) e suspende o processo quando ela se esgota; as pausas atrasavam as publicações **depois** do carimbo de tempo do evento, e esse atraso entrava na latência medida como se fosse do broker. Só o RabbitMQ era afetado.
+
+**Correção.** Produtor com 4 CPUs. O produtor é o instrumento, não o sistema sob teste, e nunca pode ser o gargalo.
+
+| RabbitMQ | Jitter (2 → 4 CPUs) | P99 (2 → 4 CPUs) |
+| --- | --- | --- |
+| 10 mil ev/s | 39,5 → 9,9 ms | 10,7 → 1,6 ms |
+| 40 mil ev/s | 48,1 → 8,9 ms | 22,2 → 12,9 ms |
+| 60 mil ev/s | 43,9 → 20,4 ms | 28,3 → 24,5 ms |
+
+Com 4 CPUs o produtor passou a usar 206 a 260%, confirmando que antes estava contido pelo limite.
+
+**Dois defeitos de desenho corrigidos junto** (commit `d4b0b37`):
+
+- **Trecho de malha fechada no gerador.** A barreira de confirmação do RabbitMQ esperava as confirmações dentro do laço de ritmo a cada lote de 1.000. Como o broker só confirma mensagem persistente após o fsync, o gerador parava ali. Agora há buffer duplo por faixa: um lote enche enquanto o outro é confirmado, e o gerador só espera com dois lotes pendentes — contrapressão real do broker, não uma barreira fixa.
+- **Laço de ritmo no pool de threads.** O laço gira em espera ativa por design e ocupava uma thread do pool — o mesmo padrão do §1.9. Agora roda em thread dedicada.
+
+O efeito isolado dessas duas mudanças não foi medido separadamente do aumento de CPU; o que se mediu é o efeito conjunto.
+
 ## 2. Achados que não comprometem a matriz em curso
 
 Ficam registrados para correção depois da execução. Nenhum invalida os resultados desta matriz; alguns limitam o que ela pode concluir.
