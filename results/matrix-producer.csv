@@ -1,0 +1,3 @@
+timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps
+2026-09-23T07:05:13.7465449+00:00,rabbitmq,10000,9999.9,-0.001,30.83,1000000,134,0
+2026-09-23T07:07:17.4421629+00:00,kafka,10000,9994.2,-0.058,4.87,1000000,134,0

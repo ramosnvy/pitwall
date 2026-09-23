@@ -42,6 +42,26 @@ Três ordens de grandeza de diferença sem que nada na configuração mudasse.
 
 *Mitigação:* descartar rodadas cujo atraso máximo de emissão exceda o limite, repetir o suficiente para o intervalo de confiança desejado, e verificar outliers antes de interpretá-los.
 
+*Correção posterior desta interpretação:* **parte dessa variância não era ruído, era sistemática.** A execução 2 (25,40 ms de média, 49,25 ms de P99) tem a assinatura exata do problema de timer descrito abaixo. A execução 3, de 515 ms, continua sem explicação e segue tratada como ruído de ambiente.
+
+### Resolução do timer do Windows
+
+**Evidência coletada.** O Kafka apresentava latência bimodal — ora 3,4 ms de média, ora 25,4 ms, sem mudança de configuração. Teste A/B intercalado a 10 mil ev/s: com o timer padrão, duas de três rodadas caíram no regime lento; com resolução de 1 ms, três rodadas deram 3,40, 3,41 e 3,42 ms. O RabbitMQ não foi afetado.
+
+*Causa:* a granularidade padrão do timer do Windows é de 15,6 ms, e desde o Windows 10 2004 a resolução fina só é garantida aos processos que a solicitam. A librdkafka é nativa e agenda envios e buscas com esperas temporizadas; o RabbitMQ.Client é assíncrono, dirigido por conclusão de I/O.
+
+*Consequência:* sem a correção, o Kafka seria penalizado pelo sistema operacional, não pela arquitetura, e de forma intermitente — o pior tipo de viés, porque parece ruído.
+
+*Mitigação:* `timeBeginPeriod(1)` no produtor e no consumidor, aplicado a partir do commit `25fa684`. Detalhes e referência em [REVISAO-TECNICA.md](REVISAO-TECNICA.md), §1.1.
+
+### Assimetria de durabilidade
+
+Com um único nó, o Kafka confirma a mensagem com ela apenas no cache de página — é o comportamento recomendado pelo próprio Kafka, que conta com replicação para durabilidade. O RabbitMQ confirma mensagem persistente só depois de gravá-la em disco. **Nesta configuração o RabbitMQ oferece garantia mais forte**, o que favorece o Kafka. Custo medido: até 7,3%. Declarado, não corrigido: equalizar exigiria ou mensagens transientes no RabbitMQ ou fsync por mensagem no Kafka, e as duas opções fogem da prática recomendada de cada fornecedor.
+
+### Equalização pela ordem expõe o RabbitMQ a head-of-line blocking
+
+Para garantir ordem por carro nos dois brokers, o RabbitMQ usa P filas com roteamento por carro, em vez de fila única com consumidores concorrentes. Com isso ele herda a exposição a head-of-line blocking que o Kafka tem por partição. É uma escolha que favorece o modelo do Kafka e precisa ser declarada ao lado do resultado.
+
 ### Persistência como gargalo oculto
 
 Se o PostgreSQL saturar, as seis variantes parecem iguais e a arquitetura fica invisível.
