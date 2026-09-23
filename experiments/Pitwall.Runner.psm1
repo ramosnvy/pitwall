@@ -127,7 +127,11 @@ function Get-GitCommit {
     $root = Split-Path $PSScriptRoot -Parent
     $git = "$env:ProgramFiles\Git\cmd\git.exe"
     $sha = (& $git -C $root rev-parse --short HEAD 2>$null)
-    $dirty = (& $git -C $root status --porcelain 2>$null)
+
+    # So o codigo conta como "modificado". Os CSVs de resultado sao versionados
+    # e crescem durante a propria execucao; olhar o repositorio inteiro
+    # marcaria como modificado o codigo que produziu esses mesmos resultados.
+    $dirty = (& $git -C $root status --porcelain -- src experiments tools 2>$null)
 
     if ($dirty) { return "$sha-modificado" }
     return $sha
