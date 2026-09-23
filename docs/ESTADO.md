@@ -63,14 +63,14 @@ Detalhadas em [PLANO.md](PLANO.md), seção 1. As que mudam o escopo declarado n
 | Tamanho da mensagem como fator | Acrescenta um fator ao desenho experimental |
 | Compressão desligada | Entra na tabela de configuração dos brokers |
 | Definição de processamento (1d) | O TCC1 não define o que o módulo processa; agora está definido e fundamentado |
-| Grau de paralelismo | O TCC1 não declara quantos consumers/workers; precisa ser fixado e equalizado entre os brokers |
-| Semântica de entrega | O TCC1 não menciona garantias; agora é at-least-once dos dois lados, sem idempotência |
+| Grau de paralelismo | **Decidido:** mesmo grau P nos dois, cada broker atingindo P pelo seu mecanismo |
+| Semântica de entrega | **Decidido:** at-least-once dos dois lados, sem idempotência |
 
 ### 3.3 Lacunas do TCC1 identificadas na implementação
 
 Pontos que o TCC1 não trata e que precisam entrar no texto do TCC2.
 
-**Tudo roda em uma máquina só.** Produtor, broker, processamento e banco estão no mesmo host — não há rede entre os componentes. Isso é uma ameaça à validade que precisa ser declarada, e limita o alcance da conclusão: os resultados descrevem uma implantação de nó único, não um cenário distribuído. Parte das vantagens do Kafka (replicação, tolerância a falhas, múltiplos consumidores em máquinas distintas) não aparece nessa configuração. Também é o que torna a medição de latência válida, já que os relógios do produtor e do consumidor são o mesmo contador.
+**Tudo roda em uma máquina só.** **Decidido: aceita e declarada** (ver [AMEACAS-VALIDADE.md](AMEACAS-VALIDADE.md)). Produtor, broker, processamento e banco estão no mesmo host — não há rede entre os componentes. Isso é uma ameaça à validade que precisa ser declarada, e limita o alcance da conclusão: os resultados descrevem uma implantação de nó único, não um cenário distribuído. Parte das vantagens do Kafka (replicação, tolerância a falhas, múltiplos consumidores em máquinas distintas) não aparece nessa configuração. Também é o que torna a medição de latência válida, já que os relógios do produtor e do consumidor são o mesmo contador.
 
 **Ponto de saturação como métrica principal.** O TCC1 lista latência, throughput, CPU e memória. A vazão máxima sustentável de cada arquitetura — a carga em que a latência dispara — é o número mais forte que o trabalho pode produzir e não está na lista.
 
