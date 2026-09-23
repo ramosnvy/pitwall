@@ -77,6 +77,7 @@ IEventSink sink = sinkName switch
         Host = GetArg("--rabbit-host") ?? "localhost",
         Queue = GetArg("--queue") ?? "telemetry",
         Partitions = int.Parse(GetArg("--partitions") ?? "4"),
+        Persistent = !args.Contains("--transient"),
         ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "1000")
     }, cts.Token),
     _ => throw new ArgumentException(
@@ -178,6 +179,7 @@ static void PrintUsage() => Console.WriteLine("""
       --queue <nome>       RabbitMQ: fila (padrao: telemetry)
       --confirm-batch <n>  RabbitMQ: publicacoes em voo antes da barreira
       --events <n>         Publica exatamente n eventos e encerra (verificacao)
+      --transient          RabbitMQ: mensagens nao persistentes (ver docs)
       --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a
                            mesma cadencia de sensor (padrao: auto, que escolhe
                            o fator que entrega a taxa alvo sem acelerar o tempo)
