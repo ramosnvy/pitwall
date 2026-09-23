@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Pitwall.Replayer;
+using Pitwall.Replayer.Sinks;
 
 // Gerador de carga dos experimentos.
 //
@@ -61,8 +62,21 @@ Console.WriteLine(
 IEventSink sink = sinkName switch
 {
     "null" => new NullSink(),
+    "kafka" => new KafkaSink(new KafkaSinkOptions
+    {
+        BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
+        Topic = GetArg("--topic") ?? "telemetry",
+        LingerMs = double.Parse(GetArg("--linger-ms") ?? "5"),
+        BatchSize = int.Parse(GetArg("--batch-size") ?? "65536")
+    }),
+    "rabbit" or "rabbitmq" => await RabbitMqSink.ConnectAsync(new RabbitMqSinkOptions
+    {
+        Host = GetArg("--rabbit-host") ?? "localhost",
+        Queue = GetArg("--queue") ?? "telemetry",
+        ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "1000")
+    }, cts.Token),
     _ => throw new ArgumentException(
-        $"Destino '{sinkName}' ainda nao implementado. Disponivel: null.")
+        $"Destino '{sinkName}' desconhecido. Disponiveis: null, kafka, rabbit.")
 };
 
 Console.WriteLine();
@@ -76,12 +90,25 @@ var result = await replayer.RunAsync(
 
 await sink.DisposeAsync();
 
+
 Console.WriteLine();
 Console.WriteLine($"Eventos emitidos : {result.EventsEmitted:N0}");
 Console.WriteLine($"Taxa obtida      : {result.AchievedRate:N0} ev/s " +
                   $"({result.RateErrorPercent:+0.00;-0.00;0.00}% do alvo)");
 Console.WriteLine($"Atraso maximo    : {result.MaxLatenessMs:0.00} ms");
 Console.WriteLine($"Ciclos do dataset: {result.DatasetLaps}");
+
+// A contagem confirmada pelo broker precisa bater com a emitida. Diferenca
+// significa evento perdido, e uma rodada com perda nao entra na analise.
+switch (sink)
+{
+    case KafkaSink kafka:
+        Console.WriteLine($"Confirmados pelo broker: {kafka.Delivered:N0} | falhas: {kafka.Failed:N0}");
+        break;
+    case RabbitMqSink rabbit:
+        Console.WriteLine($"Confirmados pelo broker: {rabbit.Published:N0}");
+        break;
+}
 
 // Um atraso alto significa que o gerador nao conseguiu manter o ritmo: a
 // rodada nao e comparavel com as outras e nao deve entrar na analise.
@@ -112,7 +139,14 @@ static void PrintUsage() => Console.WriteLine("""
       --rate <n>           Taxa alvo em eventos/s (padrao: 10000)
       --duration <s>       Duracao da janela de medicao (padrao: 30)
       --warmup <s>         Aquecimento descartado antes de medir (padrao: 5)
-      --sink <nome>        Destino dos eventos (por enquanto: null)
+      --sink <nome>        Destino dos eventos: null, kafka ou rabbit
+      --bootstrap <host>   Kafka: servidor (padrao: localhost:9092)
+      --topic <nome>       Kafka: topico (padrao: telemetry)
+      --linger-ms <n>      Kafka: espera de agrupamento (padrao: 5)
+      --batch-size <n>     Kafka: tamanho do lote em bytes (padrao: 65536)
+      --rabbit-host <host> RabbitMQ: servidor (padrao: localhost)
+      --queue <nome>       RabbitMQ: fila (padrao: telemetry)
+      --confirm-batch <n>  RabbitMQ: publicacoes em voo antes da barreira
       --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a
                            mesma cadencia de sensor (padrao: auto, que escolhe
                            o fator que entrega a taxa alvo sem acelerar o tempo)
