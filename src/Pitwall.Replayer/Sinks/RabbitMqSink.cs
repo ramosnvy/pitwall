@@ -3,6 +3,8 @@ using RabbitMQ.Client;
 
 namespace Pitwall.Replayer.Sinks;
 
+using Pitwall.Workload;
+
 /// <summary>
 /// Publica os eventos numa fila do RabbitMQ.
 ///

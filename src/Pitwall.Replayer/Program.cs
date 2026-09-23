@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Pitwall.Replayer;
+using Pitwall.Workload;
 using Pitwall.Replayer.Sinks;
 
 // Gerador de carga dos experimentos.

@@ -1,10 +1,15 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Pitwall.Contracts/Pitwall.Contracts.csproj" />
+    <Project Path="src/Pitwall.Processing.Core/Pitwall.Processing.Core.csproj" />
     <Project Path="src/Pitwall.Replayer/Pitwall.Replayer.csproj" />
+    <Project Path="src/Pitwall.Workload/Pitwall.Workload.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/openf1-downloader/">
     <Project Path="tools/openf1-downloader/Pitwall.Tools.OpenF1Downloader.csproj" />
+  </Folder>
+  <Folder Name="/tools/processing-verify/">
+    <Project Path="tools/processing-verify/Pitwall.Tools.ProcessingVerify.csproj" />
   </Folder>
 </Solution>

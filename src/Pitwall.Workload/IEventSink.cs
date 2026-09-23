@@ -1,6 +1,6 @@
 using Pitwall.Contracts;
 
-namespace Pitwall.Replayer;
+namespace Pitwall.Workload;
 
 /// <summary>
 /// Destino dos eventos publicados. As implementacoes de broker (Kafka e

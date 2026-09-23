@@ -1,6 +1,6 @@
 using Pitwall.Contracts;
 
-namespace Pitwall.Replayer;
+namespace Pitwall.Workload;
 
 /// <summary>
 /// Transforma a telemetria de 20 carros na de uma frota de N carros.

@@ -3,6 +3,8 @@ using Pitwall.Contracts;
 
 namespace Pitwall.Replayer.Sinks;
 
+using Pitwall.Workload;
+
 /// <summary>
 /// Publica os eventos num topico do Kafka.
 ///

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Pitwall.Contracts;
 
-namespace Pitwall.Replayer;
+namespace Pitwall.Workload;
 
 /// <summary>
 /// Carrega para a memoria o dataset coletado pelo openf1-downloader.

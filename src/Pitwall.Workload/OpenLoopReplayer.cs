@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Pitwall.Contracts;
 
-namespace Pitwall.Replayer;
+namespace Pitwall.Workload;
 
 /// <summary>
 /// Gerador de carga em malha aberta.
