@@ -38,7 +38,40 @@ Incluir a variante *Direct* (processamento no próprio callback do consumer, sem
 
 ### 1d. Definição de "processamento"
 
-A lógica precisa ser idêntica nas seis variantes e ter custo de CPU realista. Candidatos: agregações por piloto em janela (velocidade média e máxima), detecção de frenagem forte, contagem de trocas de marcha por volta.
+A lógica precisa ser idêntica nas seis variantes e ter custo de CPU realista. A escolha não é arbitrária: os benchmarks consagrados de stream processing convergem para um conjunto pequeno de operações de referência.
+
+| Operação | Onde aparece |
+| --- | --- |
+| Filtro e projeção | presente em praticamente todos |
+| **Agregação em janela, agrupada por chave** | alvo principal do Yahoo Streaming Benchmark; segmentos congestionados no Linear Road |
+| **Detecção de padrão sobre eventos consecutivos** | detecção de acidente no Linear Road; *shot on goal* no DEBS 2013 |
+| Junção com dado de referência | join anúncio–campanha no YSB |
+| Escore preditivo / ML | RIoTBench |
+
+**Decidido:** o `Processing.Core` implementa agregação em janela por carro (média e máxima de velocidade, contagem de eventos) mais detecção de padrão sobre eventos consecutivos do mesmo carro (frenagem forte e troca de marcha). Cobre as duas operações centrais da tabela sem entrar em ML, que deslocaria o gargalo para fora da arquitetura.
+
+Três propriedades que essa escolha garante:
+
+- **Exige ordem por carro**, o que dá sentido à chave de particionamento do Kafka. Se a ordem quebrar, a contagem de frenagens sai errada — o processamento vira detector de defeito no pipeline.
+- **Estado proporcional à frota** (uma janela por carro), o que faz o uso de memória ser uma métrica com significado.
+- **Determinística**: as seis variantes têm de produzir exatamente os mesmos números para a mesma entrada. O DEBS Grand Challenge avalia as submissões por vazão, latência **e correção do resultado**; a verificação cruzada entre as seis variantes cumpre esse papel aqui.
+
+**Precedente para o domínio:** o DEBS 2013 Grand Challenge usou telemetria esportiva (sensores a 200 Hz nos jogadores e 2000 Hz na bola, cerca de 15 mil eventos/s) como carga de referência para sistemas de processamento de eventos. Isso sustenta o uso de telemetria de F1 como proxy para processamento de alta frequência.
+
+**Relevância prática:** um carro de F1 tem de 150 a 300 sensores amostrando até 100 Hz, e decisões de pit wall são tomadas sobre dados com menos de 50 ms de idade. No mercado de telemetria de frotas, detecção de frenagem brusca e alertas de comportamento são função de produto, não exercício acadêmico.
+
+**Extensão condicionada:** se o experimento piloto mostrar que a agregação é leve demais e as seis variantes empatam, acrescentar custo sintético calibrado (por exemplo 5 e 20 µs por evento) e tratar "intensidade de processamento" como fator explícito. Não fazer antes de o dado pedir.
+
+**Métrica extra sugerida:** o RIoTBench mede também *jitter*, a diferença entre a taxa de saída esperada e a real. O replayer já registra o atraso máximo de emissão, que é a mesma ideia do lado do produtor — vale nomear assim no artigo e citar a fonte.
+
+Referências das fontes citadas nesta seção:
+
+- [A Survey of Stream Processing System Benchmarks (TPCTC 2024)](https://hpi.de/fileadmin/user_upload/fachgebiete/rabl/publications/2024/streamsurvey_tpctc_2024.pdf)
+- [DEBS 2013 Grand Challenge — Soccer monitoring](https://debs.org/grand-challenges/2013/)
+- [DEBS 2015 Grand Challenge — Taxi trips](https://debs.org/grand-challenges/2015/)
+- [RIoTBench: A Real-time IoT Benchmark for Distributed Stream Processing Platforms](https://arxiv.org/abs/1701.08530)
+- [ESPBench: The Enterprise Stream Processing Benchmark](https://arxiv.org/pdf/2103.06775)
+- [Linear Road: A Stream Data Management Benchmark](https://www.researchgate.net/publication/2949008_Linear_Road_A_Stream_Data_Management_Benchmark)
 
 ### 1e. O PostgreSQL pode mascarar as diferenças
 
