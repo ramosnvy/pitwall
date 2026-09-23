@@ -12,6 +12,9 @@ internal sealed class OpenF1Client(HttpClient http, RateLimiter limiter)
     private const string BaseUrl = "https://api.openf1.org/v1";
     private const int MaxAttempts = 5;
 
+    /// <summary>Resposta para consultas sem resultado (a API devolve 404 nesse caso).</summary>
+    private const string EmptyArray = "[]";
+
     /// <summary>
     /// Executa um GET e devolve o corpo bruto. Repete em 429 e em erros 5xx,
     /// com espera exponencial; honra o cabecalho Retry-After quando presente.
@@ -38,6 +41,15 @@ internal sealed class OpenF1Client(HttpClient http, RateLimiter limiter)
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadAsStringAsync(ct);
+            }
+
+            // A OpenF1 responde 404 quando a consulta nao casa com nenhum
+            // registro, o que acontece o tempo todo: um carro que abandonou
+            // nao tem telemetria nas janelas seguintes. Nao e erro, e conjunto
+            // vazio.
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return EmptyArray;
             }
 
             var retryable = response.StatusCode == HttpStatusCode.TooManyRequests
