@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado em 22/09/2026. Para as decisões de projeto e o cronograma completo, ver [PLANO.md](PLANO.md).
+Para as decisões de projeto e a sequência de trabalho, ver [PLANO.md](PLANO.md).
 
 ## 1. Ambiente
 
@@ -65,24 +65,22 @@ Detalhadas em [PLANO.md](PLANO.md), seção 1. As que mudam o escopo declarado n
 
 ## 4. Pendências de implementação, em ordem
 
-| # | Item | Depende de | Estimativa |
-| --- | --- | --- | --- |
-| 1 | Ruído por réplica + teste de sensibilidade | — | meio dia |
-| 2 | `Pitwall.Processing.Core` — lógica idêntica às 6 variantes | decisão 1d | 1 dia |
-| 3 | Sink Kafka e sink RabbitMQ no replayer | reboot | 1 dia |
-| 4 | Consumers nos 3 modos (direct, channels, pipelines) | itens 2 e 3 | 3 a 4 dias |
-| 5 | `Pitwall.Persistence` — `COPY` binário em lote | item 2 | 1 dia |
-| 6 | `Pitwall.Metrics` — HdrHistogram e exportação CSV | item 4 | 1 dia |
-| 7 | Script da matriz de experimentos | itens 4 a 6 | 1 dia |
-| 8 | Experimento piloto e calibração das cargas | item 7 | 2 dias |
-| 9 | Rodadas oficiais | item 8 | 1 semana |
-| 10 | Análise estatística e gráficos | item 9 | 1 semana |
+| # | Item | Depende de |
+| --- | --- | --- |
+| 1 | Ruído por réplica + teste de sensibilidade | — |
+| 2 | `Pitwall.Processing.Core` — lógica idêntica às 6 variantes | decisão 1d |
+| 3 | Sink Kafka e sink RabbitMQ no replayer | reboot |
+| 4 | Consumers nos 3 modos (direct, channels, pipelines) | itens 2 e 3 |
+| 5 | `Pitwall.Persistence` — `COPY` binário em lote | item 2 |
+| 6 | `Pitwall.Metrics` — HdrHistogram e exportação CSV | item 4 |
+| 7 | Script da matriz de experimentos | itens 4 a 6 |
+| 8 | Experimento piloto e calibração das cargas | item 7 |
+| 9 | Rodadas oficiais | item 8 |
+| 10 | Análise estatística e gráficos | item 9 |
 
 ## 5. Questões em aberto
 
-**Motor generativo de telemetria.** Avaliado e **adiado por decisão**. A diversidade que afeta a medição é entropia de payload, não realismo comportamental — e a cardinalidade de chave (26.820 carros) já é alta. A decisão fica condicionada ao teste de sensibilidade do item 1: se o ruído por réplica não alterar latência nem throughput, a replicação está justificada empiricamente e o motor não se paga. Se alterar, a extensão viável é reamostragem empírica por carro (2 a 3 dias), nunca simulação de dinâmica veicular.
-
-**Data da defesa.** O cronograma assume início de dezembro de 2026. **Não confirmado.**
+**Motor generativo de telemetria.** Avaliado e **adiado por decisão**. A diversidade que afeta a medição é entropia de payload, não realismo comportamental — e a cardinalidade de chave (26.820 carros) já é alta. A decisão fica condicionada ao teste de sensibilidade do item 1: se o ruído por réplica não alterar latência nem throughput, a replicação está justificada empiricamente e o motor não se paga. Se alterar, a extensão viável é reamostragem empírica por carro, nunca simulação de dinâmica veicular.
 
 **Armazenamento durante os experimentos.** A 100 mil ev/s, uma rodada de 5 min gera ~2,1 GB de log no Kafka e ~2,6 GB em `processed_event`. Com 300 rodadas previstas, é obrigatório recriar o tópico e truncar as tabelas entre rodadas. Retenção do Kafka já reduzida para 15 min. Considerar persistir todos os eventos apenas nas cargas baixas e só as agregações nas altas.
 

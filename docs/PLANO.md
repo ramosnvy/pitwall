@@ -1,8 +1,8 @@
 # Plano de trabalho — TCC2
 
-Documento vivo. Registra as decisões de projeto e o cronograma. Atualizar conforme as decisões forem fechadas com o orientador.
+Documento vivo. Registra as decisões de projeto e a sequência de trabalho. Atualizar conforme as decisões forem fechadas com o orientador.
 
-Premissa de prazo: **defesa no início de dezembro de 2026** (confirmar). O cronograma do TCC1 (março a setembro de 2026) está vencido e foi substituído pelo da seção 5.
+O trabalho é organizado por ordem de dependência (seção 5), não por calendário. O cronograma do TCC1 (março a setembro de 2026) ficou para trás e será refeito quando houver uma data de defesa definida.
 
 ## 1. Decisões em aberto
 
@@ -74,23 +74,29 @@ Usar a mesma garantia de entrega (at-least-once) nos dois e publicar as configur
 | Persistência vira o gargalo | Lote com `COPY`, bateria sem persistência, latência medida antes da escrita |
 | Variância do ambiente (Docker Desktop / WSL2) | Repetições, ordem aleatória, limites fixos de recurso, hardware documentado |
 | Configurações dos brokers não comparáveis | Garantias de entrega equivalentes e tabela de parâmetros no artigo |
-| Implementação atrasar e comprimir os experimentos | Marco de corte na semana 5 (ver cronograma) |
+| Implementação demorar e comprimir a janela de experimentos | Reduzir níveis de carga ou repetições, nunca o número de arquiteturas |
 | Compressão do Kafka inflada pela repetição do payload | `compression.type=none` nos dois brokers, declarado na tabela de configuração |
 | Acúmulo de disco entre rodadas | Retenção de 15 min no Kafka, tópico recriado e tabelas truncadas entre rodadas |
 
-## 5. Cronograma
+## 5. Sequência de trabalho
 
-| Semanas | Período | Entregas |
+Etapas em ordem de dependência, sem datas. O que importa é a ordem: cada etapa destrava a seguinte.
+
+| Etapa | Entrega | Destrava |
 | --- | --- | --- |
-| 1–2 | 22/09 – 05/10 | Fechar as decisões da seção 1; baixar 2 ou 3 corridas da OpenF1; repositório e Docker Compose com brokers e PostgreSQL |
-| 3–5 | 06/10 – 26/10 | Replayer com taxa configurável; Processing.Core; consumers Kafka e RabbitMQ nos 3 modos; persistência |
-| 6–7 | 27/10 – 09/11 | Instrumentação de métricas; script da matriz de experimentos; experimento piloto para calibrar cargas e duração |
-| 8–9 | 10/11 – 23/11 | Execuções oficiais; análise; gráficos (CDF de latência, throughput × carga, CPU e memória) |
-| 10–11 | 24/11 – defesa | Resultados, discussão, ameaças à validade; revisão com o orientador; slides e ensaio |
+| A | Dataset coletado e gerador de carga validado | B, D |
+| B | Infraestrutura no ar (brokers e banco) | C |
+| C | Sinks de Kafka e RabbitMQ no replayer | E |
+| D | `Processing.Core` com a lógica idêntica às variantes | E |
+| E | Consumers nos três modos (direct, channels, pipelines) | F |
+| F | Persistência em lote e coleta de métricas | G |
+| G | Script da matriz e experimento piloto | H |
+| H | Rodadas oficiais | I |
+| I | Análise estatística e gráficos | — |
 
-**Escrita em paralelo:** Fundamentação Teórica e Trabalhos Relacionados vêm do TCC1. A seção de Implementação deve ser escrita junto com o código, para que nas últimas semanas sobrem apenas Resultados e Discussão.
+**Escrita em paralelo:** Fundamentação Teórica e Trabalhos Relacionados vêm do TCC1. A seção de Implementação é escrita junto com o código, para que no fim sobrem apenas Resultados e Discussão.
 
-**Marco de corte (semana 5):** se as seis variantes não estiverem funcionando ponta a ponta, reduzir escopo (menos níveis de carga, ou menos repetições) para preservar a janela de experimentos.
+**Ponto de redução de escopo:** se a etapa E demorar mais que o esperado, cortar em níveis de carga ou repetições — nunca em número de arquiteturas, porque a matriz completa é a contribuição do trabalho.
 
 ## 6. Pendências no documento do TCC1
 
