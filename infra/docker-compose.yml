@@ -80,12 +80,14 @@ services:
       # carros, entao os lotes ficam cheios de bytes parecidos e a compressao
       # renderia muito mais do que renderia com telemetria real, inflando o
       # throughput do Kafka por artefato do workload e nao por arquitetura.
-      KAFKA_COMPRESSION_TYPE: none
-      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx2G -Xms2G}
+      # No broker o valor e "uncompressed"; "none" so vale do lado do produtor,
+      # onde o cliente Confluent.Kafka tambem precisa declara-lo.
+      KAFKA_COMPRESSION_TYPE: uncompressed
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx1536m -Xms1536m}
     volumes:
       - kafka-data:/var/lib/kafka/data
     cpus: ${BROKER_CPUS:-4}
-    mem_limit: ${BROKER_MEMORY:-4g}
+    mem_limit: ${BROKER_MEMORY:-3g}
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:19092 >/dev/null 2>&1"]
       interval: 10s
@@ -108,7 +110,7 @@ services:
       - rabbit-data:/var/lib/rabbitmq
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-pitwall.conf:ro
     cpus: ${BROKER_CPUS:-4}
-    mem_limit: ${BROKER_MEMORY:-4g}
+    mem_limit: ${BROKER_MEMORY:-3g}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 10s
@@ -128,25 +130,31 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=30d
-    cpus: ${METRICS_CPUS:-1}
-    mem_limit: ${METRICS_MEMORY:-1g}
+    cpus: ${METRICS_CPUS:-0.5}
+    mem_limit: ${METRICS_MEMORY:-512m}
     restart: unless-stopped
 
   cadvisor:
     # Fonte de CPU e memoria por container, inclusive dos brokers.
-    image: gcr.io/cadvisor/cadvisor:v0.53.0
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: pitwall-cadvisor
     profiles: ["metrics"]
     ports:
       - "${CADVISOR_PORT:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Sem o socket do containerd, o cAdvisor nao registra o backend do
+      # Docker e enxerga apenas a maquina, sem separar por container.
+      - /var/run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
       - /:/rootfs:ro
+      # Os cgroups vivem em /sys; sem este mount o cAdvisor nao consegue ler
+      # o uso de CPU e memoria de cada container.
+      - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     privileged: true
-    cpus: ${METRICS_CPUS:-1}
-    mem_limit: ${METRICS_MEMORY:-1g}
+    cpus: ${METRICS_CPUS:-0.5}
+    mem_limit: ${METRICS_MEMORY:-512m}
     restart: unless-stopped
 
 volumes:
