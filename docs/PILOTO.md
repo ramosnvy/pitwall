@@ -101,6 +101,42 @@ Teto do Kafka: **acima de 400 mil ev/s**, sem saturar. O gerador foi validado at
 | Durabilidade | log (padrão) | mensagens persistentes |
 | Idempotência | desligada | não aplicável |
 
+## O que a documentação dos fornecedores acrescentou
+
+A [comparação oficial do RabbitMQ com o Kafka](https://www.rabbitmq.com/docs/compare/kafka) traz três pontos que afetam este trabalho.
+
+**O princípio, que vale citar na metodologia.** O próprio fornecedor adverte que um benchmark que ajusta um lado com afinco e deixa o outro no padrão está comparando esforço de ajuste, não capacidade dos sistemas. É exatamente o que o `linger.ms=0` demonstrou aqui: com um parâmetro mal escolhido, o Kafka fica sete vezes pior que o RabbitMQ.
+
+**A expectativa de vazão declarada.** O fornecedor cita filas clássicas na ordem de 100 mil mensagens/s, filas quorum em 80 mil, e streams em vários milhões. Nosso teto de 60 mil está em torno de 60% do valor declarado para filas clássicas — diferença atribuível ao rastreamento de confirmação por mensagem, à persistência, ao fato de produtor, consumidor e broker dividirem a mesma máquina, e a mensagens de 46 bytes, em que o custo fixo por mensagem domina.
+
+**Tentativas adicionais, com ganho marginal** (alvo de 80 mil ev/s):
+
+| Configuração | Publicado |
+| --- | --- |
+| 4 faixas, persistente (congelada) | 59.411 ev/s |
+| 4 faixas, transiente | 63.773 ev/s (+7,3%) |
+| 8 faixas, persistente | 62.875 ev/s (+5,8%) |
+
+Descritores de arquivo estão em 1.048.576, muito acima dos 50 mil recomendados, e não são limitante. Persistência mantida por equivaler ao log do Kafka, que sempre grava; o custo de 7,3% fica documentado. Número de faixas mantido em 4 porque precisa ser igual nos dois brokers, e aumentá-lo exigiria refazer também o lado do Kafka por um ganho de 6%.
+
+**Parada de ajuste declarada aqui.** Os ganhos caíram para a casa de 5 a 7%, dentro da variância do ambiente.
+
+## A questão de fundo: fila não é log
+
+O ponto mais relevante da documentação oficial não é de ajuste, é conceitual.
+
+> "a super stream corresponds to a Kafka topic, and a stream to one of its partitions"
+
+O tópico do Kafka é um **log**: append-only, com leitura não destrutiva e retenção independente do consumo. A fila clássica do RabbitMQ é uma **fila**: a mensagem sai na confirmação. São estruturas de dados diferentes, e o trabalho atual compara uma com a outra.
+
+O RabbitMQ tem um log desde a versão 3.9, em 2021: os **streams**. O equivalente honesto de um tópico do Kafka com 4 partições é um *super stream* com 4 streams.
+
+**Isso é uma lacuna dos comparativos que o TCC1 cita** — Dobbelaere e Esmaili (2017) é anterior aos streams, e os trabalhos posteriores seguem comparando com filas clássicas. Incluir streams responderia à pergunta que a literatura ainda não respondeu: quanto da diferença entre Kafka e RabbitMQ vem do broker e quanto vem de se estar comparando um log com uma fila.
+
+**Custo:** cliente .NET próprio (`RabbitMQ.Stream.Client`, protocolo distinto do AMQP), um sink e uma fonte novos. A matriz passaria de 2 × 3 para 3 × 3.
+
+**Decisão pendente do orientador.** Não é ajuste de configuração, é ampliação de escopo — e das boas, porque transformaria o trabalho de "mais um comparativo entre brokers" em um que separa o efeito do broker do efeito da abstração.
+
 ## Níveis de carga definidos
 
 | Nível | Brokers | Papel |
