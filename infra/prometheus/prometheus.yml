@@ -1,0 +1,29 @@
+# Coleta de metricas de recurso durante os experimentos.
+# O intervalo de 5s e um meio-termo: fino o bastante para ver picos de CPU,
+# largo o bastante para a propria coleta nao interferir na medicao.
+
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # CPU e memoria de todos os containers (brokers, banco e apps).
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Metricas internas do RabbitMQ (filas, taxa de entrega, confirms).
+  # So responde quando o profile "rabbit" esta ativo.
+  - job_name: rabbitmq
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+
+  # Metricas da aplicacao .NET via OpenTelemetry/prometheus-net.
+  # O host.docker.internal alcanca os processos rodando fora do Docker.
+  - job_name: pitwall-app
+    static_configs:
+      - targets: ["host.docker.internal:9464"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
