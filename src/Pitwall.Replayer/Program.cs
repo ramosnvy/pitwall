@@ -78,7 +78,7 @@ IEventSink sink = sinkName switch
         Queue = GetArg("--queue") ?? "telemetry",
         Partitions = int.Parse(GetArg("--partitions") ?? "4"),
         Persistent = !args.Contains("--transient"),
-        ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "1000")
+        ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "250")
     }, cts.Token),
     _ => throw new ArgumentException(
         $"Destino '{sinkName}' desconhecido. Disponiveis: null, kafka, rabbit.")
@@ -177,7 +177,7 @@ static void PrintUsage() => Console.WriteLine("""
       --batch-size <n>     Kafka: tamanho do lote em bytes (padrao: 65536)
       --rabbit-host <host> RabbitMQ: servidor (padrao: localhost)
       --queue <nome>       RabbitMQ: fila (padrao: telemetry)
-      --confirm-batch <n>  RabbitMQ: publicacoes em voo antes da barreira
+      --confirm-batch <n>  RabbitMQ: publicacoes em voo por faixa (padrao: 250)
       --events <n>         Publica exatamente n eventos e encerra (verificacao)
       --transient          RabbitMQ: mensagens nao persistentes (ver docs)
       --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a

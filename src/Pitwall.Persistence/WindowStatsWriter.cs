@@ -101,7 +101,7 @@ public sealed class WindowStatsWriter : IAsyncDisposable
             await importer.StartRowAsync();
             await importer.WriteAsync(_runId, NpgsqlDbType.Uuid);
             await importer.WriteAsync(_architecture, NpgsqlDbType.Text);
-            await importer.WriteAsync((short)stats.DriverNumber, NpgsqlDbType.Smallint);
+            await importer.WriteAsync(stats.DriverNumber, NpgsqlDbType.Integer);
             await importer.WriteAsync(stats.WindowStart, NpgsqlDbType.TimestampTz);
             await importer.WriteAsync(stats.WindowEnd, NpgsqlDbType.TimestampTz);
             await importer.WriteAsync(stats.EventCount, NpgsqlDbType.Integer);

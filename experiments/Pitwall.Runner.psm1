@@ -115,7 +115,24 @@ function Invoke-PitwallRun {
     $rows = @(Import-Csv (Join-Path $root $ConsumerReport))
     if ($rows.Count -eq 0) { return $null }
 
-    return $rows[-1]
+    $row = $rows[-1]
+
+    # Anexa o lado do produtor. Sem ele nao da para distinguir "o consumidor
+    # nao acompanhou" de "o produtor nunca conseguiu publicar a taxa alvo" --
+    # a confusao que o piloto expos no RabbitMQ.
+    $producerPath = Join-Path $root $ProducerReport
+
+    if (Test-Path $producerPath) {
+        $producerRows = @(Import-Csv $producerPath)
+
+        if ($producerRows.Count -gt 0) {
+            $p = $producerRows[-1]
+            $row | Add-Member -NotePropertyName producer_achieved_rate -NotePropertyValue $p.achieved_rate -Force
+            $row | Add-Member -NotePropertyName producer_jitter_ms -NotePropertyValue $p.max_lateness_ms -Force
+        }
+    }
+
+    return $row
 }
 
 function Test-RunSaturated {
@@ -128,7 +145,8 @@ function Test-RunSaturated {
         [Parameter(Mandatory)]$Row,
         [Parameter(Mandatory)][int]$Rate,
         [double]$ThroughputFloor = 0.90,
-        [double]$P99CeilingMs = 1000
+        [double]$P99CeilingMs = 1000,
+        [double]$JitterCeilingMs = 50
     )
 
     if ($null -eq $Row) { return $true }
@@ -139,7 +157,15 @@ function Test-RunSaturated {
     $keptUp = $throughput -ge ($Rate * $ThroughputFloor)
     $latencyOk = $p99Ms -le $P99CeilingMs
 
-    return -not ($keptUp -and $latencyOk)
+    # O jitter do produtor e criterio de VALIDADE, nao so de saturacao: se o
+    # gerador nao sustentou a taxa alvo, a rodada nao mede a arquitetura.
+    $jitterOk = $true
+
+    if ($null -ne $Row.producer_jitter_ms) {
+        $jitterOk = ([double]$Row.producer_jitter_ms) -le $JitterCeilingMs
+    }
+
+    return -not ($keptUp -and $latencyOk -and $jitterOk)
 }
 
 Export-ModuleMember -Function Reset-KafkaTopic, Reset-RabbitQueues, Reset-Broker,

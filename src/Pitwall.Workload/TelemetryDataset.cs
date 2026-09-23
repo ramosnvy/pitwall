@@ -50,7 +50,7 @@ public sealed class TelemetryDataset
             {
                 Sequence = sequence++,
                 SessionKey = sessionKey,
-                DriverNumber = (short)GetInt(root, "driver_number"),
+                DriverNumber = GetInt(root, "driver_number"),
                 EventTime = GetDate(root, "date"),
                 PublishedTicks = 0,   // preenchido no momento da publicacao
                 Speed = (short)GetInt(root, "speed"),

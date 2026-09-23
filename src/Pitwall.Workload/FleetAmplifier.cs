@@ -47,7 +47,7 @@ public sealed class FleetAmplifier(int factor)
             // Cada replica vira uma faixa propria de numeracao: a replica 3
             // do carro 44 e o carro 344. Mantem o carro de origem legivel,
             // o que ajuda a depurar o pipeline.
-            DriverNumber = (short)(source.DriverNumber + replica * DriverNumberSpace),
+            DriverNumber = source.DriverNumber + replica * DriverNumberSpace,
 
             // Desloca a amostra no tempo dentro do intervalo de amostragem,
             // espalhando as replicas em vez de sincroniza-las.

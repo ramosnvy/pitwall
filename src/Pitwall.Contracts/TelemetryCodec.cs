@@ -18,7 +18,7 @@ namespace Pitwall.Contracts;
 public static class TelemetryCodec
 {
     /// <summary>Tamanho de um evento serializado, em bytes.</summary>
-    public const int Size = 8 + 4 + 2 + 8 + 8 + 2 + 4 + 2 + 2 + 2 + 2;
+    public const int Size = 8 + 4 + 4 + 8 + 8 + 2 + 4 + 2 + 2 + 2 + 2;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Write(Span<byte> destination, in TelemetryEvent e)
@@ -30,15 +30,15 @@ public static class TelemetryCodec
 
         BinaryPrimitives.WriteInt64LittleEndian(destination[0..], e.Sequence);
         BinaryPrimitives.WriteInt32LittleEndian(destination[8..], e.SessionKey);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[12..], e.DriverNumber);
-        BinaryPrimitives.WriteInt64LittleEndian(destination[14..], e.EventTime.UtcTicks);
-        BinaryPrimitives.WriteInt64LittleEndian(destination[22..], e.PublishedTicks);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[30..], e.Speed);
-        BinaryPrimitives.WriteInt32LittleEndian(destination[32..], e.Rpm);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[36..], e.Gear);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[38..], e.Throttle);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[40..], e.Brake);
-        BinaryPrimitives.WriteInt16LittleEndian(destination[42..], e.Drs);
+        BinaryPrimitives.WriteInt32LittleEndian(destination[12..], e.DriverNumber);
+        BinaryPrimitives.WriteInt64LittleEndian(destination[16..], e.EventTime.UtcTicks);
+        BinaryPrimitives.WriteInt64LittleEndian(destination[24..], e.PublishedTicks);
+        BinaryPrimitives.WriteInt16LittleEndian(destination[32..], e.Speed);
+        BinaryPrimitives.WriteInt32LittleEndian(destination[34..], e.Rpm);
+        BinaryPrimitives.WriteInt16LittleEndian(destination[38..], e.Gear);
+        BinaryPrimitives.WriteInt16LittleEndian(destination[40..], e.Throttle);
+        BinaryPrimitives.WriteInt16LittleEndian(destination[42..], e.Brake);
+        BinaryPrimitives.WriteInt16LittleEndian(destination[44..], e.Drs);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -53,15 +53,15 @@ public static class TelemetryCodec
         {
             Sequence = BinaryPrimitives.ReadInt64LittleEndian(source[0..]),
             SessionKey = BinaryPrimitives.ReadInt32LittleEndian(source[8..]),
-            DriverNumber = BinaryPrimitives.ReadInt16LittleEndian(source[12..]),
-            EventTime = new DateTimeOffset(BinaryPrimitives.ReadInt64LittleEndian(source[14..]), TimeSpan.Zero),
-            PublishedTicks = BinaryPrimitives.ReadInt64LittleEndian(source[22..]),
-            Speed = BinaryPrimitives.ReadInt16LittleEndian(source[30..]),
-            Rpm = BinaryPrimitives.ReadInt32LittleEndian(source[32..]),
-            Gear = BinaryPrimitives.ReadInt16LittleEndian(source[36..]),
-            Throttle = BinaryPrimitives.ReadInt16LittleEndian(source[38..]),
-            Brake = BinaryPrimitives.ReadInt16LittleEndian(source[40..]),
-            Drs = BinaryPrimitives.ReadInt16LittleEndian(source[42..])
+            DriverNumber = BinaryPrimitives.ReadInt32LittleEndian(source[12..]),
+            EventTime = new DateTimeOffset(BinaryPrimitives.ReadInt64LittleEndian(source[16..]), TimeSpan.Zero),
+            PublishedTicks = BinaryPrimitives.ReadInt64LittleEndian(source[24..]),
+            Speed = BinaryPrimitives.ReadInt16LittleEndian(source[32..]),
+            Rpm = BinaryPrimitives.ReadInt32LittleEndian(source[34..]),
+            Gear = BinaryPrimitives.ReadInt16LittleEndian(source[38..]),
+            Throttle = BinaryPrimitives.ReadInt16LittleEndian(source[40..]),
+            Brake = BinaryPrimitives.ReadInt16LittleEndian(source[42..]),
+            Drs = BinaryPrimitives.ReadInt16LittleEndian(source[44..])
         };
     }
 

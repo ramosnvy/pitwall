@@ -16,7 +16,12 @@ public readonly record struct TelemetryEvent
     /// <summary>Sessao da OpenF1 de onde o dado veio.</summary>
     public required int SessionKey { get; init; }
 
-    public required short DriverNumber { get; init; }
+    /// <summary>
+    /// Numero do carro. E int e nao short porque a multiplicacao de frota gera
+    /// dezenas de milhares de carros: com short, um fator de frota acima de 327
+    /// estourava o tipo e produzia numero negativo.
+    /// </summary>
+    public required int DriverNumber { get; init; }
 
     /// <summary>Instante original da amostra na corrida.</summary>
     public required DateTimeOffset EventTime { get; init; }

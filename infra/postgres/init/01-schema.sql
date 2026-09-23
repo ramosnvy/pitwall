@@ -8,7 +8,7 @@
 CREATE UNLOGGED TABLE processed_event (
     run_id          UUID        NOT NULL,
     architecture    TEXT        NOT NULL,   -- ex.: kafka-channels
-    driver_number   SMALLINT    NOT NULL,
+    driver_number   INTEGER     NOT NULL,
     session_key     INTEGER     NOT NULL,
     event_time      TIMESTAMPTZ NOT NULL,   -- timestamp original da telemetria
     published_at    TIMESTAMPTZ NOT NULL,   -- momento da publicacao no broker
@@ -25,7 +25,7 @@ CREATE UNLOGGED TABLE processed_event (
 CREATE UNLOGGED TABLE driver_window_stats (
     run_id          UUID        NOT NULL,
     architecture    TEXT        NOT NULL,
-    driver_number   SMALLINT    NOT NULL,
+    driver_number   INTEGER     NOT NULL,
     window_start    TIMESTAMPTZ NOT NULL,
     window_end      TIMESTAMPTZ NOT NULL,
     event_count     INTEGER     NOT NULL,
