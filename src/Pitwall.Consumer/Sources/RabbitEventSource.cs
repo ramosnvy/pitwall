@@ -38,6 +38,17 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
         var idle = new IdleWatchdog(options.IdleTimeout, options.StartupTimeout);
         var counts = new long[options.Partitions];
         var channels = new IChannel[options.Partitions];
+        var lastTags = new ulong[options.Partitions];
+        var unacked = new int[options.Partitions];
+
+        // O lote de confirmacao precisa caber folgado no prefetch: com lote
+        // maior ou igual ao prefetch, o broker para de entregar esperando uma
+        // confirmacao que so viria com a proxima entrega -- impasse.
+        if (options.AckBatch * 2 > options.Prefetch)
+        {
+            throw new ArgumentException(
+                $"AckBatch ({options.AckBatch}) precisa ser no maximo metade do Prefetch ({options.Prefetch}).");
+        }
 
         for (var lane = 0; lane < options.Partitions; lane++)
         {
@@ -83,7 +94,19 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
                 Interlocked.Increment(ref counts[index]);
                 idle.Touch();
 
-                await channel.BasicAckAsync(ea.DeliveryTag, multiple: false, ct);
+                lastTags[index] = ea.DeliveryTag;
+
+                // Confirmacao em lote com multiple=true, como recomenda a
+                // documentacao do RabbitMQ para reduzir trafego: uma
+                // confirmacao cobre todas as entregas ate a etiqueta indicada.
+                // Confirmar mensagem a mensagem daria ao RabbitMQ um custo por
+                // evento que o Kafka nao paga -- o Kafka registra o progresso
+                // por offset, periodicamente.
+                if (++unacked[index] >= options.AckBatch)
+                {
+                    unacked[index] = 0;
+                    await channel.BasicAckAsync(ea.DeliveryTag, multiple: true, ct);
+                }
             };
 
             await channel.BasicConsumeAsync(
@@ -95,10 +118,17 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
 
         await idle.WaitForSilenceAsync(ct);
 
-        foreach (var channel in channels)
+        for (var lane = 0; lane < channels.Length; lane++)
         {
-            await channel.CloseAsync(ct);
-            await channel.DisposeAsync();
+            // Confirma o lote parcial que sobrou. Sem isso, as ultimas entregas
+            // voltariam para a fila ao fechar o canal.
+            if (unacked[lane] > 0)
+            {
+                await channels[lane].BasicAckAsync(lastTags[lane], multiple: true, ct);
+            }
+
+            await channels[lane].CloseAsync(ct);
+            await channels[lane].DisposeAsync();
         }
 
         return counts.Sum();
@@ -159,7 +189,15 @@ public sealed record RabbitSourceOptions
     public string Queue { get; init; } = "telemetry";
     public string Exchange { get; init; } = "telemetry";
     public int Partitions { get; init; } = 4;
-    public ushort Prefetch { get; init; } = 1000;
+    /// <summary>
+    /// Mensagens nao confirmadas que o broker entrega adiante por canal. A
+    /// documentacao do RabbitMQ indica 100 a 300 como a faixa que "usually
+    /// offer optimal throughput"; o valor anterior, 1.000, estava fora dela.
+    /// </summary>
+    public ushort Prefetch { get; init; } = 300;
+
+    /// <summary>Entregas cobertas por cada confirmacao com multiple=true.</summary>
+    public int AckBatch { get; init; } = 100;
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
     /// <summary>Espera pela primeira mensagem, antes de o tempo ocioso valer.</summary>

@@ -34,7 +34,17 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
         {
             BootstrapServers = options.BootstrapServers,
             GroupId = options.GroupId + "-" + partition,
-            EnableAutoCommit = false,
+
+            // At-least-once no consumidor, no padrao documentado da
+            // librdkafka: o offset so e armazenado explicitamente depois que o
+            // evento foi entregue ao pipeline (StoreOffset abaixo), e o commit
+            // dos offsets armazenados e periodico. Antes, o consumidor nunca
+            // registrava progresso -- enquanto o RabbitMQ confirmava cada
+            // mensagem, o Kafka nao pagava custo nenhum de confirmacao, e a
+            // comparacao favorecia o Kafka por omissao.
+            EnableAutoCommit = true,
+            EnableAutoOffsetStore = false,
+            AutoCommitIntervalMs = options.AutoCommitIntervalMs,
             AutoOffsetReset = AutoOffsetReset.Earliest,
             FetchMinBytes = options.FetchMinBytes,
             FetchWaitMaxMs = options.FetchWaitMaxMs
@@ -67,6 +77,7 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
                 }
 
                 pipeline.Submit(partition, result.Message.Value);
+                consumer.StoreOffset(result);
                 consumed++;
             }
         }
@@ -91,6 +102,13 @@ public sealed record KafkaSourceOptions
     public int Partitions { get; init; } = 4;
     public int FetchMinBytes { get; init; } = 1;
     public int FetchWaitMaxMs { get; init; } = 10;
+
+    /// <summary>
+    /// Intervalo do commit periodico dos offsets armazenados. O padrao da
+    /// librdkafka e 5.000 ms; mantido, pela regra de usar a pratica
+    /// documentada de cada fornecedor.
+    /// </summary>
+    public int AutoCommitIntervalMs { get; init; } = 5000;
 
     /// <summary>Tempo sem mensagem que encerra a rodada.</summary>
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(10);

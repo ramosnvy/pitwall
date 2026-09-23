@@ -40,14 +40,23 @@ var replication = int.Parse(GetArg("--replication") ?? "1");
 var persist = args.Contains("--persist");
 var truncate = args.Contains("--truncate");
 var persistBatch = int.Parse(GetArg("--persist-batch") ?? "10000");
+var warmupSeconds = int.Parse(GetArg("--warmup-seconds") ?? "10");
+
+// Resolucao do timer do Windows (ver TimerResolution): o padrao de 15,6 ms
+// penaliza a librdkafka, que agenda envios e buscas com esperas temporizadas.
+var timerResolutionMs = uint.Parse(GetArg("--timer-resolution-ms") ?? "1");
+using var timerResolution = TimerResolution.Request(timerResolutionMs);
 
 var connectionString = GetArg("--conn")
     ?? "Host=localhost;Port=5432;Username=pitwall;Password=pitwall;Database=pitwall";
 
-var runId = Guid.NewGuid();
+// O identificador da rodada pode vir do script de experimento, para que as
+// linhas do produtor, do consumidor e das metricas dos containers possam ser
+// unidas pela mesma chave na analise.
+var runId = GetArg("--run-id") is { } rid ? Guid.Parse(rid) : Guid.NewGuid();
 var processingOptions = new ProcessingOptions { SyntheticCostMicros = syntheticCost };
 var digest = new ResultDigest();
-var latency = new LatencyRecorder(partitions);
+var latency = new LatencyRecorder(partitions, TimeSpan.FromSeconds(warmupSeconds));
 
 IEventSource source = broker switch
 {
@@ -64,7 +73,8 @@ IEventSource source = broker switch
         Host = GetArg("--rabbit-host") ?? "localhost",
         Queue = GetArg("--queue") ?? "telemetry",
         Partitions = partitions,
-        Prefetch = ushort.Parse(GetArg("--prefetch") ?? "1000"),
+        Prefetch = ushort.Parse(GetArg("--prefetch") ?? "300"),
+        AckBatch = int.Parse(GetArg("--ack-batch") ?? "100"),
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
     }),
     _ => throw new ArgumentException($"Broker desconhecido: {broker}. Use kafka ou rabbit.")
@@ -116,7 +126,9 @@ if (persist)
             ["partitions"] = partitions,
             ["capacity"] = capacity,
             ["synthetic_cost_us"] = syntheticCost,
-            ["prefetch"] = GetArg("--prefetch") ?? "1000",
+            ["prefetch"] = GetArg("--prefetch") ?? "300",
+            ["ack_batch"] = GetArg("--ack-batch") ?? "100",
+            ["warmup_seconds"] = warmupSeconds,
             ["machine"] = Environment.MachineName,
             ["cpu_count"] = Environment.ProcessorCount,
             ["dotnet"] = Environment.Version.ToString()
@@ -126,7 +138,7 @@ if (persist)
 
 Console.WriteLine($"Arquitetura: {architecture} | faixas: {partitions} | " +
                   $"capacidade: {capacity:N0} eventos | custo sintetico: {syntheticCost} us | " +
-                  $"persistencia: {(persist ? "ligada" : "desligada")}");
+                  $"persistencia: {(persist ? "ligada" : "desligada")} | aquecimento: {warmupSeconds}s");
 Console.WriteLine($"Rodada: {runId}");
 Console.WriteLine($"Aguardando eventos (encerra apos {idleSeconds}s sem mensagem)...");
 Console.WriteLine();
@@ -143,13 +155,15 @@ if (writer is not null)
     await writer.DisposeAsync();
 }
 
-// A vazao e medida sobre a janela ativa (do primeiro ao ultimo evento), nao
-// sobre o tempo total, que inclui a espera ociosa que encerra a rodada.
+// A vazao e medida sobre a janela de medicao: numerador e denominador
+// precisam cobrir o MESMO intervalo. Eventos medidos (sem aquecimento) sobre
+// o tempo do primeiro ao ultimo evento medido (sem aquecimento e sem a espera
+// ociosa que encerra a rodada).
 var seconds = latency.ActiveSeconds;
 var wallSeconds = watch.Elapsed.TotalSeconds;
-var throughput = seconds > 0 ? received / seconds : 0;
+var throughput = seconds > 0 ? latency.TotalCount / seconds : 0;
 
-Console.WriteLine($"Eventos recebidos : {received:N0}");
+Console.WriteLine($"Eventos recebidos : {received:N0} ({latency.WarmupCount:N0} no aquecimento, {latency.TotalCount:N0} medidos)");
 Console.WriteLine($"Tempo ativo       : {seconds:0.00}s (total {wallSeconds:0.00}s com a espera ociosa)");
 Console.WriteLine($"Throughput        : {throughput:N0} ev/s");
 Console.WriteLine($"Latencia          : {latency.Summary()}");
@@ -174,7 +188,8 @@ if (persist)
 if (reportPath is not null)
 {
     WriteReport(reportPath, runId, architecture, partitions, targetRate, replication,
-        received, seconds, throughput, latency, resources, digest, syntheticCost, persist);
+        received, seconds, throughput, latency, resources, digest, syntheticCost, persist,
+        writer?.Written ?? 0, writer?.Dropped ?? 0);
 
     Console.WriteLine($"Relatorio         : {reportPath}");
 }
@@ -201,7 +216,9 @@ static void WriteReport(
     ResourceSampler resources,
     ResultDigest digest,
     double syntheticCost,
-    bool persist)
+    bool persist,
+    long windowsWritten,
+    long windowsDropped)
 {
     var histogram = latency.Merged();
     var exists = File.Exists(path);
@@ -216,7 +233,7 @@ static void WriteReport(
             "timestamp,run_id,architecture,partitions,target_rate,replication,synthetic_cost_us," +
             "persistence,events,seconds,throughput,mean_us,p50_us,p95_us,p99_us,max_us," +
             "cpu_avg,cpu_peak,mem_avg_mb,mem_peak_mb,gc_gen0,gc_gen1,gc_gen2,allocated_mb," +
-            "windows,digest_hash");
+            "windows,digest_hash,warmup_events,measured_events,windows_written,windows_dropped");
     }
 
     var gc = resources.Collections;
@@ -247,7 +264,11 @@ static void WriteReport(
         gc.Gen2,
         resources.AllocatedMb,
         digest.Windows,
-        digest.Hash.ToString("X16")));
+        digest.Hash.ToString("X16"),
+        latency.WarmupCount,
+        latency.TotalCount,
+        windowsWritten,
+        windowsDropped));
 }
 
 static void PrintUsage() => Console.WriteLine("""
@@ -270,6 +291,9 @@ static void PrintUsage() => Console.WriteLine("""
       --persist                Grava as janelas no PostgreSQL
       --truncate               Esvazia as tabelas de saida antes de comecar
       --persist-batch <n>      Linhas por COPY (padrao: 10000)
+      --warmup-seconds <n>     Aquecimento descartado da medicao (padrao: 10)
+      --run-id <guid>          Identificador da rodada, vindo do script
+      --ack-batch <n>          RabbitMQ: entregas por confirmacao (padrao: 100)
       --conn <string>          Conexao do PostgreSQL
       --target-rate <n>        Taxa alvo da rodada, para o registro
       --replication <n>        Numero da repeticao, para o registro
@@ -278,5 +302,5 @@ static void PrintUsage() => Console.WriteLine("""
       --group <nome>           Kafka (padrao: pitwall)
       --rabbit-host <host>     RabbitMQ (padrao: localhost)
       --queue <prefixo>        RabbitMQ (padrao: telemetry)
-      --prefetch <n>           RabbitMQ (padrao: 1000)
+      --prefetch <n>           RabbitMQ (padrao: 300)
     """);

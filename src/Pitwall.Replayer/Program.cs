@@ -23,6 +23,10 @@ var fleetArg = GetArg("--fleet") ?? "auto";
 var exactEvents = GetArg("--events") is { } e ? long.Parse(e) : (long?)null;
 var producerReport = GetArg("--report");
 
+// Resolucao do timer do Windows (ver TimerResolution no Contracts).
+var timerResolutionMs = uint.Parse(GetArg("--timer-resolution-ms") ?? "1");
+using var timerResolution = Pitwall.Contracts.TimerResolution.Request(timerResolutionMs);
+
 if (args.Contains("--help") || args.Contains("-h"))
 {
     PrintUsage();
