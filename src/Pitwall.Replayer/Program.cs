@@ -74,7 +74,8 @@ IEventSink sink = sinkName switch
         BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
         Topic = GetArg("--topic") ?? "telemetry",
         LingerMs = double.Parse(GetArg("--linger-ms") ?? "5"),
-        BatchSize = int.Parse(GetArg("--batch-size") ?? "65536")
+        BatchSize = int.Parse(GetArg("--batch-size") ?? "65536"),
+        SocketNagleDisable = args.Contains("--nagle-disable")
     }),
     "rabbit" or "rabbitmq" => await RabbitMqSink.ConnectAsync(new RabbitMqSinkOptions
     {

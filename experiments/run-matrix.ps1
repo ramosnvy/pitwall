@@ -35,6 +35,7 @@ param(
     [double]$SyntheticCostUs = 0,
     [switch]$NoPersist,
     [switch]$NoShuffle,
+    [switch]$HostProcesses,
     [string]$Dataset = 'data/raw/9472/car_data.jsonl',
     [string]$Out = 'results/matrix-runs.csv',
     [string]$ConsumerReport = 'results/matrix-consumer.csv',
@@ -76,9 +77,12 @@ $order = 'aleatoria'
 if ($NoShuffle) { $order = 'sequencial' }
 $persistLabel = 'ligada'
 if ($NoPersist) { $persistLabel = 'desligada' }
+$placementLabel = 'containers na rede Docker'
+if ($HostProcesses) { $placementLabel = 'processos no host Windows' }
 
 Write-Host "Matriz de experimentos" -ForegroundColor Cyan
 Write-Host "$total rodadas | $WarmupSeconds s aquecimento + $Seconds s medicao | ordem $order | persistencia $persistLabel"
+Write-Host "Clientes: $placementLabel"
 Write-Host "Commit: $commit"
 Write-Host "Tempo estimado: $($estimate.ToString('hh\:mm\:ss'))"
 Write-Host "Inicio: $(Get-Date -Format 'HH:mm:ss')"
@@ -97,7 +101,7 @@ foreach ($run in $runs) {
             -Seconds $Seconds -WarmupSeconds $WarmupSeconds -Partitions $Partitions `
             -Replication $run.rep -Persist:(-not $NoPersist) -Dataset $Dataset `
             -ConsumerReport $ConsumerReport -ProducerReport $ProducerReport `
-            -SyntheticCostUs $SyntheticCostUs -Commit $commit
+            -SyntheticCostUs $SyntheticCostUs -Commit $commit -HostProcesses:$HostProcesses
     }
     catch {
         $row = $null

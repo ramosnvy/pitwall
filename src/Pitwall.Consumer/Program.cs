@@ -41,6 +41,7 @@ var persist = args.Contains("--persist");
 var truncate = args.Contains("--truncate");
 var persistBatch = int.Parse(GetArg("--persist-batch") ?? "10000");
 var warmupSeconds = int.Parse(GetArg("--warmup-seconds") ?? "10");
+var expectedEvents = long.Parse(GetArg("--expected-events") ?? "0");
 
 // Resolucao do timer do Windows (ver TimerResolution): o padrao de 15,6 ms
 // penaliza a librdkafka, que agenda envios e buscas com esperas temporizadas.
@@ -65,6 +66,8 @@ IEventSource source = broker switch
         BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
         Topic = GetArg("--topic") ?? "telemetry",
         GroupId = GetArg("--group") ?? "pitwall",
+        SocketNagleDisable = args.Contains("--nagle-disable"),
+        ExpectedEvents = expectedEvents,
         Partitions = partitions,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
     }),
@@ -75,6 +78,7 @@ IEventSource source = broker switch
         Partitions = partitions,
         Prefetch = ushort.Parse(GetArg("--prefetch") ?? "300"),
         AckBatch = int.Parse(GetArg("--ack-batch") ?? "100"),
+        ExpectedEvents = expectedEvents,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
     }),
     _ => throw new ArgumentException($"Broker desconhecido: {broker}. Use kafka ou rabbit.")
@@ -292,6 +296,9 @@ static void PrintUsage() => Console.WriteLine("""
       --truncate               Esvazia as tabelas de saida antes de comecar
       --persist-batch <n>      Linhas por COPY (padrao: 10000)
       --warmup-seconds <n>     Aquecimento descartado da medicao (padrao: 10)
+      --expected-events <n>    Total que o produtor publicara; a rodada termina
+                               ao receber todos (o tempo ocioso vira rede de
+                               seguranca global, nao por particao)
       --run-id <guid>          Identificador da rodada, vindo do script
       --ack-batch <n>          RabbitMQ: entregas por confirmacao (padrao: 100)
       --conn <string>          Conexao do PostgreSQL

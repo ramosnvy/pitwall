@@ -1,17 +1,27 @@
 # Funcoes compartilhadas pelos scripts de experimento.
 #
 # Uma rodada e sempre: zerar o estado dos brokers, esperar o sistema assentar,
-# subir o consumidor, publicar com o produtor, esperar o consumidor drenar e
-# coletar as metricas dos containers no intervalo medido.
+# subir o consumidor, publicar com o produtor, esperar o consumidor receber
+# tudo e coletar as metricas dos containers no intervalo medido.
 #
 # O consumidor precisa comecar ANTES do produtor -- se os eventos ficarem
 # parados no broker esperando alguem consumir, a latencia medida passa a
 # incluir esse tempo de espera e nao mede mais a arquitetura.
+#
+# MODO CONTAINERIZADO (padrao). Produtor e consumidor rodam em containers na
+# mesma rede Docker dos brokers, como o TCC1 declara ("toda a infraestrutura
+# sera containerizada com Docker"). Rodando no Windows, o Kafka apresentava
+# latencia bimodal -- 3 ms ou 25 ms por rodada, ao acaso -- que desaparece
+# dentro da rede Docker: 0 de 10 rodadas lentas, contra ~43% no host. A causa
+# esta no caminho Windows-VM (docs/REVISAO-TECNICA.md). O modo de processos
+# no host fica disponivel com -HostProcesses, para reproduzir a comparacao.
 
 $script:Docker = "$env:ProgramFiles\Docker\Docker\resources\bin\docker.exe"
 $script:Dotnet = "$env:ProgramFiles\dotnet\dotnet.exe"
 $script:Prometheus = 'http://localhost:9090'
 $script:Invariant = [System.Globalization.CultureInfo]::InvariantCulture
+$script:RuntimeImage = 'mcr.microsoft.com/dotnet/runtime:10.0'
+$script:Network = 'pitwall_default'
 
 function Invoke-KafkaTopics {
     param([string[]]$Arguments)
@@ -71,10 +81,9 @@ function Get-ContainerMetrics {
     CPU e memoria de um container no intervalo medido, via Prometheus/cAdvisor.
 
     .DESCRIPTION
-    O TCC1 exige CPU e memoria "abrangendo todos os modulos do sistema". O
-    consumidor mede o proprio processo; brokers e banco rodam em containers e
-    so o cAdvisor os enxerga. Sem esta coleta por rodada, os dados existiam no
-    Prometheus mas nao estavam ligados a rodada nenhuma.
+    O TCC1 exige CPU e memoria "abrangendo todos os modulos do sistema". No
+    modo containerizado, produtor e consumidor tambem sao containers, e todos
+    os modulos sao medidos pela mesma regua.
     #>
     param(
         [Parameter(Mandatory)][string]$Container,
@@ -137,6 +146,20 @@ function Get-GitCommit {
     return $sha
 }
 
+function Wait-Container {
+    param([string]$Name, [int]$TimeoutSeconds)
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $deadline) {
+        $running = (& $script:Docker inspect -f '{{.State.Running}}' $Name 2>$null)
+        if ($running -ne 'true') { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+
+    return $false
+}
+
 function Invoke-PitwallRun {
     <#
     .SYNOPSIS
@@ -152,12 +175,17 @@ function Invoke-PitwallRun {
         [int]$Partitions = 4,
         [int]$Replication = 1,
         [switch]$Persist,
+        [switch]$HostProcesses,
         [string]$Dataset = 'data/raw/9472/car_data.jsonl',
         [string]$ConsumerReport = 'results/consumer.csv',
         [string]$ProducerReport = 'results/producer.csv',
-        [int]$IdleTimeout = 6,
+        [int]$IdleTimeout = 15,
         [int]$CooldownSeconds = 5,
         [double]$SyntheticCostUs = 0,
+        [double]$ConsumerCpus = 3,
+        [string]$ConsumerMemory = '1g',
+        [double]$ProducerCpus = 2,
+        [string]$ProducerMemory = '1g',
         [string]$Commit = ''
     )
 
@@ -178,35 +206,48 @@ function Invoke-PitwallRun {
     # descarregando para disco o trabalho da rodada anterior.
     Start-Sleep -Seconds $CooldownSeconds
 
+    $inv = $script:Invariant
+
+    # Enderecos e caminhos dependem de onde os clientes rodam: no host, pelas
+    # portas publicadas; em container, pelos nomes de servico da rede Docker.
+    if ($HostProcesses) {
+        $bootstrap = 'localhost:9092'
+        $rabbitHost = 'localhost'
+        $conn = 'Host=localhost;Port=5432;Username=pitwall;Password=pitwall;Database=pitwall'
+        $datasetArg = Join-Path $root $Dataset
+        $consumerReportArg = Join-Path $root $ConsumerReport
+        $producerReportArg = Join-Path $root $ProducerReport
+    }
+    else {
+        $bootstrap = 'kafka:19092'
+        $rabbitHost = 'rabbitmq'
+        $conn = 'Host=postgres;Port=5432;Username=pitwall;Password=pitwall;Database=pitwall'
+        $datasetArg = '/data/' + (Split-Path $Dataset -Leaf)
+        $consumerReportArg = '/results/' + (Split-Path $ConsumerReport -Leaf)
+        $producerReportArg = '/results/' + (Split-Path $ProducerReport -Leaf)
+    }
+
     $consumerArgs = @(
-        'run', '-c', 'Release', '--no-build',
-        '--project', (Join-Path $root 'src/Pitwall.Consumer'),
-        '--',
         '--broker', $Broker, '--mode', $Mode,
         '--partitions', $Partitions,
         '--idle-timeout', $IdleTimeout,
         '--warmup-seconds', $WarmupSeconds,
+        '--expected-events', $events,
         '--target-rate', $Rate,
         '--replication', $Replication,
-        '--synthetic-cost-us', $SyntheticCostUs.ToString($script:Invariant),
+        '--synthetic-cost-us', $SyntheticCostUs.ToString($inv),
         '--run-id', $runId,
         '--timer-resolution-ms', '1',
-        '--report', (Join-Path $root $ConsumerReport)
+        '--bootstrap', $bootstrap,
+        '--rabbit-host', $rabbitHost,
+        '--conn', $conn,
+        '--report', $consumerReportArg
     )
 
     if ($Persist) { $consumerArgs += @('--persist', '--truncate') }
 
-    $consumer = Start-Process -FilePath $script:Dotnet -ArgumentList $consumerArgs `
-        -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
-
-    # O consumidor precisa estar assinando antes de o produtor publicar.
-    Start-Sleep -Seconds 3
-
     $producerArgs = @(
-        'run', '-c', 'Release', '--no-build',
-        '--project', (Join-Path $root 'src/Pitwall.Replayer'),
-        '--',
-        '--dataset', (Join-Path $root $Dataset),
+        '--dataset', $datasetArg,
         '--rate', $Rate,
         '--events', $events,
         '--warmup', '0',
@@ -214,26 +255,96 @@ function Invoke-PitwallRun {
         '--partitions', $Partitions,
         '--sink', $Broker,
         '--timer-resolution-ms', '1',
-        '--report', (Join-Path $root $ProducerReport)
+        '--bootstrap', $bootstrap,
+        '--rabbit-host', $rabbitHost,
+        '--report', $producerReportArg
     )
 
-    $producerStart = [DateTimeOffset]::UtcNow
-    & $script:Dotnet $producerArgs | Out-Null
-    $producerEnd = [DateTimeOffset]::UtcNow
+    $timeout = ($Seconds + $WarmupSeconds) * 3 + 180
 
-    # Espera o consumidor drenar e encerrar sozinho pelo tempo ocioso.
-    $consumer | Wait-Process -Timeout (($Seconds + $WarmupSeconds) * 3 + 180)
+    if ($HostProcesses) {
+        $consumer = Start-Process -FilePath $script:Dotnet `
+            -ArgumentList (@('run', '-c', 'Release', '--no-build', '--project', (Join-Path $root 'src/Pitwall.Consumer'), '--') + $consumerArgs) `
+            -NoNewWindow -PassThru -RedirectStandardOutput $log -RedirectStandardError "$log.err"
 
-    if (-not $consumer.HasExited) {
-        Write-Warning "Consumidor nao encerrou; matando processo ($Broker-$Mode-$Rate)"
-        $consumer | Stop-Process -Force
-        return $null
+        Start-Sleep -Seconds 3
+
+        $producerStart = [DateTimeOffset]::UtcNow
+        & $script:Dotnet (@('run', '-c', 'Release', '--no-build', '--project', (Join-Path $root 'src/Pitwall.Replayer'), '--') + $producerArgs) | Out-Null
+        $producerEnd = [DateTimeOffset]::UtcNow
+
+        $consumer | Wait-Process -Timeout $timeout
+
+        if (-not $consumer.HasExited) {
+            Write-Warning "Consumidor nao encerrou; matando processo ($Broker-$Mode-$Rate)"
+            $consumer | Stop-Process -Force
+            return $null
+        }
+    }
+    else {
+        & $script:Docker rm -f pitwall-consumer pitwall-producer 2>$null | Out-Null
+
+        $resultsDir = (Join-Path $root 'results') -replace '\\', '/'
+        $dataDir = (Split-Path (Join-Path $root $Dataset) -Parent) -replace '\\', '/'
+        $consumerBin = (Join-Path $root 'src/Pitwall.Consumer/bin/Release/net10.0') -replace '\\', '/'
+        $producerBin = (Join-Path $root 'src/Pitwall.Replayer/bin/Release/net10.0') -replace '\\', '/'
+
+        # Limites fixos de CPU e memoria, como nos brokers: sem eles, o
+        # consumidor de uma arquitetura poderia simplesmente usar mais
+        # recursos que o de outra.
+        $consumerDocker = @(
+            'run', '-d', '--name', 'pitwall-consumer', '--network', $script:Network,
+            '--cpus', $ConsumerCpus.ToString($inv), '--memory', $ConsumerMemory,
+            '-v', "${consumerBin}:/app:ro", '-v', "${resultsDir}:/results",
+            $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll'
+        ) + $consumerArgs
+
+        & $script:Docker $consumerDocker | Out-Null
+        Start-Sleep -Seconds 3
+
+        $producerDocker = @(
+            'run', '--name', 'pitwall-producer', '--network', $script:Network,
+            '--cpus', $ProducerCpus.ToString($inv), '--memory', $ProducerMemory,
+            '-v', "${producerBin}:/app:ro", '-v', "${dataDir}:/data:ro", '-v', "${resultsDir}:/results",
+            $script:RuntimeImage, 'dotnet', '/app/Pitwall.Replayer.dll'
+        ) + $producerArgs
+
+        $producerStart = [DateTimeOffset]::UtcNow
+        & $script:Docker $producerDocker 2>&1 | Out-File "$log.producer" -Encoding utf8
+        $producerEnd = [DateTimeOffset]::UtcNow
+
+        $finished = Wait-Container -Name 'pitwall-consumer' -TimeoutSeconds $timeout
+        & $script:Docker logs pitwall-consumer 2>&1 | Out-File $log -Encoding utf8
+
+        if (-not $finished) {
+            Write-Warning "Consumidor nao encerrou; removendo container ($Broker-$Mode-$Rate)"
+        }
     }
 
     $consumerPath = Join-Path $root $ConsumerReport
-    if (-not (Test-Path $consumerPath)) { return $null }
+    $row = $null
 
-    $row = @(Import-Csv $consumerPath) | Where-Object { $_.run_id -eq $runId } | Select-Object -Last 1
+    if (Test-Path $consumerPath) {
+        $row = @(Import-Csv $consumerPath) | Where-Object { $_.run_id -eq $runId } | Select-Object -Last 1
+    }
+
+    # Recursos na janela medida: do fim do aquecimento ao fim da publicacao. A
+    # margem de 3 s cobre a carga do dataset, que antecede a publicacao.
+    $measureStart = $producerStart.AddSeconds($WarmupSeconds + 3)
+    $brokerContainer = 'pitwall-kafka'
+    if ($Broker -ne 'kafka') { $brokerContainer = 'pitwall-rabbitmq' }
+
+    $brokerMetrics = Get-ContainerMetrics -Container $brokerContainer -Start $measureStart -End $producerEnd
+    $dbMetrics = Get-ContainerMetrics -Container 'pitwall-postgres' -Start $measureStart -End $producerEnd
+    $consumerMetrics = $null
+    $producerMetrics = $null
+
+    if (-not $HostProcesses) {
+        $consumerMetrics = Get-ContainerMetrics -Container 'pitwall-consumer' -Start $measureStart -End $producerEnd
+        $producerMetrics = Get-ContainerMetrics -Container 'pitwall-producer' -Start $measureStart -End $producerEnd
+        & $script:Docker rm -f pitwall-consumer pitwall-producer 2>$null | Out-Null
+    }
+
     if ($null -eq $row) { return $null }
 
     # Lado do produtor. Sem ele nao da para distinguir "o consumidor nao
@@ -250,15 +361,6 @@ function Invoke-PitwallRun {
         }
     }
 
-    # Recursos dos containers apenas na janela medida: do fim do aquecimento
-    # ao fim da publicacao.
-    $measureStart = $producerStart.AddSeconds($WarmupSeconds)
-    $brokerContainer = 'pitwall-kafka'
-    if ($Broker -ne 'kafka') { $brokerContainer = 'pitwall-rabbitmq' }
-
-    $brokerMetrics = Get-ContainerMetrics -Container $brokerContainer -Start $measureStart -End $producerEnd
-    $dbMetrics = Get-ContainerMetrics -Container 'pitwall-postgres' -Start $measureStart -End $producerEnd
-
     $enriched = [ordered]@{}
     foreach ($property in $row.PSObject.Properties) { $enriched[$property.Name] = $property.Value }
 
@@ -272,6 +374,19 @@ function Invoke-PitwallRun {
     $enriched['db_cpu_peak'] = $dbMetrics.cpu_peak
     $enriched['db_mem_avg_mb'] = $dbMetrics.mem_avg_mb
     $enriched['db_mem_peak_mb'] = $dbMetrics.mem_peak_mb
+
+    if ($null -ne $consumerMetrics) {
+        $enriched['consumer_container_cpu_avg'] = $consumerMetrics.cpu_avg
+        $enriched['consumer_container_mem_peak_mb'] = $consumerMetrics.mem_peak_mb
+        $enriched['producer_cpu_avg'] = $producerMetrics.cpu_avg
+        $enriched['producer_cpu_peak'] = $producerMetrics.cpu_peak
+        $enriched['producer_mem_peak_mb'] = $producerMetrics.mem_peak_mb
+    }
+
+    $placement = 'container'
+    if ($HostProcesses) { $placement = 'host' }
+
+    $enriched['client_placement'] = $placement
     $enriched['warmup_seconds'] = $WarmupSeconds
     $enriched['measure_seconds'] = $Seconds
     $enriched['commit'] = $Commit

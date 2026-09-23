@@ -22,7 +22,8 @@ param(
     [int]$Partitions = 4,
     [double]$P99CeilingMs = 1000,
     [string]$Dataset = 'data/raw/9472/car_data.jsonl',
-    [string]$Out = 'results/sweep.csv'
+    [string]$Out = 'results/sweep.csv',
+    [switch]$HostProcesses
 )
 
 Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force
@@ -44,7 +45,7 @@ foreach ($broker in $Brokers) {
         foreach ($rate in $Rates) {
             $row = Invoke-PitwallRun -Broker $broker -Mode $mode -Rate $rate `
                 -Seconds $Seconds -Partitions $Partitions -Dataset $Dataset `
-                -ConsumerReport $Out -ProducerReport 'results/sweep-producer.csv'
+                -ConsumerReport $Out -ProducerReport 'results/sweep-producer.csv' -HostProcesses:$HostProcesses
 
             if ($null -eq $row) {
                 Write-Host ("  {0,8} ev/s  FALHOU (sem resultado)" -f $rate) -ForegroundColor Red

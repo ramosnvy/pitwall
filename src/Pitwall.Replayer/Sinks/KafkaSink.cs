@@ -49,6 +49,9 @@ public sealed class KafkaSink : IEventSink
             // RabbitMQ e tornaria a comparacao desigual.
             EnableIdempotence = false,
 
+            // Nagle desligado (TCP_NODELAY). Ver KafkaSinkOptions.SocketNagleDisable.
+            SocketNagleDisable = options.SocketNagleDisable,
+
             // Se a fila interna do cliente encher, bloqueia em vez de
             // descartar: perder evento silenciosamente invalidaria a rodada.
             QueueBufferingMaxMessages = options.QueueBufferingMaxMessages,
@@ -117,6 +120,14 @@ public sealed record KafkaSinkOptions
     public string Topic { get; init; } = "telemetry";
     public double LingerMs { get; init; } = 5;
     public int BatchSize { get; init; } = 65536;
+
+    /// <summary>
+    /// Desliga o algoritmo de Nagle no socket. A librdkafka o deixa ligado por
+    /// padrao; o RabbitMQ.Client o desliga. Com Nagle ligado, requisicoes
+    /// pequenas esperam o ACK da anterior, e o broker no Linux do WSL2 atrasa
+    /// o ACK em ate ~40 ms -- em carga baixa isso vira latencia.
+    /// </summary>
+    public bool SocketNagleDisable { get; init; }
     public int QueueBufferingMaxMessages { get; init; } = 1_000_000;
     public int QueueBufferingMaxKbytes { get; init; } = 1_048_576;
 }

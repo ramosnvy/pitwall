@@ -116,7 +116,7 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
                 cancellationToken: ct);
         }
 
-        await idle.WaitForSilenceAsync(ct);
+        await idle.WaitForSilenceAsync(() => counts.Sum(), options.ExpectedEvents, ct);
 
         for (var lane = 0; lane < channels.Length; lane++)
         {
@@ -149,13 +149,20 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
             Interlocked.Exchange(ref _sawMessage, 1);
         }
 
-        public async Task WaitForSilenceAsync(CancellationToken ct)
+        public async Task WaitForSilenceAsync(Func<long> received, long expected, CancellationToken ct)
         {
             var startupDeadline = DateTime.UtcNow + startupTimeout;
 
             while (!ct.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(250), ct);
+
+                // Com o total esperado conhecido, a rodada acaba quando todos
+                // chegaram; o silencio vira apenas rede de seguranca.
+                if (expected > 0 && received() >= expected)
+                {
+                    return;
+                }
 
                 // Antes da primeira mensagem o silencio so significa que o
                 // produtor ainda nao comecou.
@@ -202,4 +209,7 @@ public sealed record RabbitSourceOptions
 
     /// <summary>Espera pela primeira mensagem, antes de o tempo ocioso valer.</summary>
     public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>Total de eventos esperados; ver KafkaSourceOptions.ExpectedEvents.</summary>
+    public long ExpectedEvents { get; init; }
 }
