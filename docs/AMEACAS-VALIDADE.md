@@ -44,15 +44,17 @@ Três ordens de grandeza de diferença sem que nada na configuração mudasse.
 
 *Correção posterior desta interpretação:* **parte dessa variância não era ruído, era sistemática.** A execução 2 (25,40 ms de média, 49,25 ms de P99) tem a assinatura exata do problema de timer descrito abaixo. A execução 3, de 515 ms, continua sem explicação e segue tratada como ruído de ambiente.
 
-### Resolução do timer do Windows
+### Clientes no host Windows: latência bimodal do Kafka
 
-**Evidência coletada.** O Kafka apresentava latência bimodal — ora 3,4 ms de média, ora 25,4 ms, sem mudança de configuração. Teste A/B intercalado a 10 mil ev/s: com o timer padrão, duas de três rodadas caíram no regime lento; com resolução de 1 ms, três rodadas deram 3,40, 3,41 e 3,42 ms. O RabbitMQ não foi afetado.
+**Evidência coletada.** Com produtor e consumidor rodando no Windows, o Kafka apresentava latência bimodal — cada rodada inteira caía ora em 3,4 ms de média, ora em 25,4 ms, em ~43% das rodadas de carga baixa. O RabbitMQ não foi afetado.
 
-*Causa:* a granularidade padrão do timer do Windows é de 15,6 ms, e desde o Windows 10 2004 a resolução fina só é garantida aos processos que a solicitam. A librdkafka é nativa e agenda envios e buscas com esperas temporizadas; o RabbitMQ.Client é assíncrono, dirigido por conclusão de I/O.
+*Hipóteses testadas e descartadas:* resolução do timer do Windows (26 de 60 rodadas lentas mesmo com `timeBeginPeriod(1)`) e algoritmo de Nagle (5 de 10 lentas com Nagle desligado). Uma primeira confirmação da hipótese do timer, com 3 rodadas por lado, era coincidência — registrada aqui porque é o erro que este diário existe para evitar.
 
-*Consequência:* sem a correção, o Kafka seria penalizado pelo sistema operacional, não pela arquitetura, e de forma intermitente — o pior tipo de viés, porque parece ruído.
+*Isolamento:* o broker, medido dentro do container, é estável (0 de 8 lentas). Os mesmos clientes .NET em containers na rede Docker: 0 de 10 lentas, P99 entre 5,80 e 5,89 ms. A causa está no caminho Windows→VM do Docker Desktop; o mecanismo exato não foi identificado.
 
-*Mitigação:* `timeBeginPeriod(1)` no produtor e no consumidor, aplicado a partir do commit `25fa684`. Detalhes e referência em [REVISAO-TECNICA.md](REVISAO-TECNICA.md), §1.1.
+*Consequência:* a latência do Kafka em carga baixa da matriz do commit `25fa684` está contaminada. Sem o isolamento, o Kafka seria penalizado pelo ambiente, não pela arquitetura, e de forma intermitente — o pior tipo de viés, porque parece ruído.
+
+*Mitigação:* clientes em containers na rede Docker a partir do commit `e779e7c`, como o TCC1 já previa. Detalhes em [REVISAO-TECNICA.md](REVISAO-TECNICA.md), §1.1.
 
 ### Assimetria de durabilidade
 

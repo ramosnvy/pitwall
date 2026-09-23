@@ -8,26 +8,33 @@ Revisão de código, testes e decisões arquiteturais feita contra a documentaç
 
 Cada item abaixo teria contaminado as ~6 h de execução.
 
-### 1.1 Resolução do timer do Windows — a mais grave
+### 1.1 Latência bimodal do Kafka no Windows — a mais grave, e resolvida só depois da matriz
 
-**Sintoma.** O Kafka apresentava latência **bimodal**: a mesma configuração caía ora num regime de 3,4 ms de média, ora num de 25,4 ms, com P99 saltando de 6 para 49 ms. A assinatura do regime lento — média e mediana iguais a 25 ms, P99 em 49 ms — é a de eventos esperando uniformemente por um relógio periódico.
+**Sintoma.** O Kafka apresentava latência **bimodal**: a mesma configuração caía, por rodada inteira, ora num regime de 3,4 ms de média, ora num de 25,4 ms, com P99 saltando de 6 para 49 ms. As rodadas lentas têm números quase idênticos entre si (média 25,4, P50 25,4, P95 45,4, P99 49) — a assinatura de eventos esperando uniformemente por um ciclo periódico de ~50 ms. O RabbitMQ nunca apresentou o efeito.
 
-**Causa.** A granularidade padrão do timer do Windows é de 15,6 ms. Desde o Windows 10 2004, segundo a [documentação de `timeBeginPeriod`](https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod), a resolução mais fina só é garantida aos processos que a solicitam; para os demais, "Windows does not guarantee a higher resolution than the default system resolution". A librdkafka é nativa e agenda envios e buscas com esperas temporizadas (`linger.ms`, `fetch.wait.max.ms`), que são arredondadas para o tique. O RabbitMQ.Client é .NET assíncrono, dirigido por conclusão de I/O, e praticamente não depende de timer.
+**Primeira hipótese: timer do Windows. Aplicada, não resolveu.** A granularidade padrão do timer do Windows é de 15,6 ms, e desde o Windows 10 2004 a resolução fina só é garantida a processos que a solicitam ([`timeBeginPeriod`](https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod)). Um A/B de 3 rodadas por lado pareceu confirmar a hipótese (3 rodadas rápidas com o timer em 1 ms), e a correção entrou no commit `25fa684`. **A confirmação estava errada**: com a taxa de ~43% de rodadas lentas observada depois, três rodadas rápidas seguidas acontecem por acaso em cerca de 1 vez em 5. Na matriz oficial, com a correção aplicada, 26 de 60 rodadas do Kafka em carga baixa caíram no regime lento. A correção foi mantida por ser inofensiva, mas não é a causa.
 
-**Evidência.** Teste A/B intercalado, Kafka a 10 mil ev/s:
+**Segunda hipótese: algoritmo de Nagle. Refutada.** A librdkafka deixa o Nagle ligado por padrão (`socket.nagle.disable=false`) e o RabbitMQ.Client o desliga, o que explicaria a assimetria. Um A/B de 10 rodadas por lado, intercaladas, deu 7 lentas com Nagle e 5 sem — diferença estatisticamente irrelevante.
 
-| Configuração | Média | P99 |
-| --- | --- | --- |
-| Timer padrão, rodada 1 | 25,41 ms | 49,12 ms |
-| Timer padrão, rodada 2 | 3,46 ms | 6,24 ms |
-| Timer padrão, rodada 3 | 25,38 ms | 48,74 ms |
-| Timer de 1 ms, três rodadas | 3,40 / 3,41 / 3,42 ms | 6,1 ms |
+**Isolamento do caminho.** Em vez de uma terceira hipótese, o caminho foi isolado:
 
-O RabbitMQ, como previsto, praticamente não mudou (1,04 → 0,95 ms).
+| Configuração | Rodadas lentas | Média | P99 |
+| --- | --- | --- | --- |
+| Clientes .NET no host Windows (matriz) | 26 de 60 | 3,4 ou 25,4 ms | 6 a 49 ms |
+| Ferramenta de latência do Kafka dentro do container | 0 de 8 | ~1,0 ms | 2 a 3 ms |
+| **Nossos clientes .NET em containers na rede Docker** | **0 de 10** | **3,07 a 3,12 ms** | **5,80 a 5,89 ms** |
 
-**Correção.** Produtor e consumidor solicitam 1 ms via `timeBeginPeriod` (`TimerResolution` em `Pitwall.Contracts`).
+O broker é saudável, e o mesmo código .NET, dentro da rede Docker, é estável e rápido em todas as rodadas. Dada a taxa observada no host, dez rodadas limpas por acaso teriam probabilidade de 0,36%.
 
-**Consequência para o artigo.** Parte da variância que o projeto havia atribuído ao "ambiente" era sistemática e enviesada contra um dos brokers. Isso precisa constar nas ameaças à validade, com o teste A/B como evidência, e vale como contribuição metodológica: comparativos executados em Windows sem esse ajuste penalizam clientes nativos baseados em timer.
+**Conclusão.** A causa está no caminho entre o Windows e a VM Linux do Docker Desktop, por onde os clientes no host alcançam as portas publicadas dos brokers. O mecanismo exato dentro desse caminho não foi identificado. O RabbitMQ atravessa o mesmo caminho sem sofrer o efeito, o que sugere interação com o padrão de requisição e resposta da librdkafka — mas isso é conjectura, não medição.
+
+**Correção.** Produtor e consumidor passam a rodar em containers na rede Docker dos brokers (commit `e779e7c`). É também o que o TCC1 declarava: "toda a infraestrutura será containerizada com Docker, garantindo reprodutibilidade e padronização dos experimentos". **Rodar os clientes no Windows foi um desvio da metodologia proposta**, e é ele que explica boa parte da variância que o projeto vinha atribuindo ao ambiente.
+
+**Efeito colateral positivo.** Com os clientes em containers, o cAdvisor mede todos os módulos pela mesma régua, inclusive o produtor — resolvendo o item 2.2 abaixo.
+
+**Consequência para os resultados.** A latência do Kafka em carga baixa (5 a 30 mil ev/s) da matriz de `25fa684` está contaminada e não pode ser usada. Vazão, CPU, memória e todas as métricas do RabbitMQ não dependem do efeito. A matriz precisa ser refeita no modo containerizado para que as duas famílias sejam medidas nas mesmas condições.
+
+**Lição de método, registrada para o artigo.** Duas das três hipóteses pareciam confirmadas por amostras pequenas. Só o A/B com dez rodadas por lado e o isolamento do caminho separaram causa de coincidência.
 
 ### 1.2 Aquecimento não era descartado
 
@@ -83,9 +90,13 @@ A implementação atual chama `FlushAsync` a cada registro de 46 bytes. Com isso
 
 **Correção proposta.** Drenar as mensagens já disponíveis antes de sinalizar: no Kafka, consumir com tempo de espera zero até não haver mais nada e só então chamar `FlushAsync`; no RabbitMQ, sinalizar a cada lote de entregas ou quando o fluxo para. Rodar como bateria adicional, `pipelines-lote`, sem substituir a variante atual — a comparação entre as duas formas de usar o Pipelines é, em si, um resultado.
 
-### 2.2 CPU e memória do produtor não são medidos
+### 2.2 CPU e memória do produtor não eram medidos — resolvido
 
-O módulo de ingestão é um dos módulos da Figura 1 do TCC1, e o custo do cliente de publicação é parte do custo da arquitetura: a librdkafka e o RabbitMQ.Client têm perfis de CPU muito diferentes. Acrescentar o `ResourceSampler` ao replayer e gravar no CSV do produtor.
+O módulo de ingestão é um dos módulos da Figura 1 do TCC1, e o custo do cliente de publicação é parte do custo da arquitetura. **Resolvido pela containerização** (§1.1): o produtor é um container e o cAdvisor o mede como aos demais. Na primeira rodada de teste, o produtor Kafka usou 75 a 81% de CPU e o RabbitMQ 94 a 129% a 10 mil ev/s — diferença que antes era invisível.
+
+### 2.2b Encerramento do consumidor Kafka por partição — resolvido
+
+Na matriz, a rodada `kafka-pipelines#2` a 400 mil ev/s perdeu 2,12 milhões de eventos: um travamento de 5,6 s levou uma das quatro threads de partição a encerrar sozinha pelo tempo ocioso de 6 s. A verificação cruzada de digest pegou a perda. O consumidor agora recebe o total esperado e só encerra ao completá-lo; o tempo ocioso passou a valer para o sistema inteiro, como rede de segurança.
 
 ### 2.3 Espera síncrona no caminho de contrapressão
 
