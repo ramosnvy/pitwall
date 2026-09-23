@@ -56,7 +56,7 @@ docs/                       plano de trabalho e decisões de projeto
 
 ## Estado atual
 
-Em preparação. O planejamento e as decisões de projeto estão em [docs/PLANO.md](docs/PLANO.md).
+Em implementação. O estado atual e as pendências estão em [docs/ESTADO.md](docs/ESTADO.md); as decisões de projeto e o cronograma, em [docs/PLANO.md](docs/PLANO.md).
 
 ## Licença
 
