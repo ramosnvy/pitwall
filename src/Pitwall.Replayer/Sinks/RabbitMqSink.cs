@@ -25,6 +25,13 @@ public sealed class RabbitMqSink : IAsyncDisposable, IEventSink
 
     public string Name => "rabbitmq";
 
+    /// <summary>Nome da fila de uma faixa. Compartilhado com o consumidor.</summary>
+    public static string QueueName(string prefix, int lane) => $"{prefix}.{lane}";
+
+    /// <summary>Faixa de um carro. Mesma funcao no produtor e no consumidor.</summary>
+    public static string Lane(int driverNumber, int partitions) =>
+        (driverNumber % partitions).ToString();
+
     public long Published => Interlocked.Read(ref _published);
 
     public static async Task<RabbitMqSink> ConnectAsync(RabbitMqSinkOptions options, CancellationToken ct)
@@ -56,15 +63,40 @@ public sealed class RabbitMqSink : IAsyncDisposable, IEventSink
                 publisherConfirmationTrackingEnabled: true),
             ct);
 
-        // Fila duravel e classica. Quorum seria mais resiliente, mas exige
-        // replicacao e mudaria a garantia em relacao ao Kafka de no unico.
-        await _channel.QueueDeclareAsync(
-            queue: _options.Queue,
+        // P filas ligadas a um exchange direct, uma por faixa de carros.
+        //
+        // O RabbitMQ nao tem particionamento por chave como o Kafka: numa
+        // fila unica com varios consumidores, as amostras de um mesmo carro
+        // caem em consumidores diferentes e a ordem por carro se perde --
+        // o que quebraria a deteccao de frenagem e a verificacao cruzada.
+        // Com uma fila por faixa e routing key derivada do numero do carro,
+        // cada carro tem sempre o mesmo consumidor, que e a garantia que o
+        // Kafka da por particao. E o que torna a comparacao justa.
+        await _channel.ExchangeDeclareAsync(
+            exchange: _options.Exchange,
+            type: "direct",
             durable: true,
-            exclusive: false,
             autoDelete: false,
-            arguments: null,
             cancellationToken: ct);
+
+        for (var lane = 0; lane < _options.Partitions; lane++)
+        {
+            var queue = QueueName(_options.Queue, lane);
+
+            await _channel.QueueDeclareAsync(
+                queue: queue,
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null,
+                cancellationToken: ct);
+
+            await _channel.QueueBindAsync(
+                queue: queue,
+                exchange: _options.Exchange,
+                routingKey: lane.ToString(),
+                cancellationToken: ct);
+        }
 
         _pending = new ValueTask[_options.ConfirmBatchSize];
         _pendingCount = 0;
@@ -76,15 +108,12 @@ public sealed class RabbitMqSink : IAsyncDisposable, IEventSink
         var payload = new byte[TelemetryCodec.Size];
         TelemetryCodec.Write(payload, evt);
 
-        // Exchange padrao com routing key igual ao nome da fila: o caminho
-        // mais curto do RabbitMQ, sem custo de roteamento por topico. E o
-        // equivalente mais justo a publicar direto num topico do Kafka.
         // A ValueTask so completa quando o broker confirma. Ela e guardada
         // num array de structs (sem alocar Task por mensagem) e aguardada na
         // barreira, mantendo varias publicacoes em voo ao mesmo tempo.
         _pending[_pendingCount++] = _channel!.BasicPublishAsync(
-            exchange: string.Empty,
-            routingKey: _options.Queue,
+            exchange: _options.Exchange,
+            routingKey: Lane(evt.DriverNumber, _options.Partitions),
             mandatory: false,
             basicProperties: new BasicProperties { Persistent = _options.Persistent },
             body: payload,
@@ -141,6 +170,15 @@ public sealed record RabbitMqSinkOptions
     public string User { get; init; } = "pitwall";
     public string Password { get; init; } = "pitwall";
     public string Queue { get; init; } = "telemetry";
+
+    public string Exchange { get; init; } = "telemetry";
+
+    /// <summary>
+    /// Numero de filas, uma por faixa de carros. Equivale ao numero de
+    /// particoes do Kafka e precisa ser igual a ele para que os dois brokers
+    /// tenham o mesmo grau de paralelismo.
+    /// </summary>
+    public int Partitions { get; init; } = 4;
 
     /// <summary>
     /// Mensagem persistida em disco. Ligado por padrao para equivaler ao

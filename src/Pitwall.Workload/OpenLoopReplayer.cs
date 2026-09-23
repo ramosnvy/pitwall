@@ -52,6 +52,14 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
                 break;
             }
 
+            // Numero exato de eventos: usado nas rodadas de verificacao, em
+            // que as seis variantes precisam receber a mesma entrada para
+            // que os digests sejam comparaveis.
+            if (options.MaxEvents is { } max && emitted >= max)
+            {
+                break;
+            }
+
             var lateness = now - deadline;
             if (elapsed >= warmupTicks && lateness > maxLatenessTicks)
             {
@@ -159,6 +167,12 @@ public sealed record ReplayOptions
     /// originais; 50 simula mil carros com a mesma cadencia de sensor.
     /// </summary>
     public int FleetFactor { get; init; } = 1;
+
+    /// <summary>
+    /// Encerra apos publicar exatamente esta quantidade de eventos, em vez
+    /// de por tempo. Para as rodadas de verificacao cruzada.
+    /// </summary>
+    public long? MaxEvents { get; init; }
 }
 
 public sealed record ReplayResult

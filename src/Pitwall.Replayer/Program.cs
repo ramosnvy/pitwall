@@ -19,6 +19,7 @@ var warmup = TimeSpan.FromSeconds(int.Parse(GetArg("--warmup") ?? "5"));
 var sinkName = GetArg("--sink") ?? "null";
 var maxEvents = GetArg("--max-events") is { } m ? int.Parse(m) : (int?)null;
 var fleetArg = GetArg("--fleet") ?? "auto";
+var exactEvents = GetArg("--events") is { } e ? long.Parse(e) : (long?)null;
 
 if (args.Contains("--help") || args.Contains("-h"))
 {
@@ -73,6 +74,7 @@ IEventSink sink = sinkName switch
     {
         Host = GetArg("--rabbit-host") ?? "localhost",
         Queue = GetArg("--queue") ?? "telemetry",
+        Partitions = int.Parse(GetArg("--partitions") ?? "4"),
         ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "1000")
     }, cts.Token),
     _ => throw new ArgumentException(
@@ -85,7 +87,7 @@ Console.WriteLine($"Destino: {sink.Name} | alvo: {rate:N0} ev/s | " +
 
 var replayer = new OpenLoopReplayer(data, sink);
 var result = await replayer.RunAsync(
-    new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet },
+    new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents },
     cts.Token);
 
 await sink.DisposeAsync();
@@ -147,6 +149,7 @@ static void PrintUsage() => Console.WriteLine("""
       --rabbit-host <host> RabbitMQ: servidor (padrao: localhost)
       --queue <nome>       RabbitMQ: fila (padrao: telemetry)
       --confirm-batch <n>  RabbitMQ: publicacoes em voo antes da barreira
+      --events <n>         Publica exatamente n eventos e encerra (verificacao)
       --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a
                            mesma cadencia de sensor (padrao: auto, que escolhe
                            o fator que entrega a taxa alvo sem acelerar o tempo)
