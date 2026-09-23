@@ -22,6 +22,7 @@ var maxEvents = GetArg("--max-events") is { } m ? int.Parse(m) : (int?)null;
 var fleetArg = GetArg("--fleet") ?? "auto";
 var exactEvents = GetArg("--events") is { } e ? long.Parse(e) : (long?)null;
 var producerReport = GetArg("--report");
+var producerRunId = GetArg("--run-id") ?? "";
 
 // Resolucao do timer do Windows (ver TimerResolution no Contracts).
 var timerResolutionMs = uint.Parse(GetArg("--timer-resolution-ms") ?? "1");
@@ -141,10 +142,15 @@ if (producerReport is not null)
 
     if (!exists)
     {
-        w.WriteLine("timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps");
+        // run_id na primeira coluna: o script de experimento casa esta linha com
+        // a do consumidor pela chave, e nao pela posicao no arquivo. Casar pela
+        // ultima linha atribuiu a uma rodada, cujo produtor caiu sem gravar
+        // relatorio, o jitter de outra rodada -- e ela pareceu valida.
+        w.WriteLine("run_id,timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps");
     }
 
     w.WriteLine(string.Join(',',
+        producerRunId,
         DateTimeOffset.UtcNow.ToString("o"),
         sink.Name,
         result.TargetRate,

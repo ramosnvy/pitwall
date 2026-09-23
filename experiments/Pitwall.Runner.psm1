@@ -254,6 +254,7 @@ function Invoke-PitwallRun {
         '--duration', ($Seconds + $WarmupSeconds + 120),
         '--partitions', $Partitions,
         '--sink', $Broker,
+        '--run-id', $runId,
         '--timer-resolution-ms', '1',
         '--bootstrap', $bootstrap,
         '--rabbit-host', $rabbitHost,
@@ -353,8 +354,13 @@ function Invoke-PitwallRun {
     $producerRate = ''
     $producerJitter = ''
 
+    # Casamento pela chave da rodada, nunca pela posicao no arquivo. Na matriz
+    # v2, um produtor caiu sem gravar relatorio, e pegar a ultima linha atribuiu
+    # a rodada o jitter da rodada ANTERIOR -- ela pareceu valida, e so o digest
+    # a barrou. Sem linha do produtor, os campos ficam vazios e a analise trata
+    # a rodada como invalida.
     if (Test-Path $producerPath) {
-        $p = @(Import-Csv $producerPath) | Select-Object -Last 1
+        $p = @(Import-Csv $producerPath) | Where-Object { $_.run_id -eq $runId } | Select-Object -Last 1
         if ($null -ne $p) {
             $producerRate = $p.achieved_rate
             $producerJitter = $p.max_lateness_ms

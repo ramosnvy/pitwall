@@ -56,7 +56,11 @@ foreach ($group in ($rows | Group-Object target_rate)) {
 $classified = foreach ($r in $rows) {
     $reasons = @()
 
-    if ((Num $r.producer_jitter_ms) -gt $JitterCeilingMs) { $reasons += 'jitter' }
+    # Sem relatorio do produtor nao ha como saber se a taxa alvo foi sustentada:
+    # a rodada nao e valida. NaN compararia como falso e passaria em silencio.
+    $jitter = Num $r.producer_jitter_ms
+    if ([double]::IsNaN($jitter)) { $reasons += 'produtor' }
+    elseif ($jitter -gt $JitterCeilingMs) { $reasons += 'jitter' }
     if ($r.digest_hash -ne $referenceDigest[$r.target_rate]) { $reasons += 'digest' }
 
     $r | Add-Member -NotePropertyName valid -NotePropertyValue ($reasons.Count -eq 0) -PassThru |

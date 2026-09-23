@@ -20,6 +20,7 @@ public sealed class KafkaSink : IEventSink
 
     private long _delivered;
     private long _failed;
+    private long _queueFullWaits;
 
     public KafkaSink(KafkaSinkOptions options)
     {
@@ -68,6 +69,9 @@ public sealed class KafkaSink : IEventSink
     public long Delivered => Interlocked.Read(ref _delivered);
     public long Failed => Interlocked.Read(ref _failed);
 
+    /// <summary>Vezes em que a fila local encheu e o produtor esperou.</summary>
+    public long QueueFullWaits => Interlocked.Read(ref _queueFullWaits);
+
     public ValueTask PublishAsync(in TelemetryEvent evt, CancellationToken ct)
     {
         // Um array novo por evento: o produtor e assincrono e mantem a
@@ -84,7 +88,26 @@ public sealed class KafkaSink : IEventSink
         // Produce e nao-bloqueante e entrega o resultado por callback. E o
         // que mantem o gerador em malha aberta: publicar nao pode esperar o
         // broker, senao a taxa passaria a ser ditada por ele.
-        _producer.Produce(_topic, message, DeliveryHandler);
+        // Fila local cheia: contrapressao, nao excecao. Na matriz oficial, a
+        // 400 mil ev/s com a maquina saturada, a fila da librdkafka (1 milhao
+        // de mensagens) encheu, o Produce lancou Local_QueueFull e o produtor
+        // morreu no meio da rodada. O padrao documentado e servir os
+        // relatorios de entrega com Poll, liberando espaco, e tentar de novo.
+        // O tempo de espera aparece como atraso do gerador, e a rodada e
+        // invalidada pelo criterio de jitter -- que e o tratamento correto.
+        while (true)
+        {
+            try
+            {
+                _producer.Produce(_topic, message, DeliveryHandler);
+                break;
+            }
+            catch (ProduceException<int, byte[]> e) when (e.Error.Code == ErrorCode.Local_QueueFull)
+            {
+                Interlocked.Increment(ref _queueFullWaits);
+                _producer.Poll(TimeSpan.FromMilliseconds(100));
+            }
+        }
 
         return ValueTask.CompletedTask;
     }

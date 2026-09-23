@@ -56,7 +56,7 @@ docs/                       plano de trabalho e decisões de projeto
 
 ## Estado atual
 
-Em implementação. O estado atual e as pendências estão em [docs/ESTADO.md](docs/ESTADO.md); as decisões de projeto e o cronograma, em [docs/PLANO.md](docs/PLANO.md).
+Matriz oficial executada. Resultados em [docs/RESULTADOS.md](docs/RESULTADOS.md); revisão técnica e correções do instrumento em [docs/REVISAO-TECNICA.md](docs/REVISAO-TECNICA.md); decisões de projeto em [docs/PLANO.md](docs/PLANO.md).
 
 ## Licença
 
