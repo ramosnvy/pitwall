@@ -1,50 +1,58 @@
 # Experimento piloto — varredura de saturação
 
-Primeira varredura, 23/09/2026. Uma execução por ponto, 10 s de medição, 4 faixas, sem persistência.
+Segunda varredura, 23/09/2026, após as correções. Uma execução por ponto, 10 s de medição, 4 faixas, sem persistência. Critério de saturação: vazão abaixo de 90% da taxa alvo, **ou** P99 acima de 1 s, **ou** jitter de emissão do produtor acima de 50 ms.
 
-**Estes números não são resultado do trabalho.** São uma execução única por ponto, e já medimos que a variância entre execuções nesta máquina chega a três ordens de grandeza. Servem para calibrar os níveis de carga da matriz oficial e — principalmente — para expor defeitos de configuração antes das rodadas que valem.
+**Estes números não são resultado do trabalho.** É uma execução única por ponto, e a variância entre execuções nesta máquina chega a três ordens de grandeza. O piloto serve para calibrar os níveis de carga e expor defeitos antes das rodadas que valem — e cumpriu esse papel: encontrou um estouro de tipo que contaminava toda carga acima de 30 mil ev/s.
 
-## Resultado bruto
+## Resultado
 
-| Arquitetura | 10k | 25k | 50k | 100k | 200k |
-| --- | --- | --- | --- | --- | --- |
-| kafka-direct | ok | ok | ok | ok | ok |
-| kafka-channels | ok | ok | ok | ok | ok |
-| kafka-pipelines | ok | ok | ok | ok | ok |
-| rabbit-direct | ok | ok | saturou | — | — |
-| rabbit-channels | ok | ok | saturou | — | — |
-| rabbit-pipelines | ok | ok | saturou | — | — |
+| Arquitetura | Vazão máxima sustentada | P99 no topo |
+| --- | --- | --- |
+| kafka-direct | > 200.000 ev/s | 11 ms |
+| kafka-channels | > 200.000 ev/s | 11 ms |
+| kafka-pipelines | > 200.000 ev/s | 9 ms |
+| rabbit-direct | 20.000 ev/s | 8 ms |
+| rabbit-channels | 20.000 ev/s | 7 ms |
+| rabbit-pipelines | 30.000 ev/s | 6 ms |
 
-O Kafka sustentou 200 mil ev/s nas três variantes, com P99 de 26 a 151 ms. O RabbitMQ saturou entre 25 mil e 50 mil.
+O Kafka **não saturou**: 200 mil era o teto da varredura, não o dele. O jitter do produtor ficou entre 4 e 15 ms em todos os níveis, e o P99 do consumidor nunca passou de 16 ms.
 
-## O que o lado do produtor revelou
+## Leitura correta do lado do RabbitMQ
 
-O relatório do produtor muda a leitura. O jitter de emissão (atraso máximo entre o instante previsto e o real):
+O limite do RabbitMQ está na **publicação**, e o produtor é o mesmo código nas três variantes — ele não sabe qual mecanismo o consumidor usa. Logo:
 
-| Broker | Taxa | Taxa obtida | Jitter |
-| --- | --- | --- | --- |
-| Kafka | 200.000 | 199.967 | 4,65 ms |
-| RabbitMQ | 25.000 | 24.994 | 110 a 162 ms |
-| RabbitMQ | 50.000 | 27.730 | 8.047 ms |
+**A diferença entre 20.000 e 30.000 nas três linhas do RabbitMQ é ruído em torno do limiar, não diferença entre Direct, Channels e Pipelines.** O jitter nas rodadas de 30 mil ficou em 37, 52 e 57 ms, com o corte em 50 ms.
 
-**A saturação do RabbitMQ está na publicação, não no consumo.** A 50 mil ev/s o produtor entregou 27,7 mil com 8 segundos de atraso acumulado: o consumidor nunca teve a chance de ficar para trás, porque as mensagens não chegaram.
+| Taxa | Jitter observado (3 rodadas) |
+| --- | --- |
+| 10.000 | 16, 22, 23 ms |
+| 20.000 | 23, 28, 30 ms |
+| 30.000 | 38, 52, 57 ms |
+| 40.000 | 194 ms |
 
-Pelo critério de validade do próprio projeto — descartar rodada com jitter acima de 50 ms — as rodadas do RabbitMQ a 25 mil **já são inválidas**. O teto válido medido do RabbitMQ nesta configuração fica entre 10 mil e 25 mil ev/s.
+**Consequência para o desenho experimental:** com RabbitMQ, os três mecanismos internos só podem ser comparados em cargas até ~20 mil ev/s. Acima disso o produtor satura antes e o consumidor nunca é pressionado — qualquer diferença medida ali seria ruído.
 
-## Causa investigada
+## Níveis de carga propostos
 
-**Hipótese 1: mensagens persistentes.** Testada e descartada. A 50 mil ev/s, persistente entregou 45.960 ev/s e transiente 47.239 — diferença de 2,8%, dentro do ruído. O custo de disco não é o limitante.
+| Nível | Brokers | Propósito |
+| --- | --- | --- |
+| 5.000 | ambos | Carga baixa, referência |
+| 10.000 | ambos | Ambos confortáveis |
+| 20.000 | ambos | Limite superior do RabbitMQ válido |
+| 50.000 | só Kafka | Além do alcance do RabbitMQ |
+| 100.000 | só Kafka | |
+| 200.000 | só Kafka | Topo medido |
 
-**Hipótese 2: canal único no produtor.** É a explicação provável. O `RabbitMqSink` publica nas quatro filas por **um único canal AMQP**, enquanto o consumidor usa quatro canais, um por fila. Canais do RabbitMQ serializam as operações, então o produtor tem um quarto do paralelismo do consumidor — e nenhum do paralelismo que o produtor Kafka obtém internamente ao agrupar por partição.
+A comparação 2 × 3 completa acontece nos três primeiros níveis. Os três últimos caracterizam a faixa em que apenas o Kafka opera — o que é resultado legítimo e, em si, uma das conclusões do trabalho.
 
-**Consequência:** o teto de 25 mil ev/s atribuído ao RabbitMQ pode ser artefato da implementação do produtor, não limite do broker. Publicar esse número sem corrigir seria atribuir à arquitetura um defeito do instrumento.
+## Correções que o piloto motivou
 
-## Ações antes da matriz oficial
+**Canal único no produtor RabbitMQ.** Publicar nas quatro filas por um canal só dava ao produtor um quarto do paralelismo do consumidor. Com um canal por faixa, o teto subiu de 27,7 mil para 42,7 mil ev/s. O valor anterior era limite do instrumento.
 
-1. **Um canal por faixa no produtor RabbitMQ**, espelhando o consumidor, e repetir a varredura.
-2. **Reavaliar a barreira de confirmação**: hoje são 1.000 publicações em voo, aguardadas em sequência. Com um canal por faixa, o valor precisa ser revisto.
-3. **Incluir o jitter do produtor no critério de saturação** do `sweep.ps1`. Hoje o script decide apenas pela vazão e pelo P99 do consumidor, e por isso classificou como "ok" rodadas que o próprio projeto considera inválidas.
+**Estouro do número do carro.** A multiplicação de frota soma `réplica × 100` ao número original; com fator 671 (necessário para 50 mil ev/s) o valor passava de 32.767 e o `short` virava negativo, quebrando o cálculo da faixa. Afetava silenciosamente toda carga acima de ~30 mil ev/s. O campo passou a `int`, o codec de 44 para 46 bytes e as colunas do banco para `INTEGER`.
 
-## Níveis de carga propostos (provisórios)
+**Jitter no critério de saturação.** Sem ele, o script classificava como válidas rodadas em que o gerador não sustentou a taxa — exatamente o que mascarou o problema do RabbitMQ na primeira varredura.
 
-Dependem da nova varredura. Se o teto do RabbitMQ subir para a faixa de 50 a 100 mil, uma escolha que cobre o joelho das duas famílias seria **10k, 25k, 50k, 100k e 200k**, com as duas maiores servindo para caracterizar apenas o Kafka — o que é resultado legítimo, desde que a saturação do RabbitMQ esteja bem medida e não seja artefato.
+## Questão em aberto
+
+O teto de publicação do RabbitMQ pode subir mais com uma conexão TCP por faixa (hoje são quatro canais sobre uma conexão) ou com barreira de confirmação maior. Vale um teste limitado antes da matriz oficial: se o teto subir muito, a faixa de comparação entre os dois brokers aumenta, e o trabalho ganha alcance.
