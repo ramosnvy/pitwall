@@ -31,8 +31,22 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
         _received = 0;
         _lastProgressTicks = DateTime.UtcNow.Ticks;
 
+        // Uma thread DEDICADA por particao, nao uma do pool. O Consume() do
+        // Confluent.Kafka e sincrono e bloqueia a thread enquanto espera. Com
+        // Task.Run, as quatro threads presas saiam do pool de threads do .NET,
+        // que num container limitado a 3 CPUs tem minimo de 3 threads: o pool
+        // esgotava, e as continuacoes dos workers de Channels e Pipelines
+        // esperavam a injecao de threads novas -- que ocorre a 1 ou 2 por
+        // segundo (docs da Microsoft sobre ThreadPool starvation). O sintoma
+        // foi latencia maxima de ~1 s em todas as rodadas dessas variantes. No
+        // host Windows, com 12 nucleos, o pool tinha folga e o defeito ficava
+        // escondido.
         var tasks = Enumerable.Range(0, options.Partitions)
-            .Select(partition => Task.Run(() => ConsumePartition(partition, pipeline, ct), ct))
+            .Select(partition => Task.Factory.StartNew(
+                () => ConsumePartition(partition, pipeline, ct),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
             .ToArray();
 
         var counts = await Task.WhenAll(tasks);
