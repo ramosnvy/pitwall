@@ -9,8 +9,8 @@ Para as decisões de projeto e a sequência de trabalho, ver [PLANO.md](PLANO.md
 | Git 2.55 | pronto |
 | GitHub CLI 2.101 | autenticado como `ramosnvy` |
 | .NET SDK 10.0.401 | pronto |
-| Docker Desktop 4.91 | instalado, **aguardando reinicialização do Windows** |
-| WSL2 | habilitado, ativa no próximo boot |
+| Docker Desktop 4.91 | engine 29.8.0 no ar, 12 CPUs e 8 GB na VM |
+| WSL2 | ativo |
 | Repositório | https://github.com/ramosnvy/pitwall (público) |
 
 ## 2. O que já funciona
@@ -24,7 +24,7 @@ Testado contra a API real. Baixa a telemetria histórica de uma sessão para JSO
 
 ### Infraestrutura (`infra/`)
 
-Compose com Kafka 4.1 (KRaft), RabbitMQ 4, PostgreSQL 17, Prometheus e cAdvisor. Validado com `docker compose config`. **Ainda não foi executado** — depende do reboot.
+Compose com Kafka 4.1 (KRaft), RabbitMQ 4.3.6, PostgreSQL 17, Prometheus e cAdvisor. **Executado e validado:** 5 containers saudáveis, as 3 tabelas criadas, tópico `telemetry` com 4 partições e o Prometheus coletando CPU e memória de todos os containers.
 
 ### Contrato e codec (`src/Pitwall.Contracts`)
 
@@ -47,11 +47,7 @@ A 100 mil ev/s com o dataset do Bahrein: frota de 26.820 carros, compressão tem
 
 ## 3. Bloqueios
 
-### 3.1 Reinicialização do Windows
-
-Nada que envolva broker ou banco pode ser testado até o WSL2 ativar. Depois de reiniciar: abrir o Docker Desktop (na primeira execução ele pede aceite dos termos) e validar com `docker run --rm hello-world`.
-
-### 3.2 Decisões a fechar com o orientador
+### 3.1 Decisões a fechar com o orientador
 
 Detalhadas em [PLANO.md](PLANO.md), seção 1. As que mudam o escopo declarado no TCC1:
 
@@ -66,7 +62,7 @@ Detalhadas em [PLANO.md](PLANO.md), seção 1. As que mudam o escopo declarado n
 | Grau de paralelismo | **Decidido:** mesmo grau P nos dois, cada broker atingindo P pelo seu mecanismo |
 | Semântica de entrega | **Decidido:** at-least-once dos dois lados, sem idempotência |
 
-### 3.3 Lacunas do TCC1 identificadas na implementação
+### 3.2 Lacunas do TCC1 identificadas na implementação
 
 Pontos que o TCC1 não trata e que precisam entrar no texto do TCC2.
 
@@ -91,8 +87,8 @@ Pontos que o TCC1 não trata e que precisam entrar no texto do TCC2.
 | # | Item | Depende de |
 | --- | --- | --- |
 | 1 | Ruído por réplica + teste de sensibilidade | — |
-| 2 | `Pitwall.Processing.Core` — lógica idêntica às 6 variantes | decisão 1d |
-| 3 | Sink Kafka e sink RabbitMQ no replayer | reboot |
+| 2 | ~~`Pitwall.Processing.Core`~~ concluído e verificado | — |
+| 3 | ~~Sink Kafka e sink RabbitMQ no replayer~~ concluído | — |
 | 4 | Consumers nos 3 modos (direct, channels, pipelines) | itens 2 e 3 |
 | 5 | `Pitwall.Persistence` — `COPY` binário em lote | item 2 |
 | 6 | `Pitwall.Metrics` — HdrHistogram e exportação CSV | item 4 |
