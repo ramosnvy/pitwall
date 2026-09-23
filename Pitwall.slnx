@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/openf1-downloader/">
+    <Project Path="tools/openf1-downloader/Pitwall.Tools.OpenF1Downloader.csproj" />
+  </Folder>
+</Solution>
