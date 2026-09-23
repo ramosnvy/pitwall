@@ -10,9 +10,17 @@ Pontos que não estavam definidos na proposta do TCC1 e que mudam a implementaç
 
 ### 1a. A OpenF1 não é, por si só, uma fonte de alta frequência
 
-A telemetria é amostrada a 3,7 Hz por carro. Com 20 carros, são cerca de 75 eventos/s em `car_data`. Os limites do plano gratuito são 3 requisições/s e 30/min, e os dados ao vivo exigem assinatura paga.
+A telemetria é amostrada a 3,7 Hz por carro. Medido na corrida do Bahrein 2024: 443.940 eventos de `car_data` em 99 minutos, ou seja 75 eventos/s com os 20 carros. Os limites do plano gratuito são 3 requisições/s e 30/min, e os dados ao vivo exigem assinatura paga.
 
-**Decisão proposta:** baixar os dados históricos uma vez para disco e reproduzi-los com um *replayer* que aplica fator de aceleração e multiplicação de carros. Os níveis de carga passam a ser taxas-alvo (por exemplo 1k, 10k, 50k e 100k eventos/s), mais um teste de saturação. A API não é chamada durante os experimentos.
+**Decidido:** os dados históricos são baixados uma vez para disco e reproduzidos por um *replayer*. A API não é chamada durante os experimentos.
+
+**A carga vem da multiplicação de carros, não da aceleração do tempo.** Para tirar 100 mil eventos/s de uma corrida que produz 75, há duas saídas: comprimir o tempo 1341 vezes, ou simular 1341 vezes mais carros. A segunda foi a escolhida, porque preserva a cadência real de cada sensor (3,7 Hz por carro) e corresponde ao cenário de telemetria, IoT e frota que motiva o trabalho. Acelerar o tempo distorceria o intervalo entre amostras de um mesmo carro, que é a característica central do dado.
+
+Cada réplica recebe número de carro próprio e deslocamento de fase dentro do intervalo de amostragem, para que a frota não publique em rajadas sincronizadas — o que favoreceria artificialmente o broker que agrupa melhor em lote.
+
+Efeito colateral útil: com fator de frota, o dataset deixa de ser reciclado. A 100 mil ev/s com fator 1341, dez segundos de medição consomem menos de 750 das 443.940 amostras.
+
+**Compressão desligada nos dois brokers.** As réplicas de uma mesma amostra têm payload quase idêntico, então a compressão em lote do Kafka renderia muito mais do que renderia com telemetria real, inflando o throughput do Kafka por artefato do workload. Se a compressão virar objeto de estudo, entra como fator explícito do experimento.
 
 ### 1b. Channels e Pipelines não são equivalentes
 
@@ -67,6 +75,8 @@ Usar a mesma garantia de entrega (at-least-once) nos dois e publicar as configur
 | Variância do ambiente (Docker Desktop / WSL2) | Repetições, ordem aleatória, limites fixos de recurso, hardware documentado |
 | Configurações dos brokers não comparáveis | Garantias de entrega equivalentes e tabela de parâmetros no artigo |
 | Implementação atrasar e comprimir os experimentos | Marco de corte na semana 5 (ver cronograma) |
+| Compressão do Kafka inflada pela repetição do payload | `compression.type=none` nos dois brokers, declarado na tabela de configuração |
+| Acúmulo de disco entre rodadas | Retenção de 15 min no Kafka, tópico recriado e tabelas truncadas entre rodadas |
 
 ## 5. Cronograma
 

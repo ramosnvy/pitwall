@@ -17,6 +17,7 @@ var duration = TimeSpan.FromSeconds(int.Parse(GetArg("--duration") ?? "30"));
 var warmup = TimeSpan.FromSeconds(int.Parse(GetArg("--warmup") ?? "5"));
 var sinkName = GetArg("--sink") ?? "null";
 var maxEvents = GetArg("--max-events") is { } m ? int.Parse(m) : (int?)null;
+var fleetArg = GetArg("--fleet") ?? "auto";
 
 if (args.Contains("--help") || args.Contains("-h"))
 {
@@ -33,15 +34,29 @@ Console.WriteLine(
     $"{data.Events.Length:N0} eventos da sessao {data.SessionKey} " +
     $"carregados em {loadWatch.Elapsed.TotalSeconds:0.0}s");
 
-if (data.Events.Length > 0)
-{
-    var span = data.Events[^1].EventTime - data.Events[0].EventTime;
-    var naturalRate = data.Events.Length / span.TotalSeconds;
-    Console.WriteLine(
-        $"Duracao original: {span.TotalMinutes:0} min | " +
-        $"taxa natural: {naturalRate:0} ev/s | " +
-        $"fator de aceleracao para {rate:N0} ev/s: {rate / naturalRate:0.0}x");
-}
+var span = data.Events[^1].EventTime - data.Events[0].EventTime;
+var naturalRate = data.Events.Length / span.TotalSeconds;
+var distinctDrivers = data.Events.Select(e => e.DriverNumber).Distinct().Count();
+
+// O fator de frota que entrega a taxa alvo mantendo a cadencia real de cada
+// sensor. Em "auto" o replayer escolhe esse valor, de modo que a carga venha
+// de haver mais carros e nao de acelerar o tempo.
+var recommendedFleet = Math.Max(1, (int)Math.Round(rate / naturalRate));
+var fleet = fleetArg == "auto" ? recommendedFleet : int.Parse(fleetArg);
+
+// O que a taxa alvo ainda exige alem da frota. Em 1,0 o tempo corre na
+// velocidade real; acima disso a corrida esta sendo acelerada, o que
+// distorce o intervalo entre amostras de um mesmo carro.
+var residualCompression = rate / (naturalRate * fleet);
+
+Console.WriteLine(
+    $"Duracao original: {span.TotalMinutes:0} min | " +
+    $"{distinctDrivers} carros | " +
+    $"taxa natural: {naturalRate:0} ev/s");
+Console.WriteLine(
+    $"Frota: {fleet}x = {distinctDrivers * fleet:N0} carros | " +
+    $"compressao temporal residual: {residualCompression:0.00}x" +
+    (fleetArg == "auto" ? " (fator escolhido automaticamente)" : $" (recomendado: {recommendedFleet}x)"));
 
 IEventSink sink = sinkName switch
 {
@@ -56,7 +71,7 @@ Console.WriteLine($"Destino: {sink.Name} | alvo: {rate:N0} ev/s | " +
 
 var replayer = new OpenLoopReplayer(data, sink);
 var result = await replayer.RunAsync(
-    new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup },
+    new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet },
     cts.Token);
 
 await sink.DisposeAsync();
@@ -98,6 +113,9 @@ static void PrintUsage() => Console.WriteLine("""
       --duration <s>       Duracao da janela de medicao (padrao: 30)
       --warmup <s>         Aquecimento descartado antes de medir (padrao: 5)
       --sink <nome>        Destino dos eventos (por enquanto: null)
+      --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a
+                           mesma cadencia de sensor (padrao: auto, que escolhe
+                           o fator que entrega a taxa alvo sem acelerar o tempo)
       --max-events <n>     Limita quantos eventos carregar (testes rapidos)
 
     Codigo de saida 2 indica que o gerador nao sustentou a taxa alvo.

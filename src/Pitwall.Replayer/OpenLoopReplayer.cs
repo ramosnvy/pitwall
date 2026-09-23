@@ -23,6 +23,7 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
     public async Task<ReplayResult> RunAsync(ReplayOptions options, CancellationToken ct)
     {
         var events = dataset.Events;
+        var amplifier = new FleetAmplifier(options.FleetFactor);
         if (events.Length == 0)
         {
             throw new InvalidOperationException("O dataset esta vazio.");
@@ -34,6 +35,7 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
 
         long emitted = 0, emittedAfterWarmup = 0, maxLatenessTicks = 0;
         var index = 0;
+        var replica = 0;
         var lap = 0;
 
         var startTimestamp = Stopwatch.GetTimestamp();
@@ -56,14 +58,12 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
                 maxLatenessTicks = lateness;
             }
 
-            var source = events[index];
-
             // O dataset tem duracao finita. Para sustentar a carga por mais
             // tempo, ele e reproduzido em ciclo; o numero da volta entra no
             // sequencial para que cada evento publicado seja unico.
-            var evt = source with
+            var sequence = ((lap * (long)events.Length) + index) * options.FleetFactor + replica;
+            var evt = amplifier.Replicate(events[index], replica, sequence) with
             {
-                Sequence = lap * (long)events.Length + index,
                 PublishedTicks = Stopwatch.GetTimestamp()
             };
 
@@ -80,10 +80,18 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
                 emittedAfterWarmup++;
             }
 
-            if (++index == events.Length)
+            // Percorre as replicas de uma amostra antes de passar para a
+            // proxima: e assim que uma frota se comporta, com todos os
+            // carros reportando dentro do mesmo intervalo de amostragem.
+            if (++replica == options.FleetFactor)
             {
-                index = 0;
-                lap++;
+                replica = 0;
+
+                if (++index == events.Length)
+                {
+                    index = 0;
+                    lap++;
+                }
             }
         }
 
@@ -145,6 +153,12 @@ public sealed record ReplayOptions
     public required int TargetRate { get; init; }
     public required TimeSpan Duration { get; init; }
     public TimeSpan Warmup { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Quantas vezes a frota do dataset e replicada. 1 mantem os 20 carros
+    /// originais; 50 simula mil carros com a mesma cadencia de sensor.
+    /// </summary>
+    public int FleetFactor { get; init; } = 1;
 }
 
 public sealed record ReplayResult

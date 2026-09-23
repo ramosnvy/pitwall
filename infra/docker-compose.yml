@@ -72,7 +72,15 @@ services:
       # declarado no experimento.
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_NUM_PARTITIONS: ${KAFKA_PARTITIONS:-4}
-      KAFKA_LOG_RETENTION_HOURS: 2
+      # Retencao curta: a 100 mil ev/s o log cresce cerca de 7 MB/s, entao
+      # duas horas de retencao guardariam dezenas de GB de rodadas ja
+      # analisadas. As rodadas duram minutos e o topico e recriado entre elas.
+      KAFKA_LOG_RETENTION_MINUTES: 15
+      # Compressao desligada: o workload replica a mesma amostra em varios
+      # carros, entao os lotes ficam cheios de bytes parecidos e a compressao
+      # renderia muito mais do que renderia com telemetria real, inflando o
+      # throughput do Kafka por artefato do workload e nao por arquitetura.
+      KAFKA_COMPRESSION_TYPE: none
       KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx2G -Xms2G}
     volumes:
       - kafka-data:/var/lib/kafka/data
