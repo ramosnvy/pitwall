@@ -62,6 +62,29 @@ Detalhadas em [PLANO.md](PLANO.md), seção 1. As que mudam o escopo declarado n
 | Payload binário de 44 B | Precisa constar na metodologia |
 | Tamanho da mensagem como fator | Acrescenta um fator ao desenho experimental |
 | Compressão desligada | Entra na tabela de configuração dos brokers |
+| Definição de processamento (1d) | O TCC1 não define o que o módulo processa; agora está definido e fundamentado |
+| Grau de paralelismo | O TCC1 não declara quantos consumers/workers; precisa ser fixado e equalizado entre os brokers |
+| Semântica de entrega | O TCC1 não menciona garantias; agora é at-least-once dos dois lados, sem idempotência |
+
+### 3.3 Lacunas do TCC1 identificadas na implementação
+
+Pontos que o TCC1 não trata e que precisam entrar no texto do TCC2.
+
+**Tudo roda em uma máquina só.** Produtor, broker, processamento e banco estão no mesmo host — não há rede entre os componentes. Isso é uma ameaça à validade que precisa ser declarada, e limita o alcance da conclusão: os resultados descrevem uma implantação de nó único, não um cenário distribuído. Parte das vantagens do Kafka (replicação, tolerância a falhas, múltiplos consumidores em máquinas distintas) não aparece nessa configuração. Também é o que torna a medição de latência válida, já que os relógios do produtor e do consumidor são o mesmo contador.
+
+**Ponto de saturação como métrica principal.** O TCC1 lista latência, throughput, CPU e memória. A vazão máxima sustentável de cada arquitetura — a carga em que a latência dispara — é o número mais forte que o trabalho pode produzir e não está na lista.
+
+**Correção do resultado como critério.** O DEBS Grand Challenge avalia submissões também por correção. O `ResultDigest` cumpre esse papel: as seis variantes têm de produzir o mesmo resultado. Não é métrica de desempenho, é critério de validade da rodada.
+
+**Jitter.** O RIoTBench mede a diferença entre a taxa esperada e a real. O replayer já registra isso do lado do produtor.
+
+**Literatura de benchmarks ausente nos Trabalhos Relacionados.** O TCC1 cita apenas comparações entre brokers. Falta a linha de benchmarks de stream processing (YSB, Linear Road, DEBS, RIoTBench, ESPBench), que é o que fundamenta a escolha das operações e do protocolo experimental.
+
+**A OpenF1 entrega uma fração da telemetria real.** São 3,7 Hz por carro, contra 150 a 300 sensores a até 100 Hz num carro de F1 real. Melhor declarar no texto do que deixar a banca apontar; a multiplicação de frota é a resposta.
+
+**Protocolo de isolamento entre rodadas.** Tópico recriado e tabelas truncadas a cada rodada. Afeta a reprodutibilidade e precisa estar descrito na metodologia.
+
+**Níveis de carga e repetições.** O TCC1 diz "diferentes níveis de carga" sem valores. Definir: 1k, 10k, 50k e 100k ev/s mais o teste de saturação, com no mínimo 10 repetições em ordem aleatória.
 
 ## 4. Pendências de implementação, em ordem
 
