@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using HdrHistogram;
 using Pitwall.Consumer;
 using Pitwall.Consumer.Pipelines;
@@ -227,20 +228,20 @@ static void WriteReport(
         partitions,
         targetRate,
         replication,
-        syntheticCost,
+        syntheticCost.ToString(CultureInfo.InvariantCulture),
         persist ? 1 : 0,
         received,
-        seconds.ToString("0.000"),
-        throughput.ToString("0.0"),
-        histogram.GetMean().ToString("0.0"),
+        seconds.ToString("0.000", CultureInfo.InvariantCulture),
+        throughput.ToString("0.0", CultureInfo.InvariantCulture),
+        histogram.GetMean().ToString("0.0", CultureInfo.InvariantCulture),
         histogram.GetValueAtPercentile(50),
         histogram.GetValueAtPercentile(95),
         histogram.GetValueAtPercentile(99),
         histogram.GetMaxValue(),
-        resources.AverageCpuPercent.ToString("0.0"),
-        resources.PeakCpuPercent.ToString("0.0"),
-        resources.AverageMemoryMb.ToString("0.0"),
-        resources.PeakMemoryMb.ToString("0.0"),
+        resources.AverageCpuPercent.ToString("0.0", CultureInfo.InvariantCulture),
+        resources.PeakCpuPercent.ToString("0.0", CultureInfo.InvariantCulture),
+        resources.AverageMemoryMb.ToString("0.0", CultureInfo.InvariantCulture),
+        resources.PeakMemoryMb.ToString("0.0", CultureInfo.InvariantCulture),
         gc.Gen0,
         gc.Gen1,
         gc.Gen2,

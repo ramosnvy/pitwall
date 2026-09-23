@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Diagnostics;
 using Pitwall.Workload;
 using Pitwall.Replayer.Sinks;
@@ -20,6 +21,7 @@ var sinkName = GetArg("--sink") ?? "null";
 var maxEvents = GetArg("--max-events") is { } m ? int.Parse(m) : (int?)null;
 var fleetArg = GetArg("--fleet") ?? "auto";
 var exactEvents = GetArg("--events") is { } e ? long.Parse(e) : (long?)null;
+var producerReport = GetArg("--report");
 
 if (args.Contains("--help") || args.Contains("-h"))
 {
@@ -110,6 +112,32 @@ switch (sink)
     case RabbitMqSink rabbit:
         Console.WriteLine($"Confirmados pelo broker: {rabbit.Published:N0}");
         break;
+}
+
+if (producerReport is not null)
+{
+    // Lado do produtor: taxa obtida e jitter de emissao. O RIoTBench mede a
+    // diferenca entre a taxa esperada e a real como metrica propria.
+    var exists = File.Exists(producerReport);
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(producerReport))!);
+
+    using var w = new StreamWriter(producerReport, append: true);
+
+    if (!exists)
+    {
+        w.WriteLine("timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps");
+    }
+
+    w.WriteLine(string.Join(',',
+        DateTimeOffset.UtcNow.ToString("o"),
+        sink.Name,
+        result.TargetRate,
+        result.AchievedRate.ToString("0.0", CultureInfo.InvariantCulture),
+        result.RateErrorPercent.ToString("0.000", CultureInfo.InvariantCulture),
+        result.MaxLatenessMs.ToString("0.00", CultureInfo.InvariantCulture),
+        result.EventsEmitted,
+        fleet,
+        result.DatasetLaps));
 }
 
 // Um atraso alto significa que o gerador nao conseguiu manter o ritmo: a

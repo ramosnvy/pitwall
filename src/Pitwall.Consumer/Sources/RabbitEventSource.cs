@@ -35,7 +35,7 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
 
         await using var connection = await factory.CreateConnectionAsync(ct);
 
-        var idle = new IdleWatchdog(options.IdleTimeout);
+        var idle = new IdleWatchdog(options.IdleTimeout, options.StartupTimeout);
         var counts = new long[options.Partitions];
         var channels = new IChannel[options.Partitions];
 
@@ -108,17 +108,36 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
     /// Encerra a rodada quando para de chegar mensagem. O RabbitMQ entrega por
     /// callback e nao avisa que a fila secou, entao o silencio e o sinal.
     /// </summary>
-    private sealed class IdleWatchdog(TimeSpan timeout)
+    private sealed class IdleWatchdog(TimeSpan timeout, TimeSpan startupTimeout)
     {
         private long _lastTicks = DateTime.UtcNow.Ticks;
+        private int _sawMessage;
 
-        public void Touch() => Interlocked.Exchange(ref _lastTicks, DateTime.UtcNow.Ticks);
+        public void Touch()
+        {
+            Interlocked.Exchange(ref _lastTicks, DateTime.UtcNow.Ticks);
+            Interlocked.Exchange(ref _sawMessage, 1);
+        }
 
         public async Task WaitForSilenceAsync(CancellationToken ct)
         {
+            var startupDeadline = DateTime.UtcNow + startupTimeout;
+
             while (!ct.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(250), ct);
+
+                // Antes da primeira mensagem o silencio so significa que o
+                // produtor ainda nao comecou.
+                if (Interlocked.CompareExchange(ref _sawMessage, 0, 0) == 0)
+                {
+                    if (DateTime.UtcNow < startupDeadline)
+                    {
+                        continue;
+                    }
+
+                    return;
+                }
 
                 var last = new DateTime(Interlocked.Read(ref _lastTicks), DateTimeKind.Utc);
 
@@ -142,4 +161,7 @@ public sealed record RabbitSourceOptions
     public int Partitions { get; init; } = 4;
     public ushort Prefetch { get; init; } = 1000;
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>Espera pela primeira mensagem, antes de o tempo ocioso valer.</summary>
+    public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromMinutes(5);
 }

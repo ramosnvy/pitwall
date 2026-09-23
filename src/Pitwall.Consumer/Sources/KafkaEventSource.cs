@@ -44,6 +44,7 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
         consumer.Assign(new TopicPartitionOffset(options.Topic, partition, Offset.Beginning));
 
         long consumed = 0;
+        var startupDeadline = DateTime.UtcNow + options.StartupTimeout;
 
         try
         {
@@ -53,8 +54,15 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
 
                 if (result?.Message is null)
                 {
-                    // Nenhuma mensagem dentro do tempo limite: o produtor
-                    // terminou e a particao esta drenada.
+                    // Antes da primeira mensagem, o silencio significa que o
+                    // produtor ainda nao comecou -- encerrar aqui faria a
+                    // rodada terminar com zero evento. Depois da primeira,
+                    // significa que a particao drenou.
+                    if (consumed == 0 && DateTime.UtcNow < startupDeadline)
+                    {
+                        continue;
+                    }
+
                     break;
                 }
 
@@ -86,4 +94,7 @@ public sealed record KafkaSourceOptions
 
     /// <summary>Tempo sem mensagem que encerra a rodada.</summary>
     public TimeSpan IdleTimeout { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>Espera pela primeira mensagem, antes de o tempo ocioso valer.</summary>
+    public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromMinutes(5);
 }

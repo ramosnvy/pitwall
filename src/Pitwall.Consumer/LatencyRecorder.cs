@@ -92,6 +92,11 @@ public sealed class LatencyRecorder(int lanes)
     {
         var h = Merged();
 
+        if (h.TotalCount == 0)
+        {
+            return "sem eventos";
+        }
+
         return $"n={h.TotalCount:N0} | media={h.GetMean() / 1000:0.00}ms | " +
                $"P50={h.GetValueAtPercentile(50) / 1000.0:0.00}ms | " +
                $"P95={h.GetValueAtPercentile(95) / 1000.0:0.00}ms | " +
