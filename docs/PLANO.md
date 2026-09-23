@@ -34,7 +34,13 @@ A comparação deve ser apresentada no artigo como "processamento orientado a ob
 
 ### 1c. Baseline
 
-Incluir a variante *Direct* (processamento no próprio callback do consumer, sem mecanismo interno). Sem ela não é possível separar o efeito do broker do efeito do mecanismo de processamento. A matriz passa a ser 2 brokers × 3 modos.
+**Decidido:** incluir a variante *Direct* — processamento no próprio callback do consumer, sem mecanismo interno. A matriz passa a ser 2 brokers × 3 modos.
+
+**Por que acrescentar algo que o TCC1 não previa.** A *Direct* não é uma quarta arquitetura: é o **grupo de controle** do experimento. Sem ela, um resultado como "Kafka + Channels entrega 80 mil ev/s contra 60 mil do RabbitMQ + Channels" permite concluir que o broker importa, mas não responde se o Channels ajudou ou atrapalhou — o Kafka sozinho poderia entregar 95 mil, e o Channels estar custando 15 mil.
+
+O título do trabalho promete avaliar *arquiteturas compostas*. Medir a composição exige medir também o não-composto. Sem o controle, o trabalho mede a diferença entre dois brokers com um mecanismo por cima, e não o efeito do mecanismo.
+
+Custo: duas células a mais na matriz, e são as duas mais simples de implementar das seis.
 
 ### 1d. Definição de "processamento"
 
@@ -88,8 +94,26 @@ Usar a mesma garantia de entrega (at-least-once) nos dois e publicar as configur
 
 ## 2. Desenho experimental
 
-- **Fatores:** broker (2) × mecanismo (3) × nível de carga (4 a 5).
-- **Por execução:** warm-up de 30 a 60 s descartado, janela de medição fixa de 3 a 5 min, no mínimo 10 repetições por combinação, em ordem aleatória.
+- **Fatores:** broker (2) × mecanismo (3) × nível de carga.
+- **Os níveis de carga saem do piloto, não são fixados antes.** Primeiro uma varredura crescente até a latência disparar em cada uma das seis variantes — é assim que se descobre o ponto de saturação de cada uma. Só depois se escolhem os níveis oficiais, de modo que pelo menos um fique acima do joelho da curva de cada arquitetura. Fixar 100 mil ev/s de antemão seria arbitrário: se o RabbitMQ saturar em 40 mil, medir a 100 mil só produz gráfico de sistema quebrado. Para referência, o DEBS 2013 operou em torno de 15 mil ev/s.
+- **Tamanho da mensagem em projeto fatorial fracionado:** avaliado apenas em duas cargas (uma intermediária e a de saturação), não nas quatro. O fatorial completo dobraria o tempo de máquina sem dobrar a informação (Jain, 1991).
+- **Por execução:** warm-up descartado, janela de medição fixa e repetições em ordem aleatória. Dimensionamento em *Orçamento de tempo de máquina*, abaixo.
+
+### Orçamento de tempo de máquina
+
+O tempo de experimento é tempo real e não pode ser acelerado: latência em milissegundos e vazão por segundo **são** medidas de relógio de parede. Acelerar o gerador não encurta o experimento — aumenta a carga, que é outro experimento. Os ajustes legítimos são outros:
+
+| Alavanca | Efeito |
+| --- | --- |
+| Janela de medição curta | A precisão estatística vem do número de amostras, não da duração. A 50 mil ev/s, 90 s já são 4,5 milhões de eventos — muito além do necessário para P99 |
+| Repetições dimensionadas | Rodar 3 repetições piloto, medir o coeficiente de variação e calcular quantas bastam para o intervalo de confiança desejado, em vez de fixar 10 |
+| Warm-up por estado estável | Encerrar o aquecimento quando a vazão estabiliza, em vez de esperar um tempo fixo |
+| Fatorial fracionado | Tamanho de mensagem só em duas cargas |
+| Execução desatendida | Rodar a matriz de madrugada: tempo de máquina não é tempo de pessoa |
+
+Com 5 repetições, 90 s de medição e 30 s de aquecimento e limpeza, a matriz base cai de cerca de 24 h para **cerca de 5 h**.
+
+**Contrapartida a cobrir:** janelas curtas podem esconder efeitos lentos — pausas de GC, rotação de segmento no Kafka, descarga de cache de página. Mitigação: uma execução longa (10 a 15 min) por arquitetura, na carga de saturação, para confirmar que as janelas curtas não escondem deriva.
 - **Gerador de carga em malha aberta** (taxa fixa, independente do término do evento anterior), para evitar *coordinated omission* nos percentis.
 - **Análise:** projeto fatorial 2^k com replicação (Jain, 1991) para atribuir a variação a cada fator; ANOVA ou Kruskal-Wallis e intervalos de confiança.
 - **Ambiente:** hardware documentado, limites de CPU e memória fixos nos containers, execuções sem outros programas ativos. Preferência por máquina Linux dedicada; em Docker Desktop no Windows, registrar a configuração do WSL2.

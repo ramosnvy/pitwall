@@ -76,4 +76,21 @@ As seis variantes processam a mesma entrada e devem produzir resultado idêntico
 
 O processamento roda a 8,6 milhões de eventos/s em uma thread, cerca de 1% de um núcleo no nível de carga mais alto planejado. O experimento será dominado pelo transporte.
 
-*Mitigação:* previsto e desejado para isolar a arquitetura. Se o piloto mostrar empate entre as variantes, ligar o custo sintético por evento (já implementado, desligado por padrão) e tratar intensidade de processamento como fator explícito.
+*Mitigação:* previsto e desejado para isolar a arquitetura. Se as variantes empatarem, seguir a escalada da seção abaixo.
+
+### Empate entre variantes: escalada definida
+
+Um empate só é resultado se for **medido**, não se for ruído. Antes de qualquer conclusão, definir o tamanho de efeito que importa — por exemplo 10% de vazão ou 20% no P99 — e dimensionar as repetições para que o experimento consiga detectá-lo. Sem isso, "não houve diferença" é apenas dizer que a medição foi imprecisa.
+
+Ordem de escalada quando as variantes empatam:
+
+1. **Subir a carga até a saturação.** Empate em carga baixa é o esperado: nada está sendo pressionado. As diferenças aparecem no joelho da curva. Um empate abaixo de certa carga já é um achado publicável — *abaixo de X ev/s, a escolha da arquitetura não afeta o desempenho*.
+2. **Aumentar a mensagem para ~1 KB.** Mensagem maior carrega o caminho de bytes, onde Pipelines deve se distinguir de Channels.
+3. **Ligar o custo sintético por evento** (5 e 20 µs, já implementado e desligado). Desloca o gargalo do transporte para o processamento, que é onde os mecanismos internos diferem.
+4. **Reportar o empate com intervalos de confiança.** "Sem diferença estatisticamente significativa" é resultado, não fracasso: a conclusão prática vira *escolha por critérios operacionais, não por desempenho* — o que é conselho de engenharia legítimo e útil.
+
+## Testes adiados, a lembrar
+
+- **Bateria exploratória com compressão ligada no Kafka** (lz4 ou zstd), rotulada como não comparável com a bateria controlada, para registrar quanto o ganho seria superestimado por este workload.
+- **Ruído por réplica e teste de sensibilidade**, para verificar empiricamente se a replicação da frota afeta latência e vazão. Se não afetar, a replicação fica justificada por medição e não por argumento.
+- **Execução longa** (10 a 15 min) por arquitetura na carga de saturação, para confirmar que as janelas curtas de medição não escondem deriva causada por GC, rotação de segmento ou descarga de cache.
