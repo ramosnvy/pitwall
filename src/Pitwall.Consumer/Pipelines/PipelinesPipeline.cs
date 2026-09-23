@@ -28,7 +28,7 @@ public sealed class PipelinesPipeline : IProcessingPipeline
         int lanes,
         int pauseBytes,
         ProcessingOptions options,
-        ResultDigest digest,
+        Action<DriverWindowStats> onWindow,
         LatencyRecorder latency)
     {
         _latency = latency;
@@ -45,7 +45,7 @@ public sealed class PipelinesPipeline : IProcessingPipeline
                 useSynchronizationContext: false));
 
             var index = lane;
-            var processor = new TelemetryProcessor(options, stats => digest.Add(stats));
+            var processor = new TelemetryProcessor(options, onWindow);
 
             _workers[lane] = Task.Run(() => ConsumeAsync(index, processor));
         }

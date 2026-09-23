@@ -16,11 +16,11 @@ public sealed class DirectPipeline : IProcessingPipeline
     private readonly TelemetryProcessor[] _processors;
     private readonly LatencyRecorder _latency;
 
-    public DirectPipeline(int lanes, ProcessingOptions options, ResultDigest digest, LatencyRecorder latency)
+    public DirectPipeline(int lanes, ProcessingOptions options, Action<DriverWindowStats> onWindow, LatencyRecorder latency)
     {
         _latency = latency;
         _processors = Enumerable.Range(0, lanes)
-            .Select(_ => new TelemetryProcessor(options, stats => digest.Add(stats)))
+            .Select(_ => new TelemetryProcessor(options, onWindow))
             .ToArray();
     }
 

@@ -22,6 +22,26 @@ Os containers rodam numa VM Linux com 8 GB, enquanto os processos .NET rodam no 
 
 *Mitigação:* limites fixos de CPU e memória por container, repetições em ordem aleatória, hardware e configuração do WSL2 documentados.
 
+### Variância entre execuções — medida, e alta
+
+**Evidência coletada.** A mesma configuração (`kafka-channels`, 4 faixas, 20 mil ev/s, 200 mil eventos) produziu, em execuções sucessivas:
+
+| Execução | Latência média | P99 |
+| --- | --- | --- |
+| 1 | 3,92 ms | 7,02 ms |
+| 2 | 25,40 ms | 49,25 ms |
+| 3 | 515,75 ms | 3.035,14 ms |
+| 4 | 3,64 ms | 6,36 ms |
+| 5 | 3,67 ms | 6,62 ms |
+
+Três ordens de grandeza de diferença sem que nada na configuração mudasse.
+
+*Consequência direta:* **uma execução isolada não significa nada neste ambiente.** Isso valida, com dado próprio, a exigência de repetições, ordem aleatória e intervalos de confiança — e é material para a seção de metodologia, não apenas para as ameaças.
+
+*Episódio a registrar:* a execução 3 foi inicialmente interpretada como custo da persistência, que havia sido ligada naquela rodada. Ao repetir a medição com persistência ligada (execuções 4 e 5), a latência voltou a 3,6 ms. A hipótese estava errada: era ruído de ambiente, não custo de banco. O caso ilustra por que nenhuma conclusão pode sair de uma execução única.
+
+*Mitigação:* descartar rodadas cujo atraso máximo de emissão exceda o limite, repetir o suficiente para o intervalo de confiança desejado, e verificar outliers antes de interpretá-los.
+
 ### Persistência como gargalo oculto
 
 Se o PostgreSQL saturar, as seis variantes parecem iguais e a arquitetura fica invisível.

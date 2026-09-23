@@ -22,6 +22,12 @@ public sealed class LatencyRecorder(int lanes)
     private readonly LongHistogram[] _histograms = CreateHistograms(lanes);
     private readonly long[] _counts = new long[lanes];
 
+    // Primeiro e ultimo evento de cada faixa, para medir a vazao sobre a
+    // janela em que houve trafego. Incluir a espera ociosa que encerra a
+    // rodada no denominador subestimaria a vazao.
+    private readonly long[] _firstTicks = new long[lanes];
+    private readonly long[] _lastTicks = new long[lanes];
+
     public void Record(int lane, long publishedTicks)
     {
         var micros = (long)((Stopwatch.GetTimestamp() - publishedTicks) / TicksPerMicrosecond);
@@ -34,10 +40,41 @@ public sealed class LatencyRecorder(int lanes)
         }
 
         _histograms[lane].RecordValue(micros);
+
+        var now = Stopwatch.GetTimestamp();
+
+        if (_counts[lane] == 0)
+        {
+            _firstTicks[lane] = now;
+        }
+
+        _lastTicks[lane] = now;
         _counts[lane]++;
     }
 
     public long TotalCount => _counts.Sum();
+
+    /// <summary>
+    /// Duracao da janela em que houve trafego: do primeiro ao ultimo evento
+    /// processado, sem a espera ociosa do encerramento.
+    /// </summary>
+    public double ActiveSeconds
+    {
+        get
+        {
+            var active = Enumerable.Range(0, _counts.Length).Where(i => _counts[i] > 0).ToArray();
+
+            if (active.Length == 0)
+            {
+                return 0;
+            }
+
+            var first = active.Min(i => _firstTicks[i]);
+            var last = active.Max(i => _lastTicks[i]);
+
+            return (last - first) / (double)Stopwatch.Frequency;
+        }
+    }
 
     public LongHistogram Merged()
     {

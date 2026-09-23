@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Pitwall.Consumer/Pitwall.Consumer.csproj" />
     <Project Path="src/Pitwall.Contracts/Pitwall.Contracts.csproj" />
+    <Project Path="src/Pitwall.Persistence/Pitwall.Persistence.csproj" />
     <Project Path="src/Pitwall.Processing.Core/Pitwall.Processing.Core.csproj" />
     <Project Path="src/Pitwall.Replayer/Pitwall.Replayer.csproj" />
     <Project Path="src/Pitwall.Workload/Pitwall.Workload.csproj" />
