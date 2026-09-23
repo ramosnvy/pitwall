@@ -20,7 +20,7 @@ namespace Pitwall.Replayer.Sinks;
 public sealed class RabbitMqSink : IEventSink
 {
     private readonly RabbitMqSinkOptions _options;
-    private IConnection? _connection;
+    private IConnection[] _connections = [];
     private IChannel[] _channels = [];
     private ValueTask[][] _pending = [];
     private int[] _pendingCount = [];
@@ -56,7 +56,14 @@ public sealed class RabbitMqSink : IEventSink
             Password = _options.Password
         };
 
-        _connection = await factory.CreateConnectionAsync(ct);
+        var connectionCount = _options.ConnectionPerLane ? _options.Partitions : 1;
+
+        _connections = new IConnection[connectionCount];
+
+        for (var i = 0; i < connectionCount; i++)
+        {
+            _connections[i] = await factory.CreateConnectionAsync(ct);
+        }
 
         _channels = new IChannel[_options.Partitions];
         _pending = new ValueTask[_options.Partitions][];
@@ -64,11 +71,17 @@ public sealed class RabbitMqSink : IEventSink
 
         for (var lane = 0; lane < _options.Partitions; lane++)
         {
+            // Uma conexao TCP por faixa, conforme a recomendacao do proprio
+            // RabbitMQ para publicacao em alta vazao: canais compartilham o
+            // socket da conexao, entao varios canais numa conexao unica ainda
+            // disputam a mesma saida de rede.
+            var connection = _connections[_options.ConnectionPerLane ? lane : 0];
+
             // Publisher confirms com rastreamento: o equivalente do acks=all do
             // Kafka. As confirmacoes nao sao aguardadas uma a uma -- isso poria
             // o gerador em malha fechada, limitando a taxa ao tempo de ida e
             // volta do broker -- e sim em barreira a cada lote por faixa.
-            _channels[lane] = await _connection.CreateChannelAsync(
+            _channels[lane] = await connection.CreateChannelAsync(
                 new CreateChannelOptions(
                     publisherConfirmationsEnabled: true,
                     publisherConfirmationTrackingEnabled: true),
@@ -169,9 +182,9 @@ public sealed class RabbitMqSink : IEventSink
             await channel.DisposeAsync();
         }
 
-        if (_connection is not null)
+        foreach (var connection in _connections)
         {
-            await _connection.DisposeAsync();
+            await connection.DisposeAsync();
         }
     }
 }
@@ -201,8 +214,15 @@ public sealed record RabbitMqSinkOptions
 
     /// <summary>
     /// Publicacoes em voo POR FAIXA antes da barreira de confirmacao. Com P
-    /// canais o total em voo e P vezes este valor, por isso o padrao caiu de
-    /// 1.000 para 250 quando o produtor passou a usar um canal por faixa.
+    /// canais o total em voo e P vezes este valor. O piloto mediu: com 250 o
+    /// produtor travava em 42,6 mil ev/s; com 1.000 subiu para 59,2 mil, sem
+    /// custo de latencia em carga normal (ver docs/PILOTO.md).
     /// </summary>
-    public int ConfirmBatchSize { get; init; } = 250;
+    public int ConfirmBatchSize { get; init; } = 1000;
+
+    /// <summary>
+    /// Uma conexao TCP por faixa, em vez de uma conexao compartilhada por todos
+    /// os canais. E a recomendacao do RabbitMQ para publicacao em alta vazao.
+    /// </summary>
+    public bool ConnectionPerLane { get; init; } = true;
 }

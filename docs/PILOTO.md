@@ -53,6 +53,64 @@ A comparação 2 × 3 completa acontece nos três primeiros níveis. Os três ú
 
 **Jitter no critério de saturação.** Sem ele, o script classificava como válidas rodadas em que o gerador não sustentou a taxa — exatamente o que mascarou o problema do RabbitMQ na primeira varredura.
 
-## Questão em aberto
+## Ajuste de configuração dos dois brokers
 
-O teto de publicação do RabbitMQ pode subir mais com uma conexão TCP por faixa (hoje são quatro canais sobre uma conexão) ou com barreira de confirmação maior. Vale um teste limitado antes da matriz oficial: se o teto subir muito, a faixa de comparação entre os dois brokers aumenta, e o trabalho ganha alcance.
+Regra adotada: **aplicar o que cada fornecedor documenta como prática padrão para vazão, medir, e parar aí.** Sem busca por configuração ótima — isso levaria a ajustar um lado até ele ganhar.
+
+### RabbitMQ: o gargalo era a barreira de confirmação, não a conexão
+
+A 60 mil ev/s alvo:
+
+| Configuração | Taxa publicada | Jitter |
+| --- | --- | --- |
+| 1 conexão, barreira 250 | 42.396 ev/s | 4.150 ms |
+| 4 conexões, barreira 250 | 42.603 ev/s | 4.082 ms |
+| 4 conexões, barreira 1000 | **59.227 ev/s** | 353 ms |
+| 4 conexões, barreira 4000 | 59.945 ev/s | 324 ms |
+
+**A conexão por faixa não teve efeito mensurável** (42,4 mil contra 42,6 mil), embora seja a recomendação do fornecedor. Foi mantida por ser a prática documentada, e o fato de não alterar nada é em si um dado a registrar.
+
+**A barreira de confirmação era o limite real.** Com 250 publicações em voo por faixa, o produtor passava o tempo esperando confirmação. Em 1.000, o teto foi de 42,6 mil para 59,2 mil. De 1.000 para 4.000 o ganho foi marginal.
+
+Custo em latência: **nenhum em carga normal.** A 10 mil ev/s, barreira 250 e 1.000 deram a mesma média de 1,11 ms.
+
+Teto do RabbitMQ com a configuração congelada: **cerca de 60 mil ev/s** (a 80 mil, o produtor trava em 60,3 mil com 3,3 s de atraso).
+
+### Kafka: `linger.ms` é tão crítico quanto
+
+| Configuração | Taxa | Publicado | Latência média do consumidor |
+| --- | --- | --- | --- |
+| `linger.ms=0` | 10.000 | 6.497 ev/s | **3.005 ms** |
+| `linger.ms=5` | 10.000 | 9.999 ev/s | 3,73 ms |
+| `linger.ms=5` | 200.000 | 199.741 ev/s | 7,53 ms |
+| `linger.ms=5` | 300.000 | 299.855 ev/s | 4,34 ms |
+| `linger.ms=5` | 400.000 | 399.838 ev/s | 5,41 ms |
+
+Com `linger.ms=0`, o Kafka desaba para 6,5 mil ev/s e 3 segundos de latência: cada mensagem vira uma ida e volta com `acks=all`. O parâmetro de agrupamento é tão determinante para o Kafka quanto a barreira de confirmação é para o RabbitMQ — **os dois são sensíveis a agrupamento, e comparar sem ajustar ambos produziria resultado arbitrário.**
+
+Teto do Kafka: **acima de 400 mil ev/s**, sem saturar. O gerador foi validado até 500 mil.
+
+## Configuração congelada
+
+| Parâmetro | Kafka | RabbitMQ |
+| --- | --- | --- |
+| Garantia de entrega | `acks=all` | publisher confirms |
+| Agrupamento | `linger.ms=5`, `batch.size=64 KB` | barreira de 1.000 por faixa |
+| Compressão | desligada | não aplicável |
+| Paralelismo | 4 partições | 4 filas, 4 canais, 4 conexões |
+| Durabilidade | log (padrão) | mensagens persistentes |
+| Idempotência | desligada | não aplicável |
+
+## Níveis de carga definidos
+
+| Nível | Brokers | Papel |
+| --- | --- | --- |
+| 5.000 | ambos | Carga baixa |
+| 10.000 | ambos | Ambos confortáveis |
+| 20.000 | ambos | |
+| 30.000 | ambos | Próximo do joelho do RabbitMQ |
+| 100.000 | só Kafka | Além do alcance do RabbitMQ |
+| 200.000 | só Kafka | |
+| 400.000 | só Kafka | Topo medido |
+
+A comparação 2 × 3 completa ocorre nos quatro primeiros níveis. A razão entre os tetos é de cerca de **7×** (60 mil contra mais de 400 mil) — e esse número só é defensável porque foi obtido depois de ajustar os dois lados de boa-fé.
