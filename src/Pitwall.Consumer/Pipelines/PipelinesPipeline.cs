@@ -14,8 +14,8 @@ namespace Pitwall.Consumer.Pipelines;
 /// copia bytes, o que e o cenario em que o System.IO.Pipelines foi feito
 /// para brilhar.
 ///
-/// Como o registro tem tamanho fixo de 44 bytes, nao e preciso prefixo de
-/// tamanho para saber onde um evento termina: o leitor consome de 44 em 44.
+/// Como o registro tem tamanho fixo (TelemetryCodec.Size, 46 bytes), nao e preciso prefixo de
+/// tamanho para saber onde um evento termina: o leitor consome um registro de cada vez.
 /// Isso evita dar a esta variante um cabecalho que a Channels nao pagaria.
 /// </summary>
 public sealed class PipelinesPipeline : IProcessingPipeline

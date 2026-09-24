@@ -197,6 +197,8 @@ O primeiro teste concorrente já mostrava isso, antes da correção do timer: `k
 
 Com carga uniforme, os três mecanismos tendem a empatar: nada os diferencia. Tornar o custo sintético probabilístico — por exemplo, 1 evento em cada 10 mil custando 50 ms — isola exatamente a propriedade que o §4.1 descreve. Direct deve degradar; Channels e Pipelines devem absorver; e o efeito deve diferir entre os brokers. É uma propriedade arquitetural qualitativa, não velocidade bruta, e responde "quando o mecanismo interno importa?" melhor que um empate. Custo: cerca de dez linhas no `TelemetryProcessor`, já existe o `SyntheticCostMicros`.
 
+**Correção posterior:** a previsão de que Channels e Pipelines absorveriam o evento lento está errada para a implementação atual. Com um worker por faixa, um evento de 50 ms segura os seguintes da mesma faixa do mesmo jeito que no Direct; o canal só muda onde eles esperam, não quanto. A absorção exige vários workers por faixa, separados por carro. A hipótese corrigida, com um modelo da fração de eventos afetados, está em [APROFUNDAMENTO.md](APROFUNDAMENTO.md), Q3.
+
 ### 4.3 RabbitMQ Streams — decisão pendente
 
 Registrado em docs/PILOTO.md: o tópico do Kafka é um log e a fila clássica é uma fila; o fornecedor declara que "a super stream corresponds to a Kafka topic". Incluir streams separaria o efeito do broker do efeito da abstração. Aguarda o orientador.

@@ -70,6 +70,12 @@ Se o PostgreSQL saturar, as seis variantes parecem iguais e a arquitetura fica i
 
 *Mitigação:* tabelas UNLOGGED, `synchronous_commit=off`, escrita em lote com `COPY` binário, latência medida até o fim do processamento e bateria adicional sem persistência.
 
+### Mecanismos internos usados no modo padrão
+
+A matriz usa Channels e Pipelines no modo mais simples: um worker por faixa, um evento por despertar e flush do pipe a cada mensagem. O excesso de CPU medido em relação ao Direct, ~3,6 µs por evento, tem a ordem de grandeza de acordar uma thread, não de pôr um item numa fila. A conclusão "desacoplar custa CPU sem ganho de latência" pode ser do uso, não das ferramentas.
+
+*Mitigação:* a conclusão da matriz é apresentada como resultado do **uso padrão**. As camadas de lote, escalonamento, topologia e contrapressão são medidas à parte, com hipóteses declaradas antes, em [APROFUNDAMENTO.md](APROFUNDAMENTO.md).
+
 ### Observação que disputa CPU com o que é medido
 
 Prometheus e cAdvisor rodam durante toda rodada, com 0,5 CPU cada, e são os mesmos em todas as variantes. O painel local (Grafana, Loki e Alloy, profile `dash`) é outra coisa: serve para depurar e acompanhar, e não fez parte da matriz `7e283c2`.

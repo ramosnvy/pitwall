@@ -72,6 +72,8 @@ Teste de Kruskal-Wallis entre direct, channels e pipelines, dentro de cada broke
 
 **Channels e Pipelines são indistinguíveis** em latência e em CPU. A conclusão vale para o Pipelines usado por mensagem, como está implementado; ela não se generaliza para o uso em lote, para o qual a ferramenta foi projetada (REVISAO-TECNICA.md §2.1).
 
+**Estas conclusões são do uso padrão dos mecanismos.** O excesso de CPU equivale a ~3,6 µs por evento, a ordem de grandeza de acordar uma thread. Com o uso atual, isso acontece a cada evento. Se o custo vem do uso e não das ferramentas é a pergunta Q1 de [APROFUNDAMENTO.md](APROFUNDAMENTO.md).
+
 ## 5. Custo de recursos
 
 CPU total da arquitetura — produtor, broker, consumidor e banco —, em percentual de um núcleo:
