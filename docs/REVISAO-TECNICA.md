@@ -14,7 +14,9 @@ Cada item abaixo teria contaminado as ~6 h de execução.
 
 **Primeira hipótese: timer do Windows. Aplicada, não resolveu.** A granularidade padrão do timer do Windows é de 15,6 ms, e desde o Windows 10 2004 a resolução fina só é garantida a processos que a solicitam ([`timeBeginPeriod`](https://learn.microsoft.com/en-us/windows/win32/api/timeapi/nf-timeapi-timebeginperiod)). Um A/B de 3 rodadas por lado pareceu confirmar a hipótese (3 rodadas rápidas com o timer em 1 ms), e a correção entrou no commit `25fa684`. **A confirmação estava errada**: com a taxa de ~43% de rodadas lentas observada depois, três rodadas rápidas seguidas acontecem por acaso em cerca de 1 vez em 5. Na matriz oficial, com a correção aplicada, 26 de 60 rodadas do Kafka em carga baixa caíram no regime lento. A correção foi mantida por ser inofensiva, mas não é a causa.
 
-**Segunda hipótese: algoritmo de Nagle. Refutada.** A librdkafka deixa o Nagle ligado por padrão (`socket.nagle.disable=false`) e o RabbitMQ.Client o desliga, o que explicaria a assimetria. Um A/B de 10 rodadas por lado, intercaladas, deu 7 lentas com Nagle e 5 sem — diferença estatisticamente irrelevante.
+**Segunda hipótese: algoritmo de Nagle. Refutada.** Com o Nagle ligado no cliente do Kafka e desligado no RabbitMQ.Client, a assimetria se explicaria. Um A/B de 10 rodadas por lado, intercaladas, deu 7 lentas com Nagle e 5 sem — diferença estatisticamente irrelevante.
+
+*Correção (24/09/2026, [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md)):* a premissa estava errada. Na librdkafka 2.15.1, o padrão é `socket.nagle.disable=true`, ou seja, Nagle desligado, como no RabbitMQ.Client. Quem ligava o Nagle era o nosso código, que atribui `false` explicitamente quando a opção `--nagle-disable` não é passada, e o roteiro nunca a passa. A conclusão sobre o regime lento continua valendo; o valor fora do padrão entra na auditoria.
 
 **Isolamento do caminho.** Em vez de uma terceira hipótese, o caminho foi isolado:
 
