@@ -56,7 +56,7 @@ docs/                       plano de trabalho e decisões de projeto
 
 ## Estado atual
 
-Matriz oficial executada. Resultados em [docs/RESULTADOS.md](docs/RESULTADOS.md); revisão técnica e correções do instrumento em [docs/REVISAO-TECNICA.md](docs/REVISAO-TECNICA.md); decisões de projeto em [docs/PLANO.md](docs/PLANO.md). Próxima fase, o uso ajustado de Channels e Pipelines, em [docs/APROFUNDAMENTO.md](docs/APROFUNDAMENTO.md).
+Matriz oficial executada. Resultados em [docs/RESULTADOS.md](docs/RESULTADOS.md); revisão técnica e correções do instrumento em [docs/REVISAO-TECNICA.md](docs/REVISAO-TECNICA.md); decisões de projeto em [docs/PLANO.md](docs/PLANO.md). Próxima fase, o uso ajustado de Channels e Pipelines, em [docs/APROFUNDAMENTO.md](docs/APROFUNDAMENTO.md); assimetrias de implementação encontradas depois da matriz em [docs/IMPLEMENTACAO.md](docs/IMPLEMENTACAO.md).
 
 ## Licença
 

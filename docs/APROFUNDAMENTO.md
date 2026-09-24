@@ -33,7 +33,7 @@ O uso atual provoca exatamente esse custo. A 200 mil ev/s, cada uma das 4 faixas
 
 Os modos `DropNewest`, `DropOldest` e `DropWrite` ficam de fora: descartar evento quebra o at-least-once e invalida o digest.
 
-O Pipelines foi feito para ler de um socket ([Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/standard/io/pipelines)). Num consumidor de broker ele não chega ao socket, porque o cliente (librdkafka ou RabbitMQ.Client) entrega a mensagem já montada. Isso limita o que o Pipelines pode render nesta arquitetura. Não é defeito da implementação: é um achado sobre compor Pipelines com um broker.
+O Pipelines foi feito para ler de um socket ([Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/standard/io/pipelines)). Num consumidor de broker ele não chega ao socket, porque o cliente (librdkafka ou RabbitMQ.Client) entrega a mensagem já montada. Isso limita o que o Pipelines pode render nesta arquitetura. Não é defeito da implementação: é um achado sobre compor Pipelines com um broker. Os dados da matriz confirmam: a biblioteca cliente aloca ~920 bytes por evento no Kafka e ~700 no RabbitMQ, igual nos três modos, antes de o dado chegar ao pipe ([IMPLEMENTACAO.md](IMPLEMENTACAO.md) §3).
 
 ## 2.1 Fundamentação teórica
 
@@ -159,6 +159,7 @@ Duas referências de apoio:
 **Por que importa:** decide o tamanho do buffer e se o acúmulo deve ficar no broker ou no processo.
 
 - **H4a.** Pela lei de Little (L = λW; [Little, 1961](https://pubsonline.informs.org/doi/abs/10.1287/opre.9.3.383)), em regime estável o limite do buffer não muda a latência média enquanto não é atingido. Previsão: capacidade de 100 e de 10.000 eventos por faixa com diferença de P99 menor que 10% sem evento lento.
+- **H4c.** No Kafka existe um terceiro lugar para o acúmulo: a fila local da librdkafka, com até 100 mil mensagens por partição ou 64 MB por padrão ([IMPLEMENTACAO.md](IMPLEMENTACAO.md) §4). Os experimentos de contrapressão fixam e registram `queued.max.messages.kbytes`.
 - **H4b.** Sob evento lento, um buffer pequeno empurra o acúmulo de volta para o broker. No Kafka, isso aparece como lag. No RabbitMQ, como mensagens prontas na fila, porque o prefetch limita as não confirmadas. A latência de ponta a ponta é a mesma; mudam a memória do consumidor e o estado visível no broker. É o mesmo argumento do controle de fluxo por créditos do Flink: bufferizar menos entre emissor e receptor torna a contrapressão mais imediata ([Kruber, 2019](https://flink.apache.org/2019/06/05/a-deep-dive-into-flinks-network-stack/)).
 
 ## 4. Método

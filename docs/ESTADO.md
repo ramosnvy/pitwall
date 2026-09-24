@@ -41,7 +41,10 @@ Módulos da Figura 1 do TCC1 e o que cada um virou:
 
 | Item | Origem | Situação |
 | --- | --- | --- |
-| Experimento de evento lento | PLANO 1d; REVISAO §4.2 | não iniciado; próximo recomendado |
+| **Faixas balanceadas no RabbitMQ (CRC32) e refazer as células do RabbitMQ** | IMPLEMENTACAO §1 | **prioritário**: assimetria que favorece o Kafka |
+| **A/B `cpuset` contra cota de CPU no RabbitMQ** | IMPLEMENTACAO §2 | **prioritário**: pode explicar parte da cauda do RabbitMQ |
+| Aprofundamento dos mecanismos (lote, escalonamento, topologia, contrapressão) | APROFUNDAMENTO | proposto; começa pela etapa A |
+| Experimento de evento lento | PLANO 1d; REVISAO §4.2 | incorporado à Q3 do APROFUNDAMENTO |
 | Pipelines em lote | REVISAO §2.1 | não iniciado |
 | Execução longa de 10 a 15 min por arquitetura | PLANO §2 | não feita |
 | Ruído por réplica e teste de sensibilidade | versão anterior deste documento | não feito |

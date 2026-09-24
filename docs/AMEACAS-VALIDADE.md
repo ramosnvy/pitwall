@@ -70,6 +70,18 @@ Se o PostgreSQL saturar, as seis variantes parecem iguais e a arquitetura fica i
 
 *Mitigação:* tabelas UNLOGGED, `synchronous_commit=off`, escrita em lote com `COPY` binário, latência medida até o fim do processamento e bateria adicional sem persistência.
 
+### Faixas desbalanceadas no RabbitMQ
+
+As filas do RabbitMQ recebem 25%, 15%, 25% e 35% da carga, porque a faixa é `carro % 4` e as réplicas da frota somam múltiplos de 100. As partições do Kafka recebem 25% cada, pelo CRC32 da chave. A fila mais carregada limita o teto e domina a cauda do RabbitMQ, o que favorece o Kafka na comparação. Medido e detalhado em [IMPLEMENTACAO.md](IMPLEMENTACAO.md) §1.
+
+*Mitigação proposta:* usar no sink do RabbitMQ o mesmo CRC32 da librdkafka e refazer as células do RabbitMQ.
+
+### Cota de CPU estrangula o broker RabbitMQ
+
+Com `--cpus`, o broker RabbitMQ foi estrangulado em 4 a 8% dos períodos CFS, crescendo com a carga e com a cauda. O broker Kafka ficou em 0%. Parte da cauda do RabbitMQ pode ser efeito do jeito de limitar CPU, não do broker. Detalhado em [IMPLEMENTACAO.md](IMPLEMENTACAO.md) §2.
+
+*Mitigação proposta:* A/B com `--cpuset-cpus`. Se o P99 mudar, o protocolo muda para os dois brokers.
+
 ### Mecanismos internos usados no modo padrão
 
 A matriz usa Channels e Pipelines no modo mais simples: um worker por faixa, um evento por despertar e flush do pipe a cada mensagem. O excesso de CPU medido em relação ao Direct, ~3,6 µs por evento, tem a ordem de grandeza de acordar uma thread, não de pôr um item numa fila. A conclusão "desacoplar custa CPU sem ganho de latência" pode ser do uso, não das ferramentas.

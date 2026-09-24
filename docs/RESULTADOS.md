@@ -33,6 +33,12 @@ Até o teto de cada broker, todas as variantes entregaram exatamente a taxa pedi
 
 O teto real do Kafka não foi encontrado: a 400 mil ev/s o que satura primeiro é a máquina e o módulo de persistência (§6), não o broker.
 
+**Ressalva posterior sobre o RabbitMQ** ([IMPLEMENTACAO.md](IMPLEMENTACAO.md)). Duas assimetrias da implementação podem ter rebaixado o teto e inflado a cauda do RabbitMQ:
+- as filas recebem 25%, 15%, 25% e 35% da carga, contra 25% em cada partição do Kafka;
+- o broker RabbitMQ foi estrangulado pela cota de CPU em 4 a 8% dos períodos, contra 0% do Kafka.
+
+Até a verificação, o teto de ~60 mil ev/s e a cauda do RabbitMQ valem para esta implementação, não para o broker em geral.
+
 ## 3. Latência: a resposta depende do percentil
 
 Mediana entre as cinco repetições; os três mecanismos agrupados, por não diferirem de forma relevante (§4).
