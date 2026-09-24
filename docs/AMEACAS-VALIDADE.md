@@ -70,6 +70,12 @@ Se o PostgreSQL saturar, as seis variantes parecem iguais e a arquitetura fica i
 
 *Mitigação:* tabelas UNLOGGED, `synchronous_commit=off`, escrita em lote com `COPY` binário, latência medida até o fim do processamento e bateria adicional sem persistência.
 
+### Observação que disputa CPU com o que é medido
+
+Prometheus e cAdvisor rodam durante toda rodada, com 0,5 CPU cada, e são os mesmos em todas as variantes. O painel local (Grafana, Loki e Alloy, profile `dash`) é outra coisa: serve para depurar e acompanhar, e não fez parte da matriz `7e283c2`.
+
+*Mitigação:* o painel fica desligado nas rodadas oficiais. Se for usado numa bateria, o custo dele aparece no próprio painel, em "Custo da própria observação", e a bateria é rotulada como tal.
+
 ### Coordinated omission
 
 Gerador de carga em malha fechada desaceleraria sob saturação e deixaria de registrar as latências altas, justamente as que os percentis P95 e P99 medem.

@@ -290,11 +290,22 @@ function Invoke-PitwallRun {
         $consumerBin = (Join-Path $root 'src/Pitwall.Consumer/bin/Release/net10.0') -replace '\\', '/'
         $producerBin = (Join-Path $root 'src/Pitwall.Replayer/bin/Release/net10.0') -replace '\\', '/'
 
+        # Rotulos da rodada: o painel local (profile "dash") filtra os logs por
+        # eles. Nao alteram nada no que o container executa.
+        $labels = @(
+            '--label', "pitwall.run_id=$runId",
+            '--label', "pitwall.architecture=$Broker-$Mode",
+            '--label', "pitwall.rate=$Rate",
+            '--label', "pitwall.replication=$Replication"
+        )
+
         # Limites fixos de CPU e memoria, como nos brokers: sem eles, o
         # consumidor de uma arquitetura poderia simplesmente usar mais
         # recursos que o de outra.
         $consumerDocker = @(
             'run', '-d', '--name', 'pitwall-consumer', '--network', $script:Network,
+            '--label', 'pitwall.role=consumer'
+        ) + $labels + @(
             '--cpus', $ConsumerCpus.ToString($inv), '--memory', $ConsumerMemory,
             '-v', "${consumerBin}:/app:ro", '-v', "${resultsDir}:/results",
             $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll'
@@ -305,6 +316,8 @@ function Invoke-PitwallRun {
 
         $producerDocker = @(
             'run', '--name', 'pitwall-producer', '--network', $script:Network,
+            '--label', 'pitwall.role=producer'
+        ) + $labels + @(
             '--cpus', $ProducerCpus.ToString($inv), '--memory', $ProducerMemory,
             '-v', "${producerBin}:/app:ro", '-v', "${dataDir}:/data:ro", '-v', "${resultsDir}:/results",
             $script:RuntimeImage, 'dotnet', '/app/Pitwall.Replayer.dll'

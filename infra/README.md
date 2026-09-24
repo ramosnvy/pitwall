@@ -35,6 +35,32 @@ no mesmo banco.
 | RabbitMQ (metricas) | 15692 | formato Prometheus |
 | Prometheus | 9090 | |
 | cAdvisor | 8080 | CPU e memoria por container |
+| Grafana | 3000 | so em `127.0.0.1`, sem login; profile `dash` |
+
+## Painel local (profile `dash`)
+
+Grafana com tres paineis, na pasta PitWall:
+
+| Painel | Fonte | Mostra |
+| --- | --- | --- |
+| Rodada ao vivo | Prometheus | CPU, memoria e rede de cada container; filas e taxas do RabbitMQ; logs da rodada |
+| Logs | Loki | logs de todos os containers `pitwall-*`, filtraveis por arquitetura, carga e rodada |
+| Resultados da matriz | PostgreSQL | P50 e P99 por carga, CPU, mediana por celula e rodadas invalidas |
+
+```powershell
+docker compose --profile metrics --profile dash up -d
+../analysis/load-results.ps1 -In results/matrix-v2-runs.csv   # alimenta "Resultados"
+# http://localhost:3000
+```
+
+Os logs chegam pelo Alloy, que le os containers direto do Docker. O runner
+rotula produtor e consumidor com a rodada (`pitwall.run_id`,
+`pitwall.architecture`, `pitwall.rate`, `pitwall.replication`,
+`pitwall.role`), e os logs sobrevivem a remocao dos containers.
+
+**Na matriz oficial, desligue o painel** (`docker compose stop grafana loki alloy`):
+ele disputa CPU com o que esta sendo medido. O painel "Rodada ao vivo" mostra
+o custo dele mesmo em "Custo da propria observacao".
 
 ## Criar o topico do Kafka
 
@@ -56,7 +82,7 @@ docker exec pitwall-kafka /opt/kafka/bin/kafka-topics.sh `
   entre as arquiteturas.
 - **cAdvisor como fonte de CPU e memoria**, medindo todos os containers pela
   mesma regua, inclusive os brokers.
-- **Retencao curta no Kafka** (2h): as rodadas sao de minutos e o disco nao
+- **Retencao curta no Kafka** (15 min): as rodadas sao de minutos e o disco nao
   precisa guardar historico entre elas.
 
 Qualquer parametro alterado aqui precisa ir para a tabela de configuracao do

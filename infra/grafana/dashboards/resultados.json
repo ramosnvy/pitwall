@@ -1,0 +1,772 @@
+{
+  "uid": "pitwall-results",
+  "title": "PitWall · Resultados da matriz",
+  "description": "Rodadas carregadas por analysis/load-results.ps1: latência, CPU e validade por arquitetura e carga.",
+  "tags": [
+    "pitwall"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "source",
+        "label": "Matriz",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres"
+        },
+        "query": "SELECT DISTINCT source FROM matrix_run ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT source FROM matrix_run ORDER BY 1 DESC",
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "pitwall"
+      ],
+      "asDropdown": false,
+      "title": "PitWall",
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "table",
+      "id": 1,
+      "title": "Rodadas",
+      "description": "Validade pelas mesmas regras de analysis/summarize.ps1.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS rodadas,\n  count(*) FILTER (WHERE valid) AS \"válidas\",\n  count(*) FILTER (WHERE NOT valid) AS \"inválidas\",\n  min(code_commit) AS commit\nFROM v_matrix WHERE source = '$source'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "table",
+      "id": 2,
+      "title": "Rodadas inválidas",
+      "description": "Motivo: produtor sem relatório, jitter acima de 50 ms ou digest diferente do da maioria na carga.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 16,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT architecture AS arquitetura, target_rate AS carga, replication AS rep,\n  invalid_reason AS motivo, round(producer_jitter_ms::numeric, 1) AS jitter_ms, windows_dropped AS janelas_descartadas\nFROM v_matrix WHERE source = '$source' AND NOT valid\nORDER BY target_rate, architecture, replication"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "barchart",
+      "id": 3,
+      "title": "P50 por carga",
+      "description": "Mediana entre as repetições válidas de cada célula. Sem barra: carga acima do teto daquela arquitetura.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT (target_rate / 1000) || ' mil' AS carga,\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'kafka-direct') AS \"kafka-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'kafka-channels') AS \"kafka-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'kafka-pipelines') AS \"kafka-pipelines\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'rabbitmq-direct') AS \"rabbitmq-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'rabbitmq-channels') AS \"rabbitmq-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms) FILTER (WHERE architecture = 'rabbitmq-pipelines') AS \"rabbitmq-pipelines\"\nFROM v_matrix\nWHERE valid AND source = '$source'\nGROUP BY target_rate\nORDER BY target_rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "carga",
+        "orientation": "vertical",
+        "groupWidth": 0.8,
+        "barWidth": 0.95,
+        "showValue": "never",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "id": 4,
+      "title": "P99 por carga",
+      "description": "Escala logarítmica. O cruzamento das caudas fica entre 20 e 40 mil ev/s.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT (target_rate / 1000) || ' mil' AS carga,\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'kafka-direct') AS \"kafka-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'kafka-channels') AS \"kafka-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'kafka-pipelines') AS \"kafka-pipelines\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'rabbitmq-direct') AS \"rabbitmq-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'rabbitmq-channels') AS \"rabbitmq-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE architecture = 'rabbitmq-pipelines') AS \"rabbitmq-pipelines\"\nFROM v_matrix\nWHERE valid AND source = '$source'\nGROUP BY target_rate\nORDER BY target_rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "carga",
+        "orientation": "vertical",
+        "groupWidth": 0.8,
+        "barWidth": 0.95,
+        "showValue": "never",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "id": 5,
+      "title": "CPU total da arquitetura",
+      "description": "Produtor + broker + consumidor + banco, em percentual de um núcleo.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT (target_rate / 1000) || ' mil' AS carga,\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'kafka-direct') AS \"kafka-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'kafka-channels') AS \"kafka-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'kafka-pipelines') AS \"kafka-pipelines\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'rabbitmq-direct') AS \"rabbitmq-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'rabbitmq-channels') AS \"rabbitmq-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu) FILTER (WHERE architecture = 'rabbitmq-pipelines') AS \"rabbitmq-pipelines\"\nFROM v_matrix\nWHERE valid AND source = '$source'\nGROUP BY target_rate\nORDER BY target_rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "carga",
+        "orientation": "vertical",
+        "groupWidth": 0.8,
+        "barWidth": 0.95,
+        "showValue": "never",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "barchart",
+      "id": 6,
+      "title": "CPU do consumidor",
+      "description": "Container do consumidor: é onde Direct, Channels e Pipelines se diferenciam.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT (target_rate / 1000) || ' mil' AS carga,\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'kafka-direct') AS \"kafka-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'kafka-channels') AS \"kafka-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'kafka-pipelines') AS \"kafka-pipelines\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'rabbitmq-direct') AS \"rabbitmq-direct\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'rabbitmq-channels') AS \"rabbitmq-channels\",\n  percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg) FILTER (WHERE architecture = 'rabbitmq-pipelines') AS \"rabbitmq-pipelines\"\nFROM v_matrix\nWHERE valid AND source = '$source'\nGROUP BY target_rate\nORDER BY target_rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 85,
+            "gradientMode": "none",
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kafka-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-direct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-channels"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rabbitmq-pipelines"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "super-light-orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "carga",
+        "orientation": "vertical",
+        "groupWidth": 0.8,
+        "barWidth": 0.95,
+        "showValue": "never",
+        "stacking": "none",
+        "xTickLabelRotation": 0,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "id": 7,
+      "title": "Mediana por célula",
+      "description": "Uma linha por arquitetura e carga, só rodadas válidas.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT architecture AS arquitetura, target_rate AS carga, count(*) AS validas,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY throughput)::numeric, 0) AS vazao,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms)::numeric, 2) AS p50_ms,\n  round(min(p99_ms)::numeric, 2) AS p99_min,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms)::numeric, 2) AS p99_ms,\n  round(max(p99_ms)::numeric, 2) AS p99_max,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY consumer_container_cpu_avg)::numeric, 1) AS cpu_consumidor,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY broker_cpu_avg)::numeric, 1) AS cpu_broker,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY total_cpu)::numeric, 1) AS cpu_total,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY windows_dropped)::numeric, 0) AS janelas_descartadas\nFROM v_matrix WHERE valid AND source = '$source'\nGROUP BY architecture, target_rate\nORDER BY target_rate, architecture"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    }
+  ]
+}

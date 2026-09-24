@@ -1,0 +1,66 @@
+// Logs dos containers pitwall-* para o Loki.
+//
+// O runner rotula os containers de produtor e consumidor com a rodada
+// (pitwall.run_id, pitwall.architecture, pitwall.rate, pitwall.replication,
+// pitwall.role); os rotulos viram labels no Loki, e o painel filtra por eles.
+
+discovery.docker "pitwall" {
+  host             = "unix:///var/run/docker.sock"
+  // Produtor e consumidor vivem pouco mais que a rodada; um intervalo curto
+  // garante que nenhum escape entre duas descobertas.
+  refresh_interval = "5s"
+
+  filter {
+    name   = "name"
+    values = ["pitwall-"]
+  }
+}
+
+discovery.relabel "pitwall" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_pitwall_role"]
+    target_label  = "role"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_pitwall_architecture"]
+    target_label  = "architecture"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_pitwall_rate"]
+    target_label  = "rate"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_pitwall_replication"]
+    target_label  = "replication"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_pitwall_run_id"]
+    target_label  = "run_id"
+  }
+}
+
+loki.source.docker "pitwall" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.docker.pitwall.targets
+  relabel_rules    = discovery.relabel.pitwall.rules
+  refresh_interval = "5s"
+  forward_to       = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
