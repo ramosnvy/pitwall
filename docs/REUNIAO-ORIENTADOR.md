@@ -2,7 +2,7 @@
 
 24/09/2026 · Pedro Augusto Ramos de Sousa
 
-São 16 perguntas, em ordem de urgência. As sete primeiras travam a próxima bateria de experimentos (a matriz v3), que só roda depois das respostas. Cada uma traz o contexto, a pergunta e a minha proposta.
+São 9 perguntas, em ordem de urgência. As seis primeiras travam a próxima bateria de experimentos (a matriz v3), que só roda depois das respostas. Cada uma traz o contexto, a pergunta e a minha proposta.
 
 Versão compartilhável: https://claude.ai/code/artifact/61e96e12-c912-489c-a0ef-71520622dae5 · repositório: https://github.com/ramosnvy/pitwall
 
@@ -57,17 +57,9 @@ O resultado foi inesperado. Com a divisão equilibrada do CRC32, o RabbitMQ gast
 
 **Pergunta.** Posso usar faixas de carga diferentes para cada broker?
 
-**Minha proposta.** Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil. As cargas até 60 mil são comuns aos dois e permitem comparação direta. Acima disso, a comparação é pelo ponto de saturação (pergunta 6).
+**Minha proposta.** Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil. As cargas até 60 mil são comuns aos dois e permitem comparação direta. Acima disso, a comparação é pelo ponto de saturação (pergunta 5).
 
-### 5. Cinco repetições por combinação são suficientes?
-
-**Contexto.** Cada combinação de broker, modo e carga é repetida, em ordem sorteada, para medir a variação entre rodadas. Com 5 repetições, a matriz tem 165 rodadas, mais 20 da bateria a 3,7 Hz feita só com o Direct: 185 no total. A matriz roda de madrugada, sem uso da máquina.
-
-**Pergunta.** Cinco repetições bastam, ou o senhor prefere 10?
-
-**Minha proposta.** Cinco, e aumentar só nas combinações em que a dispersão entre repetições for alta.
-
-### 6. O ponto de saturação pode ser a métrica principal?
+### 5. O ponto de saturação pode ser a métrica principal?
 
 **Contexto.** O TCC1 lista latência, vazão e uso de recursos, mas não define como comparar arquiteturas que saturam em cargas diferentes. O ponto de saturação é a maior carga que a arquitetura sustenta, e é o número que resume a comparação. Ele precisa de um critério fixado antes de medir, para não ser escolhido depois de ver os dados.
 
@@ -75,7 +67,7 @@ O resultado foi inesperado. Com a divisão equilibrada do CRC32, o RabbitMQ gast
 
 **Minha proposta.** A maior carga em que a vazão entregue fica em pelo menos 99% da oferecida e o P99 abaixo de 50 ms. Os 50 ms vêm do domínio: decisões de pit wall usam dados com menos de 50 ms de idade.
 
-### 7. Posso descartar rodadas inválidas?
+### 6. Posso descartar rodadas inválidas?
 
 **Contexto.** Uma rodada só vale se o gerador enviou no ritmo certo e o resultado está correto. Os critérios são dois:
 - o atraso máximo de envio fica em até 50 ms;
@@ -89,7 +81,7 @@ No 2×2, 35 de 40 rodadas passaram.
 
 ## Escopo
 
-### 8. Posso aprofundar como Channels e Pipelines são usados?
+### 7. Posso aprofundar como Channels e Pipelines são usados?
 
 **Contexto.** Hoje Channels e Pipelines são usados na configuração padrão, e o processamento é barato: uma thread processa 8,6 milhões de eventos por segundo. Nesse cenário, os mecanismos internos não melhoram a latência e gastam mais CPU, cerca de 3,6 µs por evento, a ordem de grandeza de acordar uma thread.
 
@@ -101,7 +93,7 @@ O trabalho ainda não responde quando eles compensam: com processamento mais pes
 
 **Se for outra.** O trabalho conclui só sobre o uso padrão.
 
-### 9. RabbitMQ Streams entra no trabalho?
+### 8. RabbitMQ Streams entra no trabalho?
 
 **Contexto.** O Kafka guarda as mensagens num log: quem lê só avança um marcador. A fila clássica do RabbitMQ apaga cada mensagem quando o consumidor confirma. O RabbitMQ também oferece o Streams, um log parecido com o do Kafka. Incluí-lo separaria o efeito do broker do efeito do modelo de armazenamento (log ou fila).
 
@@ -109,70 +101,15 @@ O trabalho ainda não responde quando eles compensam: com processamento mais pes
 
 **Minha proposta.** Trabalho futuro. Ele aumentaria a matriz em 50%.
 
-### 10. O tamanho da mensagem entra como fator?
-
-**Contexto.** Todas as mensagens têm 46 bytes. Com mensagens maiores, o custo de rede e disco pesa mais, e a vantagem de um broker sobre o outro pode mudar.
-
-**Pergunta.** Testo também mensagens de cerca de 1 KB?
-
-**Minha proposta.** Não na matriz principal, que dobraria. Se entrar, só com o Direct e em duas cargas.
-
-### 11. Quais destes extras valem a pena?
-
-**Contexto.** Todos fortalecem o trabalho, mas custam tempo de execução:
-- rodadas longas, de 10 a 15 minutos, para ver efeitos que só aparecem com o tempo, como a limpeza de memória e a compactação do log;
-- uma bateria sem gravar no banco, para isolar o custo da persistência;
-- mais corridas no workload: baixei 9 e uso 1.
-
-**Pergunta.** Quais desses entram?
-
-**Minha proposta.** Rodadas longas numa só carga por arquitetura; os outros dois como sensibilidade pequena.
-
 ## Análise e validade
 
-### 12. Que análise estatística o senhor espera?
+### 9. Que análise estatística o senhor espera?
 
 **Contexto.** As latências não seguem distribuição normal, porque têm cauda longa. Hoje comparo as arquiteturas com Kruskal-Wallis, que não assume normalidade. O plano do TCC1 citava o método do Jain: um projeto fatorial com ANOVA, que mede quanto da variação vem de cada fator (broker, modo e carga) e das interações entre eles.
 
 **Pergunta.** Qual análise o senhor espera?
 
 **Minha proposta.** As duas. Kruskal-Wallis para dizer se as diferenças são reais, e o fatorial do Jain sobre o logaritmo da latência para dizer quanto cada fator pesa.
-
-### 13. Posso declarar como limitação que tudo roda numa máquina só?
-
-**Contexto.** Gerador, broker, consumidor e banco rodam na mesma máquina, sem rede entre eles, com um só nó de cada broker. O lado bom: gerador e consumidor usam o mesmo relógio, então não há erro de sincronização na medição da latência. O lado ruim: o que justifica o Kafka em produção, como replicação e tolerância a falhas, não aparece.
-
-**Pergunta.** Posso declarar isso nas ameaças à validade e manter o escopo de nó único?
-
-**Minha proposta.** Sim. Com máquinas separadas, o erro de sincronização dos relógios seria maior que as diferenças que estou medindo.
-
-### 14. Como reporto resultados instáveis?
-
-**Contexto.** O Kafka com Channels teve rodadas muito diferentes entre si. A 100 mil ev/s, uma rodada deu P99 de 200 ms e as duas seguintes, 5,9 ms. A 200 mil, deu 78 ms e 20 ms.
-
-**Pergunta.** Mostro a dispersão como resultado, ou investigo a causa antes?
-
-**Minha proposta.** Investigar antes da matriz, o que já está no plano. Se não houver causa no meu código, reportar a dispersão com todas as rodadas.
-
-## Texto e prazos
-
-### 15. Posso atualizar a Figura 1 e os objetivos específicos do TCC1?
-
-**Contexto.** A Figura 1 do TCC1 tem cinco módulos: API OpenF1, Ingestão, Mensageria, Processamento e Persistência. Desde então entraram o grupo de controle Direct, o gerador de carga, os 100 Hz, os núcleos exclusivos e o ponto de saturação.
-
-**Pergunta.** Posso atualizar a figura e os objetivos específicos?
-
-**Minha proposta.** Manter o formato da Figura 1, com as cinco etapas lado a lado, e mostrar dentro de cada uma os passos atuais. O desenho já está pronto.
-
-### 16. Formato, prazo e banca
-
-**Contexto.** O TCC1 foi escrito no modelo de artigo da SBC. O cronograma do TCC1 terminava em setembro e precisa ser refeito.
-
-**Perguntas.**
-- O TCC2 continua como artigo no modelo SBC?
-- Qual a data prevista da defesa?
-- Quem compõe a banca?
-- Há coorientador?
 
 ## Confirmações rápidas
 
