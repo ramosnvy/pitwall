@@ -100,6 +100,35 @@ Usar a mesma garantia de entrega (at-least-once) nos dois e publicar as configur
 - Kafka: `acks=all`, `linger.ms` e `batch.size` documentados, partições = número de consumidores.
 - RabbitMQ: publisher confirms, `prefetch` definido, tipo de fila (quorum ou classic) documentado.
 
+### 1g. Respostas do orientador (24/09/2026)
+
+Respostas por áudio às perguntas de [REUNIAO-ORIENTADOR.md](REUNIAO-ORIENTADOR.md). O que ficou decidido e o que cada resposta pede:
+
+| Pergunta | Resposta | Consequência |
+| --- | --- | --- |
+| 100 Hz com pontos interpolados | Pode, se o trabalho não analisa a corrida em si e só usa os dados como carga. Declarar isso no texto. O risco apontado: sem olhar o resultado, como saber que os fluxos processaram certo? | Mantido. O texto diz que o objetivo é a carga, não a análise da corrida. A conferência do resultado (digest idêntico nas seis variantes) passa a ser apresentada como a resposta a esse risco |
+| Mesma configuração ou a melhor de cada broker | Configurações equivalentes nos dois; a ordem dos eventos de cada carro precisa ser garantida | CRC32 nos dois, 4 faixas, um carro sempre na mesma faixa. Decidido |
+| Faixas de carga e ajuste dos brokers | Primeiro a configuração padrão como linha de base; depois um cenário ajustado, e documentar os dois. Limites de armazenamento precisam ser equivalentes, senão quem trava primeiro perde por configuração | Dois cenários: **padrão** e **ajustado**. Falta auditar os parâmetros que hoje fogem do padrão (abaixo) |
+| Aprofundar Channels e Pipelines | Não opinou sobre as ferramentas. Questionou o que se ganha: o tempo está nos brokers e o processamento local é rápido. Pediu um viés que justifique essa parte, talvez por CPU ou memória | É o ponto mais fraco do trabalho aos olhos dele. Ver "Justificativa da parte .NET", abaixo |
+| Análise estatística | Sem aprofundar, por falta de espaço no texto. Rodar N vezes (10 ou 30), usar mediana e desvio padrão, descartar execuções discrepantes e não usar a máquina durante os testes | Estatística descritiva com regra de descarte fixada antes. Kruskal-Wallis fica como apoio; ANOVA fatorial sai |
+| Núcleos exclusivos | Sem resposta direta | Mantido; condiz com o pedido de não usar a máquina durante os testes |
+| RabbitMQ Streams | Sem resposta | Fica como trabalho futuro |
+
+**Parâmetros que hoje fogem do padrão**, a auditar antes da matriz:
+- Kafka, produtor: `batch.size` = 65.536 (padrão do librdkafka: 1.000.000).
+- Kafka, consumidor: `fetch.wait.max.ms` = 10 (padrão: 500).
+- RabbitMQ, consumidor: `prefetch` = 300 (padrão: sem limite).
+- Buffers do produtor: fila interna do librdkafka contra a janela de confirmações pendentes do RabbitMQ.
+- Limites de fila e de memória no broker (retenção do Kafka, `vm_memory_high_watermark` do RabbitMQ).
+
+Para cada um: valor padrão, valor usado, por quê, e se os dois brokers ficam equivalentes. O cenário padrão usa os valores de fábrica ou, quando o padrão impede a comparação (prefetch sem limite, por exemplo), o valor mínimo que a viabiliza, justificado no texto.
+
+**Repetições:** o orientador sugeriu 10 ou 30. Com 10, a matriz dobra de tamanho em relação à proposta de 5. Se o tempo de máquina apertar, reduzir pontos de carga do Kafka, e não repetições.
+
+**Justificativa da parte .NET.** Duas frentes, que se somam:
+1. **Custo, com o que já foi medido.** Sob processamento leve, os mecanismos internos não reduzem a latência e custam cerca de 3,6 µs de CPU por evento. Medir também memória e alocações (coleta de lixo), que é o terreno do Pipelines.
+2. **Quando o processamento pesa.** Um segundo cenário de carga, com vários tipos de dado da OpenF1 em tópicos separados e processamento em etapas que cruza os fluxos. Nesse cenário, o consumidor deixa de ser desprezível e o mecanismo interno passa a decidir. É a resposta direta ao "o que se ganha com isso?". Precisa ser proposto ao orientador antes de ser construído.
+
 ## 2. Desenho experimental
 
 - **Fatores:** broker (2) × mecanismo (3) × nível de carga.
