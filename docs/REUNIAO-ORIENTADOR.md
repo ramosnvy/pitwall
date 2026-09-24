@@ -2,129 +2,111 @@
 
 24/09/2026 · Pedro Augusto Ramos de Sousa
 
-São 9 perguntas, em ordem de urgência. As seis primeiras travam a próxima bateria de experimentos (a matriz v3), que só roda depois das respostas. Cada uma traz o contexto, a pergunta e a minha proposta.
+São 9 perguntas. As seis primeiras precisam de resposta antes da próxima rodada grande de testes. Cada uma explica o assunto em poucas linhas, faz a pergunta e diz o que eu proponho.
 
-Versão compartilhável: https://claude.ai/code/artifact/61e96e12-c912-489c-a0ef-71520622dae5 · repositório: https://github.com/ramosnvy/pitwall
+Versão compartilhável: https://claude.ai/code/artifact/61e96e12-c912-489c-a0ef-71520622dae5 · código: https://github.com/ramosnvy/pitwall
 
-## Onde o trabalho está
+## Em poucas palavras
 
-O experimento compara seis arquiteturas: 2 brokers (Kafka e RabbitMQ) × 3 formas de processar dentro do consumidor (Direct, Channels e Pipelines). O Direct é o grupo de controle: processa a mensagem direto, sem mecanismo interno.
+O trabalho compara seis combinações: 2 sistemas de mensagens (Kafka e RabbitMQ) × 3 jeitos de processar as mensagens no programa que as recebe (Direct, Channels e Pipelines). O Direct é o jeito mais simples e serve de referência.
 
-- **Carga:** um gerador reproduz a telemetria real da F1 (OpenF1) numa taxa fixa de eventos por segundo (ev/s), multiplicando os carros para chegar a cargas altas. Cada evento vira uma mensagem binária de 46 bytes.
-- **Processamento:** o consumidor calcula, por carro, média e máxima de velocidade em janelas de 1 s, detecta frenagens e trocas de marcha, e grava no PostgreSQL.
-- **Medição:** latência do envio até o fim do processamento. O P99 é o tempo abaixo do qual ficam 99% dos eventos. Cada rodada tem 10 s de aquecimento e 90 s de medição.
-- **Ambiente:** tudo em Docker, numa máquina com 12 núcleos.
+- **Os dados:** telemetria real de corridas de F1, como velocidade, marcha e freio. Um programa envia esses dados num ritmo fixo, por exemplo 40 mil mensagens por segundo.
+- **O processamento:** quem recebe calcula médias por carro a cada segundo, conta frenagens e trocas de marcha, e salva no banco de dados.
+- **O que eu meço:** quanto tempo cada mensagem leva do envio até o fim do processamento. Olho principalmente para as mensagens mais lentas (o 1% mais lento), porque são elas que mostram quando o sistema começa a engasgar.
+- **Onde roda:** tudo no mesmo computador, cada parte no seu próprio contêiner Docker.
 
-Já rodei uma matriz completa, um experimento de calibração (2×2) e uma varredura de saturação. As perguntas abaixo nasceram desses resultados.
+Já fiz uma primeira rodada completa de testes e alguns testes menores. As perguntas vieram desses resultados.
 
-## Antes da matriz
+## Antes da próxima rodada de testes
 
-### 1. Posso usar telemetria a 100 Hz, com pontos interpolados?
+### 1. Posso completar os dados para 100 leituras por segundo?
 
-**Contexto.** A OpenF1 fornece cerca de 3,7 amostras por segundo por carro, e um carro real de F1 amostra seus sensores a até 100 Hz. Para chegar a 100 Hz, crio os pontos intermediários: velocidade, rotação e acelerador em linha reta; marcha, freio e DRS mantêm o último valor. As frenagens e trocas de marcha detectadas continuam exatamente as da corrida real, o que está verificado em teste.
+**O assunto.** A fonte pública de dados da F1 (OpenF1) dá cerca de 4 leituras por segundo de cada carro. Um carro de verdade mede até 100 vezes por segundo. Para chegar a 100, preencho os espaços entre as leituras reais: a velocidade sobe ou desce em linha reta entre dois pontos, e o freio e a marcha repetem o último valor. As frenagens e trocas de marcha continuam exatamente as da corrida real.
 
-Outra vantagem: 100 mil ev/s passam a vir de 1.000 carros, e não de 27 mil.
+**Pergunta.** Posso usar esses dados completados nos testes principais, deixando claro no texto que parte dos pontos foi calculada?
 
-**Pergunta.** Posso usar 100 Hz interpolados como cenário principal?
+**Minha proposta.** Sim, e faço também um teste menor com os dados originais, sem preenchimento, para comparar.
 
-**Minha proposta.** Sim, com uma bateria a 3,7 Hz, o dado sem interpolação, como análise de sensibilidade. A interpolação fica declarada nas ameaças à validade.
+### 2. Posso mudar como o computador é dividido entre as partes do teste?
 
-**Se for outra.** Com 3,7 Hz, o banco grava 27 vezes mais janelas na mesma carga e vira o gargalo nas cargas altas, mascarando a comparação dos brokers.
+**O assunto.** Nos primeiros testes, cada parte (quem envia, o sistema de mensagens e quem recebe) tinha um limite de uso do processador, mas todas disputavam os mesmos núcleos. Testei outra forma: cada parte com seus próprios núcleos, sem dividir com ninguém. Assim, as mensagens mais lentas do RabbitMQ ficaram de 40% a 64% mais rápidas. Parte da lentidão que eu atribuía ao RabbitMQ vinha da divisão do computador.
 
-### 2. Posso trocar o protocolo de CPU e usar a primeira matriz como calibração?
+**Pergunta.** Posso usar núcleos separados daqui para frente, e contar no texto os primeiros testes como o motivo da mudança?
 
-**Contexto.** Na primeira matriz, cada container tinha uma cota de CPU (tempo equivalente a 4 núcleos), mas podia rodar em qualquer núcleo da máquina. Fiz um experimento 2×2 comparando isso com núcleos exclusivos: gerador nos núcleos 0 a 3, broker de 4 a 7, consumidor de 8 a 10, banco e métricas no 11.
+**Minha proposta.** Sim. Os resultados que valem passam a ser os da nova rodada.
 
-Com núcleos exclusivos, o P99 do RabbitMQ caiu de 40% a 64%. A 40 mil ev/s, por exemplo, foi de 10,2 para 6,1 ms. Parte da lentidão atribuída ao RabbitMQ era efeito da cota, não do broker.
+### 3. Os dois sistemas devem ser configurados igual, ou cada um do seu melhor jeito?
 
-**Pergunta.** Posso adotar núcleos exclusivos e apresentar a primeira matriz e o 2×2 na metodologia, como a calibração que justificou o protocolo?
+**O assunto.** Nos dois sistemas, as mensagens são divididas em 4 filas, e cada carro vai sempre para a mesma fila. No Kafka essa divisão é automática. No RabbitMQ sou eu que faço, e passei a usar a mesma regra do Kafka para os dois ficarem iguais. Só que, com essa regra, o RabbitMQ ficou mais lento do que com a regra que eu usava antes.
 
-**Minha proposta.** Sim. Os resultados oficiais passam a ser os da matriz v3.
+**Pergunta.** Na comparação, uso a mesma regra nos dois, que é mais justo, ou a melhor regra para cada um, que é mais realista?
 
-### 3. Os dois brokers devem usar a mesma configuração, ou cada um a sua melhor?
+**Minha proposta.** A mesma regra nos testes principais, e um teste extra com a melhor configuração de cada um.
 
-**Contexto.** Os dois brokers dividem as mensagens em 4 filas paralelas, sempre a mesma fila para o mesmo carro, para manter a ordem por carro. O Kafka escolhe a fila (partição) por um hash CRC32 do número do carro. No RabbitMQ a escolha é feita no meu código, e passei a usar o mesmo CRC32 para os dois ficarem iguais.
+### 4. Posso testar cada sistema até um volume diferente?
 
-O resultado foi inesperado. Com a divisão equilibrada do CRC32, o RabbitMQ gasta mais CPU e tem P99 maior do que com a divisão antiga (resto da divisão do número do carro por 4), que é desequilibrada. A 40 mil ev/s, o P99 vai de 6,1 para 11,0 ms.
+**O assunto.** O RabbitMQ começa a travar entre 50 e 80 mil mensagens por segundo. O Kafka aguenta até 200 ou 300 mil. Testar o RabbitMQ acima do limite dele só acumula fila e gasta tempo de máquina.
 
-**Pergunta.** A comparação deve usar a mesma configuração nos dois brokers, ou a melhor configuração de cada um?
+**Pergunta.** Posso testar o RabbitMQ até 60 mil e o Kafka até 300 mil mensagens por segundo?
 
-**Minha proposta.** Mesma configuração na matriz principal, porque isola o efeito do broker. A melhor configuração de cada um entra numa bateria complementar.
+**Minha proposta.** Sim. Até 60 mil os dois são comparados lado a lado. Acima disso, compara-se até onde cada um aguenta (pergunta 5).
 
-### 4. Posso testar cada broker na sua própria faixa de carga?
+### 5. "Até onde cada um aguenta" pode ser o resultado principal?
 
-**Contexto.** Na varredura de saturação, com 100 Hz e núcleos exclusivos, o RabbitMQ sustentou de 50 a 80 mil ev/s, conforme o modo, e o Kafka de 200 a 300 mil. Testar os dois nas mesmas cargas desperdiça rodadas: acima da saturação, o RabbitMQ só acumula fila.
+**O assunto.** O TCC1 fala em medir tempo de resposta, volume e uso do computador, mas não diz como comparar sistemas que aguentam volumes muito diferentes. Uma resposta simples é medir o volume máximo que cada combinação aguenta sem travar. Para isso, preciso definir o que é "travar" antes de ver os resultados, e não depois.
 
-**Pergunta.** Posso usar faixas de carga diferentes para cada broker?
+**Pergunta.** Esse limite pode ser a medida principal do trabalho? Como o senhor definiria "travar"?
 
-**Minha proposta.** Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil. As cargas até 60 mil são comuns aos dois e permitem comparação direta. Acima disso, a comparação é pelo ponto de saturação (pergunta 5).
+**Minha proposta.** O sistema aguenta enquanto entrega pelo menos 99% das mensagens e 99% delas chegam em menos de 50 milissegundos. Os 50 ms vêm da própria F1: a equipe toma decisões com dados de menos de 50 ms.
 
-### 5. O ponto de saturação pode ser a métrica principal?
+### 6. Posso descartar testes que deram errado?
 
-**Contexto.** O TCC1 lista latência, vazão e uso de recursos, mas não define como comparar arquiteturas que saturam em cargas diferentes. O ponto de saturação é a maior carga que a arquitetura sustenta, e é o número que resume a comparação. Ele precisa de um critério fixado antes de medir, para não ser escolhido depois de ver os dados.
+**O assunto.** Um teste só vale se duas coisas deram certo: o envio seguiu o ritmo combinado, com atraso de no máximo 50 ms, e o resultado do cálculo bateu com o esperado. Nos últimos testes, 35 de 40 passaram nessa checagem.
 
-**Pergunta.** O ponto de saturação pode ser a métrica principal? Que critério o senhor considera adequado?
+**Pergunta.** Posso descartar os que falharem, informando no texto quantos foram e por quê?
 
-**Minha proposta.** A maior carga em que a vazão entregue fica em pelo menos 99% da oferecida e o P99 abaixo de 50 ms. Os 50 ms vêm do domínio: decisões de pit wall usam dados com menos de 50 ms de idade.
+**Minha proposta.** Sim, com uma tabela de descartes junto dos resultados.
 
-### 6. Posso descartar rodadas inválidas?
+## Escopo e análise
 
-**Contexto.** Uma rodada só vale se o gerador enviou no ritmo certo e o resultado está correto. Os critérios são dois:
-- o atraso máximo de envio fica em até 50 ms;
-- o resumo (digest) dos resultados é igual ao esperado, porque todas as arquiteturas precisam calcular exatamente o mesmo.
+### 7. Posso estudar mais a fundo Channels e Pipelines?
 
-No 2×2, 35 de 40 rodadas passaram.
+**O assunto.** Hoje uso Channels e Pipelines do jeito padrão, e o cálculo que faço é muito leve. Nesse caso, eles não deixam nada mais rápido e só gastam mais processador. Falta descobrir em que situação eles ajudam: com um cálculo mais pesado, ou ajustando como agrupam e distribuem o trabalho.
 
-**Pergunta.** Posso descartar rodadas por esses critérios, registrando quantas e por quê?
+**Pergunta.** Posso incluir uma segunda parte nos resultados, testando esses ajustes?
 
-**Minha proposta.** Sim, publicando o número de descartes por combinação junto com os resultados.
+**Minha proposta.** Sim, com um limite: só sigo com o ajuste que mostrar diferença num teste rápido. O resultado vira um guia de quando vale usar cada um.
 
-## Escopo
+### 8. Incluo uma terceira opção de RabbitMQ?
 
-### 7. Posso aprofundar como Channels e Pipelines são usados?
+**O assunto.** Kafka e RabbitMQ guardam as mensagens de jeitos diferentes. O Kafka mantém tudo numa lista contínua, e o RabbitMQ apaga cada mensagem depois de entregue. O RabbitMQ tem um modo chamado Streams, que guarda como o Kafka. Testá-lo mostraria se a diferença vem do sistema ou desse jeito de guardar.
 
-**Contexto.** Hoje Channels e Pipelines são usados na configuração padrão, e o processamento é barato: uma thread processa 8,6 milhões de eventos por segundo. Nesse cenário, os mecanismos internos não melhoram a latência e gastam mais CPU, cerca de 3,6 µs por evento, a ordem de grandeza de acordar uma thread.
+**Pergunta.** Incluo o RabbitMQ Streams, ou deixo para trabalhos futuros?
 
-O trabalho ainda não responde quando eles compensam: com processamento mais pesado, lotes maiores ou mais workers.
+**Minha proposta.** Trabalhos futuros, porque aumenta os testes em 50%.
 
-**Pergunta.** Posso incluir uma segunda parte nos resultados, "uso ajustado", testando essas configurações?
+### 9. Que tipo de análise estatística o senhor espera?
 
-**Minha proposta.** Sim, sem bibliotecas novas e com uma regra de parada: só entra na matriz o fator que mostrar efeito num teste rápido. A conclusão vira uma tabela de quando usar cada mecanismo.
-
-**Se for outra.** O trabalho conclui só sobre o uso padrão.
-
-### 8. RabbitMQ Streams entra no trabalho?
-
-**Contexto.** O Kafka guarda as mensagens num log: quem lê só avança um marcador. A fila clássica do RabbitMQ apaga cada mensagem quando o consumidor confirma. O RabbitMQ também oferece o Streams, um log parecido com o do Kafka. Incluí-lo separaria o efeito do broker do efeito do modelo de armazenamento (log ou fila).
-
-**Pergunta.** O Streams entra no trabalho ou fica como trabalho futuro?
-
-**Minha proposta.** Trabalho futuro. Ele aumentaria a matriz em 50%.
-
-## Análise e validade
-
-### 9. Que análise estatística o senhor espera?
-
-**Contexto.** As latências não seguem distribuição normal, porque têm cauda longa. Hoje comparo as arquiteturas com Kruskal-Wallis, que não assume normalidade. O plano do TCC1 citava o método do Jain: um projeto fatorial com ANOVA, que mede quanto da variação vem de cada fator (broker, modo e carga) e das interações entre eles.
+**O assunto.** Os tempos medidos não seguem a curva normal: a maioria é rápida e alguns são muito lentos. Por isso uso um teste que não depende da curva normal (Kruskal-Wallis). Ele diz se as diferenças são reais, mas não quanto cada fator pesa. O TCC1 citava o método de Jain, que mede quanto do resultado vem do sistema de mensagens, do jeito de processar e do volume.
 
 **Pergunta.** Qual análise o senhor espera?
 
-**Minha proposta.** As duas. Kruskal-Wallis para dizer se as diferenças são reais, e o fatorial do Jain sobre o logaritmo da latência para dizer quanto cada fator pesa.
+**Minha proposta.** As duas: uma para confirmar que as diferenças são reais, e outra para dizer quanto cada fator influencia.
 
 ## Confirmações rápidas
 
-Decisões já implementadas. Basta um sim, ou a indicação do que mudar.
+Decisões que já estão em uso. Basta um sim, ou dizer o que mudar.
 
-| # | Decisão | Como está |
+| # | Assunto | Como está |
 | --- | --- | --- |
-| 1 | Grupo de controle | Direct incluído: matriz 2 brokers × 3 modos |
-| 2 | Carga alta | Multiplicação de carros, cada réplica com número próprio e defasagem para não enviarem todas juntas |
-| 3 | Formato da mensagem | Binário, 46 bytes. Com JSON, o tempo de leitura dominaria a medição |
-| 4 | Compressão | Desligada nos dois. As réplicas são quase idênticas e inflariam o Kafka |
-| 5 | Processamento | Janela de 1 s por carro, frenagens e trocas de marcha; idêntico nos 3 modos |
-| 6 | Paralelismo | 4 filas ou partições e uma linha de consumo por faixa nos dois brokers |
-| 7 | Garantia de entrega | At-least-once nos dois: `acks=all` no Kafka e publisher confirms no RabbitMQ |
-| 8 | Isolamento entre rodadas | Tópicos e filas recriados e tabelas limpas a cada rodada |
+| 1 | Referência | Incluí o Direct, que processa sem Channels nem Pipelines, para ter com o que comparar |
+| 2 | Volume alto | Crio carros extras a partir dos reais, cada um com número próprio e enviando em momentos um pouco diferentes |
+| 3 | Formato da mensagem | Binário e pequeno (46 bytes). Em texto (JSON), só ler a mensagem já custaria mais que o resto |
+| 4 | Compactação | Desligada nos dois. Os carros copiados têm dados quase iguais e isso favoreceria o Kafka |
+| 5 | Cálculo | O mesmo nos três jeitos: médias por segundo, frenagens e trocas de marcha |
+| 6 | Leitores em paralelo | 4 filas e o mesmo número de leitores nos dois sistemas |
+| 7 | Garantia de entrega | Nos dois, nenhuma mensagem se perde; numa falha, uma mensagem pode chegar repetida |
+| 8 | Testes independentes | Filas e tabelas são recriadas antes de cada teste |
 
 ## Literatura para o texto
 
