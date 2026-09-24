@@ -26,12 +26,14 @@ public sealed class DirectPipeline : IProcessingPipeline
 
     public string Mode => "direct";
 
-    public void Submit(int lane, ReadOnlySpan<byte> payload)
+    public ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload)
     {
         var evt = TelemetryCodec.Read(payload);
 
         _processors[lane].Process(evt);
         _latency.Record(lane, evt.PublishedTicks);
+
+        return ValueTask.CompletedTask;
     }
 
     public Task CompleteAsync()

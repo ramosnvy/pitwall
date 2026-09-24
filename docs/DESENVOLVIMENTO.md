@@ -2,7 +2,7 @@
 
 24/09/2026. Sequência de trabalho daqui até o texto final, em ordem de dependência e sem datas. Substitui a sequência A–I do PLANO §5, concluída na primeira matriz. O estado de cada item fica no [ESTADO.md](ESTADO.md).
 
-**Onde estamos:** na fase 1. Cada fase termina num commit e, quando mede algo, num registro em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
+**Onde estamos:** fase 1 concluída em 24/09/2026 (situação em AUDITORIA-CONFIG); próxima, a fase 2. Cada fase termina num commit e, quando mede algo, num registro em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
 
 ```mermaid
 flowchart LR
@@ -45,7 +45,7 @@ Código e configuração. Nenhuma medição.
 | 1.2 | Limite de memória do RabbitMQ sobre os 3 GB do container (`total_memory_available_override_value`) e comentário corrigido | `infra/rabbitmq/rabbitmq.conf` |
 | 1.3 | Imagem do RabbitMQ fixada em `4.3.6-management-alpine` | `infra/docker-compose.yml` |
 | 1.4 | Voltar ao padrão: `batch.size`, `fetch.wait.max.ms`, `compression.type` do broker, `disk_free_limit` e heap da JVM | sinks, fontes, compose, `rabbitmq.conf` |
-| 1.5 | Perfis de configuração: opção `-Profile padrao` ou `-Profile ajustado` no roteiro. Os valores de cada perfil ficam num só lugar e vão para o CSV da rodada | `Pitwall.Runner.psm1`, `run-matrix.ps1`, `sweep.ps1` |
+| 1.5 | Perfis de configuração: opção `-Profile` no roteiro, com `padrao`, `legado` (os clientes como até 24/09) e `ajustado` (definido na fase 7). Os valores de cada perfil ficam num só lugar (`Get-ProfileArgs`) e vão para o CSV da rodada; `-ProducerExtraArgs` e `-ConsumerExtraArgs` servem às medições da fase 2 | `Pitwall.Runner.psm1`, `run-matrix.ps1`, `sweep.ps1` |
 | 1.6 | Espera síncrona na contrapressão (REVISAO §2.3): `Submit` devolve `ValueTask` e as fontes aguardam. Precisa vir antes da medição do `prefetch`, porque o `prefetch` sem limite passa a encher a fila interna | `IProcessingPipeline.cs`, os três pipelines, as duas fontes |
 | 1.7 | Registro incompleto no Pipe (REVISAO §2.4): contar e invalidar a rodada, em vez de descartar em silêncio | `PipelinesPipeline.cs` |
 | 1.8 | Registrar por rodada a configuração efetiva dos clientes e as variáveis `DOTNET_*` | relatórios do produtor e do consumidor, `load-results.ps1` |

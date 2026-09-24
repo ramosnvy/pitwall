@@ -43,6 +43,15 @@ ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS consumer_throttled_pct DOUBLE PR
 ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS producer_throttled_pct DOUBLE PRECISION;
 ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS sample_hz              TEXT;
 
+-- Colunas de 24/09 (docs/AUDITORIA-CONFIG.md e DESENVOLVIMENTO, fase 1.8):
+-- perfil de configuracao, configuracao efetiva dos clientes, variaveis do
+-- runtime .NET e registros incompletos no Pipe (REVISAO-TECNICA 2.4).
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS profile                TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS client_config          TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS producer_config        TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS dotnet_env             TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS incomplete_records     BIGINT;
+
 -- Recriada (e nao substituida) porque m.* muda quando a tabela ganha colunas.
 DROP VIEW IF EXISTS v_matrix;
 

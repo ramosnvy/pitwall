@@ -46,7 +46,9 @@ param(
     [double]$Hz = 0,
     [double]$WindowStart = -1,
     # cpuset: nucleos exclusivos por container (padrao); quota: como na 7e283c2.
-    [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset'
+    [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
+    # Perfil de configuracao dos clientes (Get-ProfileArgs no Pitwall.Runner).
+    [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao'
 )
 
 Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force
@@ -122,7 +124,7 @@ foreach ($run in $runs) {
             -Replication $run.rep -Persist:(-not $NoPersist) -Dataset $Dataset `
             -ConsumerReport $ConsumerReport -ProducerReport $ProducerReport `
             -SyntheticCostUs $SyntheticCostUs -Commit $commit -HostProcesses:$HostProcesses `
-            -LaneHash $LaneHash -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode
+            -LaneHash $LaneHash -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode -Profile $Profile
     }
     catch {
         $row = $null

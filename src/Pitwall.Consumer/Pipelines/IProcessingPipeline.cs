@@ -17,8 +17,21 @@ public interface IProcessingPipeline : IAsyncDisposable
     /// <summary>
     /// Entrega os bytes crus de um evento na faixa indicada. Chamado pela
     /// thread que recebe do broker.
+    ///
+    /// Os bytes sao lidos antes de o metodo retornar, entao o chamador pode
+    /// liberar o buffer logo depois. A tarefa devolvida so fica pendente
+    /// quando a fila interna esta cheia: e a contrapressao, e quem recebe do
+    /// broker deve aguarda-la antes de entregar o proximo evento. Antes ela
+    /// era aguardada aqui dentro, de forma sincrona, o que bloqueava o
+    /// despachante assincrono do RabbitMQ.Client (REVISAO-TECNICA §2.3).
     /// </summary>
-    void Submit(int lane, ReadOnlySpan<byte> payload);
+    ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload);
+
+    /// <summary>
+    /// Registros incompletos encontrados ao fechar a faixa. Qualquer valor
+    /// acima de zero invalida a rodada (REVISAO-TECNICA §2.4).
+    /// </summary>
+    long IncompleteRecords => 0;
 
     /// <summary>Drena o que ainda esta em transito e fecha as janelas abertas.</summary>
     Task CompleteAsync();

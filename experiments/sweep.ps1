@@ -29,6 +29,8 @@ param(
     [double]$Hz = 0,
     [double]$WindowStart = -1,
     [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
+    # Perfil de configuracao dos clientes (Get-ProfileArgs no Pitwall.Runner).
+    [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao',
     [switch]$HostProcesses
 )
 
@@ -60,7 +62,7 @@ foreach ($broker in $Brokers) {
                 -Seconds $Seconds -Partitions $Partitions -Dataset $Dataset `
                 -ConsumerReport $Out -ProducerReport $ProducerReport -LaneHash $LaneHash `
                 -Persist:$Persist -Commit $commit -HostProcesses:$HostProcesses `
-                -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode
+                -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode -Profile $Profile
 
             # A linha enriquecida (produtor, CPU e memoria de todos os modulos)
             # vai para um CSV proprio; o CSV do consumidor so tem o lado dele.

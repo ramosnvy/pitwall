@@ -152,9 +152,13 @@ Na matriz, a rodada `kafka-pipelines#2` a 400 mil ev/s perdeu 2,12 milhões de e
 
 Quando a fila interna enche, `ChannelsPipeline` e `PipelinesPipeline` bloqueiam a thread chamadora com `GetAwaiter().GetResult()`. No consumidor RabbitMQ essa thread é o despachante assíncrono do cliente, e bloqueá-lo pode esgotar o pool de threads sob saturação. Na matriz atual o caminho praticamente não é exercitado: a capacidade de 10 mil eventos por faixa é muito maior que o prefetch de 300. Correção: `Submit` devolver `ValueTask` e as fontes aguardarem.
 
+*Resolvido em 24/09/2026 (fase 1 do DESENVOLVIMENTO):* `SubmitAsync` devolve a espera; a fonte do RabbitMQ a aguarda sem bloquear, e a do Kafka espera na thread dedicada da partição. Com o `prefetch` sem limite do cenário padrão, esse caminho passa a ser exercitado. Testes em `PipelineBackpressureTests`.
+
 ### 2.4 Registro incompleto descartado em silêncio
 
 Ao completar o `PipeReader`, bytes remanescentes que não formam um registro inteiro são descartados sem aviso. A documentação recomenda lançar `InvalidDataException` nesse caso. Com registros de tamanho fixo e escritor confiável não deve ocorrer, mas se ocorrer precisa aparecer.
+
+*Resolvido em 24/09/2026:* o registro incompleto é contado (`incomplete_records` no relatório) e a rodada é invalidada. Pela API atual todo registro tem tamanho inteiro, então o caso só aparece com defeito no escritor; o teste escreve direto no Pipe.
 
 ### 2.5 Assimetria de durabilidade — declarar
 

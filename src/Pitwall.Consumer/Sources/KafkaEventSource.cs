@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using Pitwall.Consumer.Pipelines;
+using Pitwall.Contracts;
 
 namespace Pitwall.Consumer.Sources;
 
@@ -78,28 +79,7 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
 
     private long ConsumePartition(int partition, IProcessingPipeline pipeline, CancellationToken ct)
     {
-        var config = new ConsumerConfig
-        {
-            BootstrapServers = options.BootstrapServers,
-            GroupId = options.GroupId + "-" + partition,
-
-            // At-least-once no consumidor, no padrao documentado da
-            // librdkafka: o offset so e armazenado explicitamente depois que o
-            // evento foi entregue ao pipeline (StoreOffset abaixo), e o commit
-            // dos offsets armazenados e periodico. Antes, o consumidor nunca
-            // registrava progresso -- enquanto o RabbitMQ confirmava cada
-            // mensagem, o Kafka nao pagava custo nenhum de confirmacao, e a
-            // comparacao favorecia o Kafka por omissao.
-            EnableAutoCommit = true,
-            EnableAutoOffsetStore = false,
-            AutoCommitIntervalMs = options.AutoCommitIntervalMs,
-            AutoOffsetReset = AutoOffsetReset.Earliest,
-            FetchMinBytes = options.FetchMinBytes,
-            FetchWaitMaxMs = options.FetchWaitMaxMs,
-
-            // Nagle desligado (TCP_NODELAY). Ver KafkaSourceOptions.SocketNagleDisable.
-            SocketNagleDisable = options.SocketNagleDisable
-        };
+        var config = BuildConfig(options.GroupId + "-" + partition);
 
         using var consumer = new ConsumerBuilder<int, byte[]>(config).Build();
         consumer.Assign(new TopicPartitionOffset(options.Topic, partition, Offset.Beginning));
@@ -127,7 +107,17 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
                     continue;
                 }
 
-                pipeline.Submit(partition, result.Message.Value);
+                // Contrapressao: com a fila interna cheia, esta thread espera.
+                // Aqui a espera sincrona e correta -- a thread e dedicada a
+                // particao (LongRunning) e o Consume() ja e sincrono --, ao
+                // contrario do despachante do RabbitMQ, que e assincrono.
+                var submitted = pipeline.SubmitAsync(partition, result.Message.Value);
+
+                if (!submitted.IsCompletedSuccessfully)
+                {
+                    submitted.AsTask().GetAwaiter().GetResult();
+                }
+
                 consumer.StoreOffset(result);
                 consumed++;
 
@@ -151,6 +141,40 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
 
         return consumed;
     }
+
+    /// <summary>Parametros atribuidos explicitamente; o resto e padrao da librdkafka.</summary>
+    public string EffectiveConfig => RunSettings.Format(BuildConfig(options.GroupId)
+        .Where(kv => kv.Key is not ("bootstrap.servers" or "group.id"))
+        .Select(kv => new KeyValuePair<string, string?>(kv.Key, kv.Value)));
+
+    private ConsumerConfig BuildConfig(string groupId)
+    {
+        var config = new ConsumerConfig
+        {
+            BootstrapServers = options.BootstrapServers,
+            GroupId = groupId,
+
+            // At-least-once no consumidor, no padrao documentado da
+            // librdkafka: o offset so e armazenado explicitamente depois que o
+            // evento foi entregue ao pipeline (StoreOffset abaixo), e o commit
+            // dos offsets armazenados e periodico. Antes, o consumidor nunca
+            // registrava progresso -- enquanto o RabbitMQ confirmava cada
+            // mensagem, o Kafka nao pagava custo nenhum de confirmacao, e a
+            // comparacao favorecia o Kafka por omissao.
+            EnableAutoCommit = true,
+            EnableAutoOffsetStore = false,
+            AutoCommitIntervalMs = options.AutoCommitIntervalMs,
+            AutoOffsetReset = AutoOffsetReset.Earliest
+        };
+
+        // Sem valor, vale o padrao da librdkafka (docs/AUDITORIA-CONFIG.md):
+        // fetch.min.bytes 1, fetch.wait.max.ms 500, Nagle desligado.
+        if (options.FetchMinBytes is { } minBytes) config.FetchMinBytes = minBytes;
+        if (options.FetchWaitMaxMs is { } waitMax) config.FetchWaitMaxMs = waitMax;
+        if (options.SocketNagleDisable is { } nagle) config.SocketNagleDisable = nagle;
+
+        return config;
+    }
 }
 
 public sealed record KafkaSourceOptions
@@ -159,11 +183,16 @@ public sealed record KafkaSourceOptions
     public string Topic { get; init; } = "telemetry";
     public string GroupId { get; init; } = "pitwall";
     public int Partitions { get; init; } = 4;
-    public int FetchMinBytes { get; init; } = 1;
-    public int FetchWaitMaxMs { get; init; } = 10;
+    // Nulo = padrao da librdkafka 2.15.1.
 
-    /// <summary>Desliga o algoritmo de Nagle no socket (ver KafkaSinkOptions).</summary>
-    public bool SocketNagleDisable { get; init; }
+    /// <summary>fetch.min.bytes; padrao 1.</summary>
+    public int? FetchMinBytes { get; init; }
+
+    /// <summary>fetch.wait.max.ms; padrao 500. As rodadas anteriores a 24/09 usavam 10.</summary>
+    public int? FetchWaitMaxMs { get; init; }
+
+    /// <summary>socket.nagle.disable; padrao true (ver KafkaSinkOptions).</summary>
+    public bool? SocketNagleDisable { get; init; }
 
     /// <summary>
     /// Intervalo do commit periodico dos offsets armazenados. O padrao da

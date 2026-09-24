@@ -323,6 +323,51 @@ function Wait-Container {
     return $false
 }
 
+function Get-ProfileArgs {
+    <#
+    .SYNOPSIS
+    Argumentos dos clientes para cada perfil de configuracao
+    (docs/AUDITORIA-CONFIG.md e docs/DESENVOLVIMENTO.md, fase 1.5).
+
+    padrao: os valores de fabrica das bibliotecas e dos brokers, mais as
+    escolhas de equivalencia da auditoria. Os clientes ja nascem no padrao de
+    fabrica; aqui entram so as escolhas da aplicacao. A janela do produtor
+    RabbitMQ segura o mesmo total que a fila padrao do produtor Kafka: 12.500
+    por lote x 2 lotes x 4 faixas = 100 mil. Provisorio ate as medicoes da
+    fase 2.
+
+    legado: a configuracao dos clientes usada ate 24/09 (matriz 7e283c2, 2x2
+    e varredura a 100 Hz). Reproduz so o lado dos clientes: heap do Kafka,
+    compressao do broker e limite de memoria do RabbitMQ mudaram no compose.
+
+    ajustado: definido na fase 7, depois de medir o padrao.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Profile,
+        [Parameter(Mandatory)][string]$Broker
+    )
+
+    $kafka = $Broker -eq 'kafka'
+
+    switch ($Profile) {
+        'padrao' {
+            if ($kafka) { return @{ Producer = @(); Consumer = @() } }
+            return @{ Producer = @('--confirm-batch', '12500'); Consumer = @('--prefetch', '0') }
+        }
+        'legado' {
+            if ($kafka) {
+                return @{
+                    Producer = @('--linger-ms', '5', '--batch-size', '65536', '--queue-max-messages', '1000000', '--nagle', 'on')
+                    Consumer = @('--fetch-wait-max-ms', '10', '--nagle', 'on')
+                }
+            }
+            return @{ Producer = @('--confirm-batch', '1000'); Consumer = @('--prefetch', '300') }
+        }
+        'ajustado' { throw 'O perfil ajustado so e definido na fase 7 (docs/DESENVOLVIMENTO.md).' }
+        default { throw "Perfil desconhecido: $Profile. Use padrao ou legado." }
+    }
+}
+
 function Invoke-PitwallRun {
     <#
     .SYNOPSIS
@@ -361,11 +406,18 @@ function Invoke-PitwallRun {
         # Inicio do trecho da corrida usado, em segundos; negativo = corrida
         # inteira, como na matriz 7e283c2. Obrigatorio com -Hz.
         [double]$WindowStart = -1,
+        # Perfil de configuracao dos clientes (Get-ProfileArgs).
+        [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao',
+        # Argumentos avulsos, para as medicoes de decisao da fase 2. Vencem os
+        # do perfil: os clientes leem a primeira ocorrencia de cada opcao.
+        [string[]]$ProducerExtraArgs = @(),
+        [string[]]$ConsumerExtraArgs = @(),
         [string]$Commit = ''
     )
 
     $root = Split-Path $PSScriptRoot -Parent
     $runId = [guid]::NewGuid().ToString()
+    $profileArgs = Get-ProfileArgs -Profile $Profile -Broker $Broker
 
     # O produtor publica aquecimento + medicao; o consumidor descarta o
     # aquecimento. A janela medida tem exatamente $Seconds de carga estavel.
@@ -442,6 +494,10 @@ function Invoke-PitwallRun {
     }
     if ($Hz -gt 0) { $producerArgs += @('--hz', $Hz.ToString($inv)) }
     if ($WindowStart -ge 0) { $producerArgs += @('--window-start', $WindowStart.ToString($inv)) }
+
+    # Avulsos antes do perfil, para vencerem (primeira ocorrencia).
+    $producerArgs = $producerArgs + $ProducerExtraArgs + $profileArgs.Producer
+    $consumerArgs = $consumerArgs + $ConsumerExtraArgs + $profileArgs.Consumer
 
     $timeout = ($Seconds + $WarmupSeconds) * 3 + 180
 
@@ -556,6 +612,9 @@ function Invoke-PitwallRun {
     $producerPath = Join-Path $root $ProducerReport
     $producerRate = ''
     $producerJitter = ''
+    $producerConfig = ''
+    $producerDotnetEnv = ''
+    $producerQueueFullWaits = ''
 
     # Casamento pela chave da rodada, nunca pela posicao no arquivo. Na matriz
     # v2, um produtor caiu sem gravar relatorio, e pegar a ultima linha atribuiu
@@ -567,6 +626,10 @@ function Invoke-PitwallRun {
         if ($null -ne $p) {
             $producerRate = $p.achieved_rate
             $producerJitter = $p.max_lateness_ms
+            # Colunas de 24/09 em diante; vazias em relatorios mais antigos.
+            $producerConfig = $p.client_config
+            $producerDotnetEnv = $p.dotnet_env
+            $producerQueueFullWaits = $p.queue_full_waits
         }
     }
 
@@ -575,6 +638,9 @@ function Invoke-PitwallRun {
 
     $enriched['producer_achieved_rate'] = $producerRate
     $enriched['producer_jitter_ms'] = $producerJitter
+    $enriched['producer_config'] = $producerConfig
+    $enriched['producer_dotnet_env'] = $producerDotnetEnv
+    $enriched['producer_queue_full_waits'] = $producerQueueFullWaits
     $enriched['broker_cpu_avg'] = $brokerMetrics.cpu_avg
     $enriched['broker_cpu_peak'] = $brokerMetrics.cpu_peak
     $enriched['broker_mem_avg_mb'] = $brokerMetrics.mem_avg_mb
@@ -610,6 +676,8 @@ function Invoke-PitwallRun {
     $enriched['producer_throttled_pct'] = $producerThrottled
 
     $enriched['client_placement'] = $placement
+    $enriched['profile'] = $Profile
+    $enriched['extra_args'] = (@($ProducerExtraArgs) + @($ConsumerExtraArgs)) -join ' '
     $enriched['warmup_seconds'] = $WarmupSeconds
     $enriched['measure_seconds'] = $Seconds
     $enriched['commit'] = $Commit

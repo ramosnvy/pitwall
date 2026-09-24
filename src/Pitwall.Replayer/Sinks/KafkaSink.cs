@@ -39,25 +39,28 @@ public sealed class KafkaSink : IEventSink
             // renderia com telemetria real (ver docs/PLANO.md, secao 1a).
             CompressionType = CompressionType.None,
 
-            // Agrupamento em lote. Sao os dois parametros que mais afetam a
-            // troca entre latencia e vazao, entao ficam explicitos e viram
-            // fatores caso o experimento precise varia-los.
-            LingerMs = options.LingerMs,
-            BatchSize = options.BatchSize,
-
             // Sem idempotencia: ela acrescenta sequenciamento e reordenacao
             // do lado do broker, o que mudaria a semantica em relacao ao
             // RabbitMQ e tornaria a comparacao desigual.
-            EnableIdempotence = false,
-
-            // Nagle desligado (TCP_NODELAY). Ver KafkaSinkOptions.SocketNagleDisable.
-            SocketNagleDisable = options.SocketNagleDisable,
-
-            // Se a fila interna do cliente encher, bloqueia em vez de
-            // descartar: perder evento silenciosamente invalidaria a rodada.
-            QueueBufferingMaxMessages = options.QueueBufferingMaxMessages,
-            QueueBufferingMaxKbytes = options.QueueBufferingMaxKbytes
+            EnableIdempotence = false
         };
+
+        // Os demais parametros so sao atribuidos quando pedidos: sem valor, vale
+        // o padrao da librdkafka. Antes, SocketNagleDisable recebia false sempre
+        // que a opcao nao era passada, e o Kafka rodou com o Nagle ligado contra
+        // o padrao da biblioteca (docs/AUDITORIA-CONFIG.md, defeito 1).
+        if (options.LingerMs is { } linger) config.LingerMs = linger;
+        if (options.BatchSize is { } batch) config.BatchSize = batch;
+        if (options.SocketNagleDisable is { } nagle) config.SocketNagleDisable = nagle;
+
+        // Fila interna do cliente. Cheia, o produtor espera em vez de
+        // descartar (PublishAsync): perder evento invalidaria a rodada.
+        if (options.QueueBufferingMaxMessages is { } maxMessages) config.QueueBufferingMaxMessages = maxMessages;
+        if (options.QueueBufferingMaxKbytes is { } maxKbytes) config.QueueBufferingMaxKbytes = maxKbytes;
+
+        EffectiveConfig = RunSettings.Format(config
+            .Where(kv => kv.Key != "bootstrap.servers")
+            .Select(kv => new KeyValuePair<string, string?>(kv.Key, kv.Value)));
 
         _producer = new ProducerBuilder<int, byte[]>(config)
             .SetErrorHandler((_, e) => Console.Error.WriteLine($"[kafka] {e.Reason}"))
@@ -65,6 +68,9 @@ public sealed class KafkaSink : IEventSink
     }
 
     public string Name => "kafka";
+
+    /// <summary>Parametros atribuidos explicitamente; o resto e padrao da librdkafka.</summary>
+    public string EffectiveConfig { get; }
 
     public long Delivered => Interlocked.Read(ref _delivered);
     public long Failed => Interlocked.Read(ref _failed);
@@ -76,7 +82,7 @@ public sealed class KafkaSink : IEventSink
     {
         // Um array novo por evento: o produtor e assincrono e mantem a
         // referencia ate a entrega, entao reaproveitar o buffer corromperia
-        // mensagens ainda em voo. Sao 44 bytes em gen0, custo aceitavel.
+        // mensagens ainda em voo. Sao 46 bytes em gen0, custo aceitavel.
         var payload = new byte[TelemetryCodec.Size];
         TelemetryCodec.Write(payload, evt);
 
@@ -141,16 +147,24 @@ public sealed record KafkaSinkOptions
 {
     public string BootstrapServers { get; init; } = "localhost:9092";
     public string Topic { get; init; } = "telemetry";
-    public double LingerMs { get; init; } = 5;
-    public int BatchSize { get; init; } = 65536;
+    // Nulo = padrao da librdkafka 2.15.1, anotado ao lado de cada um.
+
+    /// <summary>linger.ms; padrao 5.</summary>
+    public double? LingerMs { get; init; }
+
+    /// <summary>batch.size em bytes; padrao 1.000.000.</summary>
+    public int? BatchSize { get; init; }
 
     /// <summary>
-    /// Desliga o algoritmo de Nagle no socket. A librdkafka o deixa ligado por
-    /// padrao; o RabbitMQ.Client o desliga. Com Nagle ligado, requisicoes
-    /// pequenas esperam o ACK da anterior, e o broker no Linux do WSL2 atrasa
-    /// o ACK em ate ~40 ms -- em carga baixa isso vira latencia.
+    /// socket.nagle.disable; padrao true (Nagle desligado), como o NoDelay do
+    /// RabbitMQ.Client. false liga o Nagle, como nas rodadas anteriores a
+    /// auditoria de 24/09.
     /// </summary>
-    public bool SocketNagleDisable { get; init; }
-    public int QueueBufferingMaxMessages { get; init; } = 1_000_000;
-    public int QueueBufferingMaxKbytes { get; init; } = 1_048_576;
+    public bool? SocketNagleDisable { get; init; }
+
+    /// <summary>queue.buffering.max.messages; padrao 100.000.</summary>
+    public int? QueueBufferingMaxMessages { get; init; }
+
+    /// <summary>queue.buffering.max.kbytes; padrao 1.048.576.</summary>
+    public int? QueueBufferingMaxKbytes { get; init; }
 }

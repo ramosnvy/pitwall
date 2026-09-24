@@ -103,9 +103,11 @@ IEventSink sink = sinkName switch
     {
         BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
         Topic = GetArg("--topic") ?? "telemetry",
-        LingerMs = double.Parse(GetArg("--linger-ms") ?? "5"),
-        BatchSize = int.Parse(GetArg("--batch-size") ?? "65536"),
-        SocketNagleDisable = args.Contains("--nagle-disable")
+        // Sem a opcao, vale o padrao da librdkafka (docs/AUDITORIA-CONFIG.md).
+        LingerMs = GetArg("--linger-ms") is { } linger ? double.Parse(linger, CultureInfo.InvariantCulture) : null,
+        BatchSize = GetArg("--batch-size") is { } batch ? int.Parse(batch) : null,
+        QueueBufferingMaxMessages = GetArg("--queue-max-messages") is { } queueMax ? int.Parse(queueMax) : null,
+        SocketNagleDisable = ParseNagle()
     }),
     "rabbit" or "rabbitmq" => await RabbitMqSink.ConnectAsync(new RabbitMqSinkOptions
     {
@@ -124,6 +126,7 @@ IEventSink sink = sinkName switch
 Console.WriteLine();
 Console.WriteLine($"Destino: {sink.Name} | alvo: {rate:N0} ev/s | " +
                   $"warmup: {warmup.TotalSeconds:0}s | medicao: {duration.TotalSeconds:0}s");
+Console.WriteLine($"Cliente: {sink.EffectiveConfig}");
 
 var replayer = new OpenLoopReplayer(data, sink);
 // O laco de ritmo gira em espera ativa por design (malha aberta), entao ocupa
@@ -180,7 +183,8 @@ if (producerReport is not null)
         // a do consumidor pela chave, e nao pela posicao no arquivo. Casar pela
         // ultima linha atribuiu a uma rodada, cujo produtor caiu sem gravar
         // relatorio, o jitter de outra rodada -- e ela pareceu valida.
-        w.WriteLine("run_id,timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps");
+        w.WriteLine("run_id,timestamp,sink,target_rate,achieved_rate,rate_error_pct,max_lateness_ms,events,fleet,dataset_laps," +
+                    "client_config,dotnet_env,queue_full_waits");
     }
 
     w.WriteLine(string.Join(',',
@@ -193,7 +197,10 @@ if (producerReport is not null)
         result.MaxLatenessMs.ToString("0.00", CultureInfo.InvariantCulture),
         result.EventsEmitted,
         fleet,
-        result.DatasetLaps));
+        result.DatasetLaps,
+        sink.EffectiveConfig,
+        RunSettings.DotnetEnvironment(),
+        sink is KafkaSink k ? k.QueueFullWaits.ToString() : ""));
 }
 
 // Um atraso alto significa que o gerador nao conseguiu manter o ritmo: a
@@ -213,6 +220,18 @@ string? GetArg(string name)
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 }
 
+// --nagle on liga o Nagle (socket.nagle.disable=false), como nas rodadas
+// anteriores a auditoria; --nagle off o desliga explicitamente. Sem a opcao,
+// vale o padrao da librdkafka, que ja o desliga. --nagle-disable e o nome
+// antigo de "off".
+bool? ParseNagle() => GetArg("--nagle") switch
+{
+    "on" => false,
+    "off" => true,
+    null => args.Contains("--nagle-disable") ? true : null,
+    var other => throw new ArgumentException($"--nagle aceita on ou off, nao '{other}'.")
+};
+
 static void PrintUsage() => Console.WriteLine("""
     Gerador de carga em malha aberta a partir do dataset da OpenF1.
 
@@ -228,8 +247,12 @@ static void PrintUsage() => Console.WriteLine("""
       --sink <nome>        Destino dos eventos: null, kafka ou rabbit
       --bootstrap <host>   Kafka: servidor (padrao: localhost:9092)
       --topic <nome>       Kafka: topico (padrao: telemetry)
-      --linger-ms <n>      Kafka: espera de agrupamento (padrao: 5)
-      --batch-size <n>     Kafka: tamanho do lote em bytes (padrao: 65536)
+      --linger-ms <n>      Kafka: espera de agrupamento (padrao da librdkafka: 5)
+      --batch-size <n>     Kafka: lote em bytes (padrao da librdkafka: 1000000)
+      --queue-max-messages <n>
+                           Kafka: fila local do cliente (padrao: 100000)
+      --nagle <on|off>    Kafka: liga ou desliga o Nagle (padrao da
+                           librdkafka: desligado)
       --rabbit-host <host> RabbitMQ: servidor (padrao: localhost)
       --queue <nome>       RabbitMQ: fila (padrao: telemetry)
       --confirm-batch <n>  RabbitMQ: publicacoes em voo por faixa (padrao: 1000)

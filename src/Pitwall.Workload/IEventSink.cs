@@ -11,6 +11,12 @@ public interface IEventSink : IAsyncDisposable
 {
     string Name { get; }
 
+    /// <summary>
+    /// Configuracao efetiva do cliente, no formato de <see cref="RunSettings"/>,
+    /// para o relatorio da rodada.
+    /// </summary>
+    string EffectiveConfig => "padrao";
+
     ValueTask PublishAsync(in TelemetryEvent evt, CancellationToken ct);
 
     /// <summary>Garante que tudo que foi publicado saiu do buffer local.</summary>

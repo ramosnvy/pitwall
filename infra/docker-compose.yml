@@ -76,14 +76,14 @@ services:
       # duas horas de retencao guardariam dezenas de GB de rodadas ja
       # analisadas. As rodadas duram minutos e o topico e recriado entre elas.
       KAFKA_LOG_RETENTION_MINUTES: 15
-      # Compressao desligada: o workload replica a mesma amostra em varios
-      # carros, entao os lotes ficam cheios de bytes parecidos e a compressao
-      # renderia muito mais do que renderia com telemetria real, inflando o
-      # throughput do Kafka por artefato do workload e nao por arquitetura.
-      # No broker o valor e "uncompressed"; "none" so vale do lado do produtor,
-      # onde o cliente Confluent.Kafka tambem precisa declara-lo.
-      KAFKA_COMPRESSION_TYPE: uncompressed
-      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx1536m -Xms1536m}
+      # Compressao: o produtor nao comprime (compression.type=none no
+      # KafkaSink), porque o workload replica a mesma amostra em varios carros
+      # e a compressao renderia muito mais do que com telemetria real. No
+      # broker fica o padrao, "producer", que guarda o lote como o produtor o
+      # mandou -- o mesmo efeito do "uncompressed" usado ate 24/09, sem um
+      # desvio de configuracao a declarar (docs/AUDITORIA-CONFIG.md).
+      #
+      # Heap da JVM: padrao do script de inicio (1 GB). Ate 24/09 era 1,5 GB.
     volumes:
       - kafka-data:/var/lib/kafka/data
     cpus: ${BROKER_CPUS:-4}
@@ -96,7 +96,8 @@ services:
     restart: unless-stopped
 
   rabbitmq:
-    image: rabbitmq:4-management-alpine
+    # Versao fixa, como a do Kafka: a tag "4-management-alpine" flutuava.
+    image: rabbitmq:4.3.6-management-alpine
     container_name: pitwall-rabbitmq
     profiles: ["rabbit"]
     ports:

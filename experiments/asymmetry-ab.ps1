@@ -88,7 +88,7 @@ try {
             $row = Invoke-PitwallRun -Broker rabbit -Mode direct -Rate $run.rate `
                 -Seconds $Seconds -WarmupSeconds $WarmupSeconds -Replication $run.rep -Persist `
                 -LaneHash $run.lane -ConsumerReport $ConsumerReport -ProducerReport $ProducerReport `
-                -Commit $commit
+                -Commit $commit -Profile legado
         }
         catch {
             $row = $null

@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\Pitwall.Contracts\Pitwall.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Pitwall.Workload\Pitwall.Workload.csproj" />
     <ProjectReference Include="..\..\src\Pitwall.Processing.Core\Pitwall.Processing.Core.csproj" />
+    <ProjectReference Include="..\..\src\Pitwall.Consumer\Pitwall.Consumer.csproj" />
   </ItemGroup>
 
 </Project>

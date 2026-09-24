@@ -6,7 +6,7 @@ Retrato em `e36b3f8`, 24/09/2026. Decisões em [PLANO.md](PLANO.md); números em
 
 **Calibração do protocolo, antes da matriz oficial (v3).** A carga atual está implementada e já foi medida três vezes: a primeira matriz, o experimento 2×2 e a varredura de saturação a 100 Hz. O orientador respondeu às perguntas em 24/09 (PLANO §1g), e a auditoria das configurações encontrou dois defeitos e três assimetrias.
 
-Antes da matriz, falta corrigir o que a auditoria achou, medir o que ainda está em dúvida e congelar o **cenário padrão**.
+As correções da auditoria estão feitas (fase 1). Antes da matriz, falta medir o que ainda está em dúvida (fase 2) e congelar o **cenário padrão**.
 
 ## 2. Ambiente
 
@@ -70,8 +70,8 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 
 | Fase | Entrega | Situação |
 | --- | --- | --- |
-| 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | próxima |
-| 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | depende da 1 |
+| 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | **concluída** (24/09); fumaça com 4 de 4 rodadas válidas |
+| 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **próxima** |
 | 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | depende da 2 |
 | 4 | Instabilidade do Kafka com Channels | depende da 3 |
 | 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | em paralelo |

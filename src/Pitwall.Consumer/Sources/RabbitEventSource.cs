@@ -1,4 +1,5 @@
 using Pitwall.Consumer.Pipelines;
+using Pitwall.Contracts;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -18,6 +19,13 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
     public string Broker => "rabbitmq";
 
     public int Lanes => options.Partitions;
+
+    public string EffectiveConfig => RunSettings.Format(new Dictionary<string, string?>
+    {
+        ["prefetch"] = options.Prefetch == 0 ? "sem_limite" : options.Prefetch.ToString(),
+        ["ack_batch"] = options.AckBatch.ToString(),
+        ["dispatch_concurrency"] = "1"
+    });
 
     public async Task<long> ConsumeAsync(IProcessingPipeline pipeline, CancellationToken ct)
     {
@@ -43,8 +51,9 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
 
         // O lote de confirmacao precisa caber folgado no prefetch: com lote
         // maior ou igual ao prefetch, o broker para de entregar esperando uma
-        // confirmacao que so viria com a proxima entrega -- impasse.
-        if (options.AckBatch * 2 > options.Prefetch)
+        // confirmacao que so viria com a proxima entrega -- impasse. Com
+        // prefetch 0 (sem limite, o padrao do RabbitMQ) nao ha impasse.
+        if (options.Prefetch > 0 && options.AckBatch * 2 > options.Prefetch)
         {
             throw new ArgumentException(
                 $"AckBatch ({options.AckBatch}) precisa ser no maximo metade do Prefetch ({options.Prefetch}).");
@@ -83,14 +92,29 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
 
             // prefetch limita quantas mensagens nao confirmadas o broker
             // entrega adiante. E o analogo do limite de capacidade do Channels
-            // e precisa constar na tabela de configuracao do artigo.
-            await channel.BasicQosAsync(0, options.Prefetch, global: false, cancellationToken: ct);
+            // e precisa constar na tabela de configuracao do artigo. Com 0, o
+            // padrao do RabbitMQ, nao ha limite e a chamada e dispensada.
+            if (options.Prefetch > 0)
+            {
+                await channel.BasicQosAsync(0, options.Prefetch, global: false, cancellationToken: ct);
+            }
 
             var consumer = new AsyncEventingBasicConsumer(channel);
 
             consumer.ReceivedAsync += async (_, ea) =>
             {
-                pipeline.Submit(index, ea.Body.Span);
+                // Os bytes sao lidos antes de SubmitAsync retornar, enquanto a
+                // entrega ainda e valida. Com a fila interna cheia, aguarda aqui
+                // sem bloquear a thread: o despachante do canal so passa a
+                // proxima entrega quando esta termina, e isso e a contrapressao
+                // (REVISAO-TECNICA §2.3).
+                var submitted = pipeline.SubmitAsync(index, ea.Body.Span);
+
+                if (!submitted.IsCompletedSuccessfully)
+                {
+                    await submitted;
+                }
+
                 Interlocked.Increment(ref counts[index]);
                 idle.Touch();
 
@@ -197,11 +221,13 @@ public sealed record RabbitSourceOptions
     public string Exchange { get; init; } = "telemetry";
     public int Partitions { get; init; } = 4;
     /// <summary>
-    /// Mensagens nao confirmadas que o broker entrega adiante por canal. A
-    /// documentacao do RabbitMQ indica 100 a 300 como a faixa que "usually
-    /// offer optimal throughput"; o valor anterior, 1.000, estava fora dela.
+    /// Mensagens nao confirmadas que o broker entrega adiante por canal. 0 e o
+    /// padrao do RabbitMQ: sem limite, o mais proximo do padrao do consumidor
+    /// Kafka, que busca ate 100 mil mensagens por particao
+    /// (docs/AUDITORIA-CONFIG.md, assimetria C). A documentacao do RabbitMQ
+    /// recomenda 100 a 300; as rodadas anteriores a 24/09 usavam 300.
     /// </summary>
-    public ushort Prefetch { get; init; } = 300;
+    public ushort Prefetch { get; init; }
 
     /// <summary>Entregas cobertas por cada confirmacao com multiple=true.</summary>
     public int AckBatch { get; init; } = 100;

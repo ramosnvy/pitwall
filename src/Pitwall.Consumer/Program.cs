@@ -66,7 +66,9 @@ IEventSource source = broker switch
         BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
         Topic = GetArg("--topic") ?? "telemetry",
         GroupId = GetArg("--group") ?? "pitwall",
-        SocketNagleDisable = args.Contains("--nagle-disable"),
+        // Sem a opcao, vale o padrao da librdkafka (docs/AUDITORIA-CONFIG.md).
+        FetchWaitMaxMs = GetArg("--fetch-wait-max-ms") is { } fetchWait ? int.Parse(fetchWait) : null,
+        SocketNagleDisable = ParseNagle(),
         ExpectedEvents = expectedEvents,
         Partitions = partitions,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
@@ -76,7 +78,8 @@ IEventSource source = broker switch
         Host = GetArg("--rabbit-host") ?? "localhost",
         Queue = GetArg("--queue") ?? "telemetry",
         Partitions = partitions,
-        Prefetch = ushort.Parse(GetArg("--prefetch") ?? "300"),
+        // 0 = sem limite, o padrao do RabbitMQ.
+        Prefetch = ushort.Parse(GetArg("--prefetch") ?? "0"),
         AckBatch = int.Parse(GetArg("--ack-batch") ?? "100"),
         ExpectedEvents = expectedEvents,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
@@ -130,8 +133,8 @@ if (persist)
             ["partitions"] = partitions,
             ["capacity"] = capacity,
             ["synthetic_cost_us"] = syntheticCost,
-            ["prefetch"] = GetArg("--prefetch") ?? "300",
-            ["ack_batch"] = GetArg("--ack-batch") ?? "100",
+            ["client_config"] = source.EffectiveConfig,
+            ["dotnet_env"] = RunSettings.DotnetEnvironment(),
             ["warmup_seconds"] = warmupSeconds,
             ["machine"] = Environment.MachineName,
             ["cpu_count"] = Environment.ProcessorCount,
@@ -144,6 +147,7 @@ Console.WriteLine($"Arquitetura: {architecture} | faixas: {partitions} | " +
                   $"capacidade: {capacity:N0} eventos | custo sintetico: {syntheticCost} us | " +
                   $"persistencia: {(persist ? "ligada" : "desligada")} | aquecimento: {warmupSeconds}s");
 Console.WriteLine($"Rodada: {runId}");
+Console.WriteLine($"Cliente: {source.EffectiveConfig} | runtime: {RunSettings.DotnetEnvironment()}");
 Console.WriteLine($"Aguardando eventos (encerra apos {idleSeconds}s sem mensagem)...");
 Console.WriteLine();
 
@@ -174,6 +178,11 @@ Console.WriteLine($"Latencia          : {latency.Summary()}");
 Console.WriteLine($"Recursos          : {resources.Summary()}");
 Console.WriteLine($"Digest            : {digest}");
 
+if (pipeline.IncompleteRecords > 0)
+{
+    Console.WriteLine($"AVISO: {pipeline.IncompleteRecords} registro(s) incompleto(s) ao encerrar. A rodada e invalida.");
+}
+
 if (writer is not null)
 {
     Console.WriteLine($"Persistencia      : {writer.Written:N0} janelas gravadas, {writer.Dropped:N0} descartadas");
@@ -193,7 +202,8 @@ if (reportPath is not null)
 {
     WriteReport(reportPath, runId, architecture, partitions, targetRate, replication,
         received, seconds, throughput, latency, resources, digest, syntheticCost, persist,
-        writer?.Written ?? 0, writer?.Dropped ?? 0);
+        writer?.Written ?? 0, writer?.Dropped ?? 0,
+        source.EffectiveConfig, RunSettings.DotnetEnvironment(), pipeline.IncompleteRecords);
 
     Console.WriteLine($"Relatorio         : {reportPath}");
 }
@@ -205,6 +215,16 @@ string? GetArg(string name)
     var i = Array.IndexOf(args, name);
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 }
+
+// Mesma convencao do produtor: --nagle on liga o Nagle, off o desliga, e sem
+// a opcao vale o padrao da librdkafka (desligado).
+bool? ParseNagle() => GetArg("--nagle") switch
+{
+    "on" => false,
+    "off" => true,
+    null => args.Contains("--nagle-disable") ? true : null,
+    var other => throw new ArgumentException($"--nagle aceita on ou off, nao '{other}'.")
+};
 
 static void WriteReport(
     string path,
@@ -222,7 +242,10 @@ static void WriteReport(
     double syntheticCost,
     bool persist,
     long windowsWritten,
-    long windowsDropped)
+    long windowsDropped,
+    string clientConfig,
+    string dotnetEnv,
+    long incompleteRecords)
 {
     var histogram = latency.Merged();
     var exists = File.Exists(path);
@@ -237,7 +260,8 @@ static void WriteReport(
             "timestamp,run_id,architecture,partitions,target_rate,replication,synthetic_cost_us," +
             "persistence,events,seconds,throughput,mean_us,p50_us,p95_us,p99_us,max_us," +
             "cpu_avg,cpu_peak,mem_avg_mb,mem_peak_mb,gc_gen0,gc_gen1,gc_gen2,allocated_mb," +
-            "windows,digest_hash,warmup_events,measured_events,windows_written,windows_dropped");
+            "windows,digest_hash,warmup_events,measured_events,windows_written,windows_dropped," +
+            "client_config,dotnet_env,incomplete_records");
     }
 
     var gc = resources.Collections;
@@ -272,7 +296,10 @@ static void WriteReport(
         latency.WarmupCount,
         latency.TotalCount,
         windowsWritten,
-        windowsDropped));
+        windowsDropped,
+        clientConfig,
+        dotnetEnv,
+        incompleteRecords));
 }
 
 static void PrintUsage() => Console.WriteLine("""
@@ -309,5 +336,8 @@ static void PrintUsage() => Console.WriteLine("""
       --group <nome>           Kafka (padrao: pitwall)
       --rabbit-host <host>     RabbitMQ (padrao: localhost)
       --queue <prefixo>        RabbitMQ (padrao: telemetry)
-      --prefetch <n>           RabbitMQ (padrao: 300)
+      --prefetch <n>           RabbitMQ; 0 = sem limite (padrao do RabbitMQ)
+      --fetch-wait-max-ms <n>  Kafka (padrao da librdkafka: 500)
+      --nagle <on|off>         Kafka: liga ou desliga o Nagle (padrao da
+                               librdkafka: desligado)
     """);

@@ -50,17 +50,14 @@ public sealed class ChannelsPipeline : IProcessingPipeline
 
     public string Mode => "channels";
 
-    public void Submit(int lane, ReadOnlySpan<byte> payload)
+    public ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload)
     {
         var evt = TelemetryCodec.Read(payload);
         var writer = _channels[lane].Writer;
 
-        // Caminho rapido sem alocacao; se a fila estiver cheia, bloqueia a
-        // thread do broker, que e a contrapressao desejada.
-        if (!writer.TryWrite(evt))
-        {
-            writer.WriteAsync(evt).AsTask().GetAwaiter().GetResult();
-        }
+        // Caminho rapido sem alocacao. Com a fila cheia, devolve a espera por
+        // espaco para quem recebe do broker aguardar: a contrapressao.
+        return writer.TryWrite(evt) ? ValueTask.CompletedTask : writer.WriteAsync(evt);
     }
 
     private async Task ConsumeAsync(int lane, TelemetryProcessor processor)

@@ -41,6 +41,22 @@ public sealed class RabbitMqSink : IEventSink
 
     public string Name => "rabbitmq";
 
+    /// <summary>
+    /// Escolhas da aplicacao sobre o RabbitMQ.Client, que nao tem padrao para
+    /// janela de confirmacao nem faixas. "em_voo_max" e o teto de publicacoes
+    /// sem confirmacao: 2 lotes por faixa (docs/AUDITORIA-CONFIG.md,
+    /// assimetria B).
+    /// </summary>
+    public string EffectiveConfig => RunSettings.Format(new Dictionary<string, string?>
+    {
+        ["confirm_batch"] = _options.ConfirmBatchSize.ToString(),
+        ["em_voo_max"] = (2L * _options.ConfirmBatchSize * _options.Partitions).ToString(),
+        ["persistent"] = _options.Persistent ? "true" : "false",
+        ["connection_per_lane"] = _options.ConnectionPerLane ? "true" : "false",
+        ["lane_hash"] = _options.LaneHash.ToString().ToLowerInvariant(),
+        ["partitions"] = _options.Partitions.ToString()
+    });
+
     public long Published => Interlocked.Read(ref _published);
 
     /// <summary>Nome da fila de uma faixa. Compartilhado com o consumidor.</summary>

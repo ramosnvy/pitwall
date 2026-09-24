@@ -10,6 +10,27 @@ Os valores de fábrica foram lidos na fonte, não de memória:
 - RabbitMQ 4.3.6: um container descartável da mesma imagem, sem o nosso `rabbitmq.conf`, consultado com `rabbitmqctl eval`;
 - RabbitMQ.Client 7.2.2: `ConnectionFactory.DefaultSocketFactory` inspecionado em execução.
 
+## Situação depois da fase 1 (24/09/2026)
+
+Os dois defeitos e os valores sem justificativa foram corrigidos. As assimetrias B e C têm valor provisório no perfil `padrao`, a confirmar nas medições da fase 2 (DESENVOLVIMENTO).
+
+| Item | Antes | Agora | Conferido |
+| --- | --- | --- | --- |
+| Defeito 1: Nagle no Kafka | forçado ligado | padrão da librdkafka (desligado); `--nagle on\|off` para medir | configuração gravada na rodada |
+| Defeito 2: memória do RabbitMQ | freio em 4.706 MiB, sobre a VM | `total_memory_available_override_value`; freio em 1.843 MiB de 3.072 | log do broker |
+| Versão do RabbitMQ | tag flutuante `4-management-alpine` | `4.3.6-management-alpine` | `docker inspect` |
+| `batch.size`, `fetch.wait.max.ms` | 65.536 e 10 | padrão (1.000.000 e 500) | configuração gravada |
+| `compression.type` do broker Kafka | `uncompressed` | padrão, `producer` | `kafka-configs` |
+| `disk_free_limit` | 2 GB | padrão, 50 MB | log do broker |
+| Heap do Kafka | 1,5 GB | padrão, 1 GB | processo Java |
+| B: fila do produtor Kafka | 1.000.000 | padrão, 100.000 (provisório) | configuração gravada |
+| B: janela do produtor RabbitMQ | 8.000 no total | 100.000 no total (12.500 × 2 × 4; provisório) | configuração gravada |
+| C: `prefetch` | 300 | 0, sem limite (provisório) | configuração gravada |
+
+**Perfis no roteiro:** `-Profile padrao` (o de cima) e `-Profile legado` (os clientes como até 24/09, para comparar). O lado dos brokers não muda com o perfil: heap, compressão e memória estão no compose.
+
+**Fumaça:** 4 rodadas curtas a 100 Hz, uma em cada caminho alterado (RabbitMQ com Channels e com Pipelines no `padrao`, Kafka com Channels no `padrao`, Kafka com Direct no `legado`). As 4 foram válidas, com atraso de envio entre 5 e 11 ms e o mesmo resumo do resultado entre brokers e modos na mesma carga. Arquivos em `results/fase1-fumaca-*.csv`.
+
 ## Defeitos
 
 ### 1. O Kafka rodou com Nagle ligado; o padrão é desligado

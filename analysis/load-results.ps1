@@ -54,10 +54,16 @@ $columns = [ordered]@{
     consumer_throttled_pct     = 'consumer_throttled_pct'
     producer_throttled_pct     = 'producer_throttled_pct'
     sample_hz                  = 'sample_hz'
+    profile                    = 'profile'
+    client_config              = 'client_config'
+    producer_config            = 'producer_config'
+    dotnet_env                 = 'dotnet_env'
+    incomplete_records         = 'incomplete_records'
 }
 
 $text = @('run_id', 'architecture', 'digest_hash', 'client_placement', 'code_commit', 'finished_at',
-          'lane_hash', 'broker_cpu_mode', 'sample_hz')
+          'lane_hash', 'broker_cpu_mode', 'sample_hz',
+          'profile', 'client_config', 'producer_config', 'dotnet_env')
 
 function Sql-Value($value, [bool]$isText) {
     if ([string]::IsNullOrWhiteSpace($value)) { return 'NULL' }

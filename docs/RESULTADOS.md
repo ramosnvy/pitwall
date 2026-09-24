@@ -103,7 +103,7 @@ Parte do custo do RabbitMQ decorre da garantia mais forte que ele oferece nesta 
 
 A CPU do produtor inclui a espera ativa do gerador em malha aberta, que ocupa cerca de um núcleo nos dois brokers; a diferença entre eles é o custo do cliente de publicação.
 
-**Memória.** O broker Kafka aparece com 1,5 a 1,7 GB porque o heap da JVM é pré-alocado (`-Xms1536m`); o número reflete a configuração, não o consumo, e não deve ser comparado com os 150 a 250 MB do RabbitMQ. O consumidor usa 90 a 110 MB nas seis variantes.
+**Memória.** O broker Kafka aparece com 1,5 a 1,7 GB porque o heap da JVM é pré-alocado (`-Xms1536m`); o número reflete a configuração, não o consumo, e não deve ser comparado com os 150 a 250 MB do RabbitMQ. O consumidor usa 90 a 110 MB nas seis variantes. *A partir de 24/09/2026 o heap volta ao padrão de 1 GB (AUDITORIA-CONFIG).*
 
 ## 6. Onde a arquitetura inteira satura
 

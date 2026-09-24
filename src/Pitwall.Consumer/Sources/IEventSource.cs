@@ -16,4 +16,7 @@ public interface IEventSource
 
     /// <summary>Consome ate a fonte esgotar ou o cancelamento. Devolve quantos eventos entregou.</summary>
     Task<long> ConsumeAsync(IProcessingPipeline pipeline, CancellationToken ct);
+
+    /// <summary>Configuracao efetiva do cliente, no formato de RunSettings.</summary>
+    string EffectiveConfig { get; }
 }

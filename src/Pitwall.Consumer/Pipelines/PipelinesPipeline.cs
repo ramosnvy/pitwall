@@ -23,6 +23,7 @@ public sealed class PipelinesPipeline : IProcessingPipeline
     private readonly Pipe[] _pipes;
     private readonly Task[] _workers;
     private readonly LatencyRecorder _latency;
+    private long _incompleteRecords;
 
     public PipelinesPipeline(
         int lanes,
@@ -53,21 +54,27 @@ public sealed class PipelinesPipeline : IProcessingPipeline
 
     public string Mode => "pipelines";
 
-    public void Submit(int lane, ReadOnlySpan<byte> payload)
+    public long IncompleteRecords => Interlocked.Read(ref _incompleteRecords);
+
+    /// <summary>
+    /// So para teste: pela API publica todo registro tem tamanho inteiro, e
+    /// um registro incompleto so aparece escrevendo direto no Pipe.
+    /// </summary>
+    internal PipeWriter WriterForTests(int lane) => _pipes[lane].Writer;
+
+    public ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload)
     {
         var writer = _pipes[lane].Writer;
 
         payload.CopyTo(writer.GetSpan(TelemetryCodec.Size));
         writer.Advance(TelemetryCodec.Size);
 
-        // FlushAsync devolve uma tarefa ja completa enquanto ha espaco; se o
-        // limite foi atingido, bloqueia a thread do broker -- a contrapressao.
+        // FlushAsync devolve uma tarefa ja completa enquanto ha espaco. Se o
+        // limite foi atingido, a espera volta para quem recebe do broker
+        // aguardar: a contrapressao. Aloca so nesse caso.
         var flush = writer.FlushAsync();
 
-        if (!flush.IsCompletedSuccessfully)
-        {
-            flush.AsTask().GetAwaiter().GetResult();
-        }
+        return flush.IsCompletedSuccessfully ? ValueTask.CompletedTask : new ValueTask(flush.AsTask());
     }
 
     private async Task ConsumeAsync(int lane, TelemetryProcessor processor)
@@ -91,6 +98,16 @@ public sealed class PipelinesPipeline : IProcessingPipeline
 
             if (result.IsCompleted)
             {
+                // Com o escritor encerrado, sobra nao e mais registro por
+                // completar: e registro perdido. Antes era descartado sem
+                // aviso; agora conta e invalida a rodada (REVISAO §2.4).
+                if (!buffer.IsEmpty)
+                {
+                    Interlocked.Increment(ref _incompleteRecords);
+                    Console.Error.WriteLine(
+                        $"[pipelines] faixa {lane}: {buffer.Length} bytes de registro incompleto ao encerrar");
+                }
+
                 break;
             }
         }
