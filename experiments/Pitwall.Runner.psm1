@@ -132,6 +132,95 @@ function Get-ContainerMetrics {
     return $result
 }
 
+function Get-ThrottledPercent {
+    <#
+    .SYNOPSIS
+    Fracao dos periodos CFS em que o container foi estrangulado pela cota de
+    CPU, na janela medida. Ver docs/IMPLEMENTACAO.md, secao 2.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Container,
+        [Parameter(Mandatory)][DateTimeOffset]$Start,
+        [Parameter(Mandatory)][DateTimeOffset]$End
+    )
+
+    $seconds = [int][math]::Round(($End - $Start).TotalSeconds)
+    if ($seconds -le 0) { return '' }
+
+    $values = @{}
+    foreach ($metric in @('container_cpu_cfs_throttled_periods_total', 'container_cpu_cfs_periods_total')) {
+        $query = "sum(increase($metric{name=`"$Container`"}[${seconds}s]))"
+        $url = "$script:Prometheus/api/v1/query?query=$([uri]::EscapeDataString($query))&time=$($End.ToUnixTimeSeconds())"
+        try {
+            $result = (Invoke-RestMethod -Uri $url -TimeoutSec 10).data.result
+            $values[$metric] = if ($result) { [double]::Parse($result[0].value[1], $script:Invariant) } else { 0.0 }
+        }
+        catch {
+            Write-Warning "Prometheus indisponivel para o estrangulamento de ${Container}: $($_.Exception.Message)"
+            return ''
+        }
+    }
+
+    # Sem periodos contados, o container nao tem cota (cpuset puro): nada a
+    # estrangular.
+    $periods = $values['container_cpu_cfs_periods_total']
+    if ($periods -le 0) { return '0.00' }
+
+    return (100 * $values['container_cpu_cfs_throttled_periods_total'] / $periods).ToString('0.00', $script:Invariant)
+}
+
+function Get-CpuMode {
+    <#
+    .SYNOPSIS
+    Como a CPU de um container esta limitada: cota (--cpus), nucleos fixos
+    (--cpuset-cpus) ou os dois. Lido do proprio container, para que o CSV
+    registre o estado real e nao o pretendido.
+    #>
+    param([Parameter(Mandatory)][string]$Container)
+
+    # Le o cgroup de dentro do container. O `docker inspect` nao serve: depois
+    # de um `docker update --cpu-quota=-1`, ele continua mostrando NanoCpus
+    # antigo, embora a cota ja tenha saido do kernel.
+    $info = & $script:Docker exec $Container sh -c 'cat /sys/fs/cgroup/cpu.max; cat /sys/fs/cgroup/cpuset.cpus.effective' 2>$null
+    if (-not $info -or $info.Count -lt 2) { return '' }
+
+    $quota, $period = ($info[0].Trim() -split '\s+')
+    $parts = @()
+
+    if ($quota -ne 'max') {
+        $parts += 'quota:' + ([double]$quota / [double]$period).ToString('0.##', $script:Invariant)
+    }
+    $parts += 'cpus:' + $info[1].Trim()
+
+    return $parts -join '+'
+}
+
+function Set-BrokerCpuMode {
+    <#
+    .SYNOPSIS
+    Troca, com o container em execucao, o limite de CPU do broker entre cota
+    (--cpus) e nucleos fixos sem cota (--cpuset-cpus). O A/B da
+    docs/IMPLEMENTACAO.md, secao 2, depende disso.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Container,
+        [Parameter(Mandatory)][ValidateSet('quota', 'cpuset')][string]$Mode,
+        [double]$Cpus = 4,
+        [string]$Cpuset = '4-7',
+        [string]$AllCpus = '0-11'
+    )
+
+    if ($Mode -eq 'quota') {
+        & $script:Docker update --cpus $Cpus.ToString($script:Invariant) --cpuset-cpus $AllCpus $Container | Out-Null
+    }
+    else {
+        # --cpus 0 nao remove a cota; --cpu-quota=-1 remove.
+        & $script:Docker update --cpu-quota=-1 --cpuset-cpus $Cpuset $Container | Out-Null
+    }
+
+    return Get-CpuMode -Container $Container
+}
+
 function Get-GitCommit {
     $root = Split-Path $PSScriptRoot -Parent
     $git = "$env:ProgramFiles\Git\cmd\git.exe"
@@ -186,6 +275,9 @@ function Invoke-PitwallRun {
         [string]$ConsumerMemory = '1g',
         [double]$ProducerCpus = 4,
         [string]$ProducerMemory = '1g',
+        # Faixa de cada carro no RabbitMQ: crc32 (igual ao Kafka) ou modulo
+        # (como na matriz 7e283c2). No Kafka quem decide e a librdkafka.
+        [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
         [string]$Commit = ''
     )
 
@@ -258,6 +350,7 @@ function Invoke-PitwallRun {
         '--timer-resolution-ms', '1',
         '--bootstrap', $bootstrap,
         '--rabbit-host', $rabbitHost,
+        '--lane-hash', $LaneHash,
         '--report', $producerReportArg
     )
 
@@ -350,12 +443,18 @@ function Invoke-PitwallRun {
 
     $brokerMetrics = Get-ContainerMetrics -Container $brokerContainer -Start $measureStart -End $producerEnd
     $dbMetrics = Get-ContainerMetrics -Container 'pitwall-postgres' -Start $measureStart -End $producerEnd
+    $brokerThrottled = Get-ThrottledPercent -Container $brokerContainer -Start $measureStart -End $producerEnd
+    $brokerCpuMode = Get-CpuMode -Container $brokerContainer
     $consumerMetrics = $null
     $producerMetrics = $null
+    $consumerThrottled = ''
+    $producerThrottled = ''
 
     if (-not $HostProcesses) {
         $consumerMetrics = Get-ContainerMetrics -Container 'pitwall-consumer' -Start $measureStart -End $producerEnd
         $producerMetrics = Get-ContainerMetrics -Container 'pitwall-producer' -Start $measureStart -End $producerEnd
+        $consumerThrottled = Get-ThrottledPercent -Container 'pitwall-consumer' -Start $measureStart -End $producerEnd
+        $producerThrottled = Get-ThrottledPercent -Container 'pitwall-producer' -Start $measureStart -End $producerEnd
         & $script:Docker rm -f pitwall-consumer pitwall-producer 2>$null | Out-Null
     }
 
@@ -405,6 +504,15 @@ function Invoke-PitwallRun {
     $placement = 'container'
     if ($HostProcesses) { $placement = 'host' }
 
+    # Assimetrias da matriz 7e283c2 (docs/IMPLEMENTACAO.md): como os carros
+    # sao divididos entre as faixas, como a CPU do broker e limitada, e quanto
+    # cada container foi estrangulado pela cota na janela medida.
+    $enriched['lane_hash'] = if ($Broker -eq 'kafka') { 'crc32' } else { $LaneHash }
+    $enriched['broker_cpu_mode'] = $brokerCpuMode
+    $enriched['broker_throttled_pct'] = $brokerThrottled
+    $enriched['consumer_throttled_pct'] = $consumerThrottled
+    $enriched['producer_throttled_pct'] = $producerThrottled
+
     $enriched['client_placement'] = $placement
     $enriched['warmup_seconds'] = $WarmupSeconds
     $enriched['measure_seconds'] = $Seconds
@@ -447,4 +555,5 @@ function Test-RunSaturated {
 }
 
 Export-ModuleMember -Function Reset-KafkaTopic, Reset-RabbitQueues, Reset-Broker,
-    Get-ContainerMetrics, Get-GitCommit, Invoke-PitwallRun, Test-RunSaturated
+    Get-ContainerMetrics, Get-GitCommit, Invoke-PitwallRun, Test-RunSaturated,
+    Get-ThrottledPercent, Get-CpuMode, Set-BrokerCpuMode

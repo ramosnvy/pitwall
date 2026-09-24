@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using Pitwall.Contracts;
 using Pitwall.Workload;
 using Pitwall.Replayer.Sinks;
 
@@ -85,7 +86,8 @@ IEventSink sink = sinkName switch
         Partitions = int.Parse(GetArg("--partitions") ?? "4"),
         Persistent = !args.Contains("--transient"),
         ConfirmBatchSize = int.Parse(GetArg("--confirm-batch") ?? "1000"),
-        ConnectionPerLane = !args.Contains("--single-connection")
+        ConnectionPerLane = !args.Contains("--single-connection"),
+        LaneHash = LanePartitioner.Parse(GetArg("--lane-hash") ?? "crc32")
     }, cts.Token),
     _ => throw new ArgumentException(
         $"Destino '{sinkName}' desconhecido. Disponiveis: null, kafka, rabbit.")
@@ -200,6 +202,8 @@ static void PrintUsage() => Console.WriteLine("""
       --queue <nome>       RabbitMQ: fila (padrao: telemetry)
       --confirm-batch <n>  RabbitMQ: publicacoes em voo por faixa (padrao: 1000)
       --single-connection  RabbitMQ: uma conexao para todos os canais
+      --lane-hash <f>      RabbitMQ: crc32 (padrao, igual ao Kafka) ou modulo
+                           (carro % filas, como na matriz 7e283c2)
       --events <n>         Publica exatamente n eventos e encerra (verificacao)
       --transient          RabbitMQ: mensagens nao persistentes (ver docs)
       --fleet <n|auto>     Replicacao da frota: cada carro vira n carros com a

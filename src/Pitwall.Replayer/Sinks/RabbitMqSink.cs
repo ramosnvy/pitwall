@@ -46,10 +46,6 @@ public sealed class RabbitMqSink : IEventSink
     /// <summary>Nome da fila de uma faixa. Compartilhado com o consumidor.</summary>
     public static string QueueName(string prefix, int lane) => $"{prefix}.{lane}";
 
-    /// <summary>Faixa de um carro. Mesma funcao no produtor e no consumidor.</summary>
-    public static int Lane(int driverNumber, int partitions) =>
-        (driverNumber & int.MaxValue) % partitions;
-
     public static async Task<RabbitMqSink> ConnectAsync(RabbitMqSinkOptions options, CancellationToken ct)
     {
         var sink = new RabbitMqSink(options);
@@ -144,7 +140,7 @@ public sealed class RabbitMqSink : IEventSink
         var payload = new byte[TelemetryCodec.Size];
         TelemetryCodec.Write(payload, evt);
 
-        var lane = Lane(evt.DriverNumber, _options.Partitions);
+        var lane = LanePartitioner.Lane(evt.DriverNumber, _options.Partitions, _options.LaneHash);
 
         // A ValueTask so completa quando o broker confirma. Fica guardada num
         // array de structs (sem alocar Task por mensagem), e o lote e aguardado
@@ -242,6 +238,13 @@ public sealed record RabbitMqSinkOptions
     /// tenham o mesmo grau de paralelismo.
     /// </summary>
     public int Partitions { get; init; } = 4;
+
+    /// <summary>
+    /// Funcao que escolhe a fila de cada carro. CRC32, a mesma do Kafka, para
+    /// que os dois brokers recebam a mesma divisao; Modulo reproduz a matriz
+    /// 7e283c2, com filas desbalanceadas (docs/IMPLEMENTACAO.md).
+    /// </summary>
+    public LaneHash LaneHash { get; init; } = LaneHash.Crc32;
 
     /// <summary>
     /// Mensagem persistida em disco. Ligado por padrao para equivaler ao log do
