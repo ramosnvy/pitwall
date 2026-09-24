@@ -221,6 +221,80 @@ function Set-BrokerCpuMode {
     return Get-CpuMode -Container $Container
 }
 
+# Nucleos da VM do Docker (12) repartidos entre os componentes, sem cota e
+# sem vizinhos. Mesmas capacidades do protocolo antigo: produtor 4, broker 4,
+# consumidor 3; banco e coleta de metricas dividem o ultimo nucleo (o banco
+# usou no maximo 17% de um nucleo na matriz, e a 100 Hz grava 27x menos).
+$script:Layout = [ordered]@{ producer = '0-3'; broker = '4-7'; consumer = '8-10'; infra = '11'; all = '0-11' }
+$script:Infra = @('pitwall-postgres', 'pitwall-prometheus', 'pitwall-cadvisor')
+$script:Dash = @('pitwall-grafana', 'pitwall-loki', 'pitwall-alloy', 'pitwall-replay')
+
+function Get-ClientCpuArgs {
+    param([string]$CpuMode, [double]$Cpus, [string]$Cpuset)
+    if ($CpuMode -eq 'cpuset') { return @('--cpuset-cpus', $Cpuset) }
+    return @('--cpus', $Cpus.ToString($script:Invariant))
+}
+
+function Wait-Healthy {
+    param([string]$Container, [int]$TimeoutSeconds = 120)
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $status = & $script:Docker inspect $Container --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>$null
+        if ($status -in @('healthy', 'running') -and $status -ne 'starting') { return $true }
+        Start-Sleep -Seconds 2
+    }
+    return $false
+}
+
+function Use-Broker {
+    <#
+    .SYNOPSIS
+    Deixa no ar so o broker que vai ser medido, com o layout de nucleos do
+    protocolo. O outro broker e parado: com nucleos exclusivos, os dois
+    dividiriam os nucleos do broker, e mesmo ocioso o outro rouba ciclos. A
+    matriz 7e283c2 rodou com os dois no ar (docs/AMEACAS-VALIDADE.md).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Broker,
+        [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset'
+    )
+
+    $target = if ($Broker -eq 'kafka') { 'pitwall-kafka' } else { 'pitwall-rabbitmq' }
+    $other = if ($Broker -eq 'kafka') { 'pitwall-rabbitmq' } else { 'pitwall-kafka' }
+
+    & $script:Docker stop $other 2>$null | Out-Null
+    & $script:Docker start $target 2>$null | Out-Null
+    if (-not (Wait-Healthy -Container $target)) { throw "O broker $target nao ficou saudavel." }
+
+    if ($CpuMode -eq 'cpuset') {
+        $brokerMode = Set-BrokerCpuMode -Container $target -Mode cpuset -Cpuset $script:Layout.broker
+        foreach ($c in $script:Infra) {
+            & $script:Docker update --cpuset-cpus $script:Layout.infra $c | Out-Null
+        }
+        # O banco perde a cota: com um nucleo exclusivo, ela so poderia estrangula-lo.
+        & $script:Docker update --cpu-quota=-1 pitwall-postgres | Out-Null
+    }
+    else {
+        $brokerMode = Set-BrokerCpuMode -Container $target -Mode quota -AllCpus $script:Layout.all
+        foreach ($c in $script:Infra) {
+            & $script:Docker update --cpuset-cpus $script:Layout.all $c | Out-Null
+        }
+        & $script:Docker update --cpus 2 pitwall-postgres | Out-Null
+    }
+
+    return "$target $brokerMode"
+}
+
+function Assert-NoDash {
+    # O painel disputa CPU com o que e medido; nas rodadas oficiais fica
+    # desligado (docs/AMEACAS-VALIDADE.md).
+    $running = @(& $script:Docker ps --format '{{.Names}}')
+    $up = @($running | Where-Object { $_ -in $script:Dash })
+    if ($up.Count -gt 0) {
+        throw "Painel no ar durante a medicao: $($up -join ', '). Pare com: docker stop $($up -join ' ')"
+    }
+}
+
 function Get-GitCommit {
     $root = Split-Path $PSScriptRoot -Parent
     $git = "$env:ProgramFiles\Git\cmd\git.exe"
@@ -275,6 +349,9 @@ function Invoke-PitwallRun {
         [string]$ConsumerMemory = '1g',
         [double]$ProducerCpus = 4,
         [string]$ProducerMemory = '1g',
+        # cpuset: nucleos exclusivos por container, sem cota (docs/IMPLEMENTACAO.md,
+        # secao 7); quota: --cpus, como na matriz 7e283c2.
+        [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
         # Faixa de cada carro no RabbitMQ: crc32 (igual ao Kafka) ou modulo
         # (como na matriz 7e283c2). No Kafka quem decide e a librdkafka.
         [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
@@ -406,27 +483,29 @@ function Invoke-PitwallRun {
 
         # Limites fixos de CPU e memoria, como nos brokers: sem eles, o
         # consumidor de uma arquitetura poderia simplesmente usar mais
-        # recursos que o de outra.
-        $consumerDocker = @(
-            'run', '-d', '--name', 'pitwall-consumer', '--network', $script:Network,
-            '--label', 'pitwall.role=consumer'
-        ) + $labels + @(
-            '--cpus', $ConsumerCpus.ToString($inv), '--memory', $ConsumerMemory,
-            '-v', "${consumerBin}:/app:ro", '-v', "${resultsDir}:/results",
-            $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll'
-        ) + $consumerArgs
+        # recursos que o de outra. Com -CpuMode cpuset (padrao desde o 2x2),
+        # cada cliente tem nucleos exclusivos e nenhuma cota; com quota, o
+        # protocolo da matriz 7e283c2.
+        $consumerDocker = @('run', '-d', '--name', 'pitwall-consumer', '--network', $script:Network,
+                '--label', 'pitwall.role=consumer') +
+            $labels +
+            (Get-ClientCpuArgs -CpuMode $CpuMode -Cpus $ConsumerCpus -Cpuset $script:Layout.consumer) +
+            @('--memory', $ConsumerMemory,
+                '-v', "${consumerBin}:/app:ro", '-v', "${resultsDir}:/results",
+                $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll') +
+            $consumerArgs
 
         & $script:Docker $consumerDocker | Out-Null
         Start-Sleep -Seconds 3
 
-        $producerDocker = @(
-            'run', '--name', 'pitwall-producer', '--network', $script:Network,
-            '--label', 'pitwall.role=producer'
-        ) + $labels + @(
-            '--cpus', $ProducerCpus.ToString($inv), '--memory', $ProducerMemory,
-            '-v', "${producerBin}:/app:ro", '-v', "${dataDir}:/data:ro", '-v', "${resultsDir}:/results",
-            $script:RuntimeImage, 'dotnet', '/app/Pitwall.Replayer.dll'
-        ) + $producerArgs
+        $producerDocker = @('run', '--name', 'pitwall-producer', '--network', $script:Network,
+                '--label', 'pitwall.role=producer') +
+            $labels +
+            (Get-ClientCpuArgs -CpuMode $CpuMode -Cpus $ProducerCpus -Cpuset $script:Layout.producer) +
+            @('--memory', $ProducerMemory,
+                '-v', "${producerBin}:/app:ro", '-v', "${dataDir}:/data:ro", '-v', "${resultsDir}:/results",
+                $script:RuntimeImage, 'dotnet', '/app/Pitwall.Replayer.dll') +
+            $producerArgs
 
         $producerStart = [DateTimeOffset]::UtcNow
         & $script:Docker $producerDocker 2>&1 | Out-File "$log.producer" -Encoding utf8
@@ -521,6 +600,9 @@ function Invoke-PitwallRun {
     # cada container foi estrangulado pela cota na janela medida.
     $enriched['lane_hash'] = if ($Broker -eq 'kafka') { 'crc32' } else { $LaneHash }
     $enriched['sample_hz'] = if ($Hz -gt 0) { $Hz.ToString($script:Invariant) } else { 'nativo' }
+    $enriched['cpu_protocol'] = if ($CpuMode -eq 'cpuset') {
+        "cpuset produtor $($script:Layout.producer), broker $($script:Layout.broker), consumidor $($script:Layout.consumer), infra $($script:Layout.infra)"
+    } else { 'quota' }
     $enriched['window_start_s'] = if ($WindowStart -ge 0) { $WindowStart.ToString($script:Invariant) } else { '' }
     $enriched['broker_cpu_mode'] = $brokerCpuMode
     $enriched['broker_throttled_pct'] = $brokerThrottled
@@ -570,4 +652,4 @@ function Test-RunSaturated {
 
 Export-ModuleMember -Function Reset-KafkaTopic, Reset-RabbitQueues, Reset-Broker,
     Get-ContainerMetrics, Get-GitCommit, Invoke-PitwallRun, Test-RunSaturated,
-    Get-ThrottledPercent, Get-CpuMode, Set-BrokerCpuMode
+    Get-ThrottledPercent, Get-CpuMode, Set-BrokerCpuMode, Use-Broker, Assert-NoDash

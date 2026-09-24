@@ -26,6 +26,9 @@ param(
     [string]$ProducerReport = 'results/sweep-producer.csv',
     [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
     [switch]$Persist,
+    [double]$Hz = 0,
+    [double]$WindowStart = -1,
+    [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
     [switch]$HostProcesses
 )
 
@@ -33,12 +36,19 @@ Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force
 
 $root = Split-Path $PSScriptRoot -Parent
 $summary = @()
+$commit = Get-GitCommit
+
+if (-not $HostProcesses) { Assert-NoDash }
 
 Write-Host "Varredura de saturacao" -ForegroundColor Cyan
-Write-Host "Taxas: $($Rates -join ', ') ev/s | $Seconds s por rodada | $Partitions faixas"
+Write-Host "Taxas: $($Rates -join ', ') ev/s | $Seconds s por rodada | $Partitions faixas | CPU $CpuMode | $(if ($Hz -gt 0) { "$Hz Hz" } else { '3,7 Hz' }) | commit $commit"
 Write-Host ""
 
 foreach ($broker in $Brokers) {
+    if (-not $HostProcesses) {
+        Write-Host "=== broker: $(Use-Broker -Broker $broker -CpuMode $CpuMode) ===" -ForegroundColor Cyan
+    }
+
     foreach ($mode in $Modes) {
         $architecture = "$broker-$mode"
         $lastGood = 0
@@ -49,7 +59,8 @@ foreach ($broker in $Brokers) {
             $row = Invoke-PitwallRun -Broker $broker -Mode $mode -Rate $rate `
                 -Seconds $Seconds -Partitions $Partitions -Dataset $Dataset `
                 -ConsumerReport $Out -ProducerReport $ProducerReport -LaneHash $LaneHash `
-                -Persist:$Persist -Commit (Get-GitCommit) -HostProcesses:$HostProcesses
+                -Persist:$Persist -Commit $commit -HostProcesses:$HostProcesses `
+                -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode
 
             # A linha enriquecida (produtor, CPU e memoria de todos os modulos)
             # vai para um CSV proprio; o CSV do consumidor so tem o lado dele.
@@ -90,7 +101,7 @@ foreach ($broker in $Brokers) {
 Write-Host "=== Vazao maxima sustentada ===" -ForegroundColor Cyan
 $summary | Format-Table -AutoSize | Out-String | Write-Host
 
-$summaryPath = Join-Path $root 'results/sweep-summary.csv'
+$summaryPath = Join-Path $root ($Out -replace '\.csv$', '-summary.csv')
 $summary | Export-Csv -Path $summaryPath -NoTypeInformation -Encoding utf8
 Write-Host "Resumo: $summaryPath"
 Write-Host "Rodadas: $(Join-Path $root $Out)"

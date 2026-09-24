@@ -22,6 +22,14 @@ Efeito colateral útil: com fator de frota, o dataset deixa de ser reciclado. A 
 
 **Compressão desligada nos dois brokers.** As réplicas de uma mesma amostra têm payload quase idêntico, então a compressão em lote do Kafka renderia muito mais do que renderia com telemetria real, inflando o throughput do Kafka por artefato do workload. Se a compressão virar objeto de estudo, entra como fator explícito do experimento.
 
+**Decidido depois da matriz `7e283c2`: 100 Hz por carro no cenário principal.** Cada carro é reamostrado de 3,7 para 100 Hz por interpolação (`TelemetryInterpolator`, opção `--hz` do replayer), sobre um trecho da corrida (`--window-start`).
+- **Canais:** velocidade, rotação e acelerador são interpolados em linha reta; marcha, freio e DRS ficam em degrau. Por construção, e verificado em teste, as frenagens e trocas de marcha detectadas são as mesmas da corrida medida.
+- **Por quê:** a cadência por carro fica compatível com a telemetria real de F1, e a vazão passa a vir de uma frota plausível, com 1.000 carros a 100 mil ev/s. Na mesma vazão, o banco grava 27× menos janelas; a 400 mil ev/s, na matriz, era ele o gargalo, e passaria a mascarar a comparação dos brokers (1e).
+- **Sensibilidade:** a matriz de 3,7 Hz, com o dado exatamente como medido, vira análise de sensibilidade. Para comparar as frequências sem misturar protocolos, uma bateria a 3,7 Hz no protocolo novo, em duas cargas.
+- **No texto:** os pontos interpolados não são medidos, e isso precisa estar escrito (AMEACAS-VALIDADE).
+
+**Decidido depois do experimento 2×2 (IMPLEMENTACAO §7): núcleos exclusivos por container.** Produtor nos núcleos 0-3, broker em 4-7, consumidor em 8-10, e banco e coleta de métricas no 11, sem cota. É a mesma capacidade do protocolo anterior, sem estrangulamento por cota e sem vizinhos. Só o broker medido fica no ar, e o painel fica desligado. As faixas do RabbitMQ usam CRC32, a mesma função do Kafka.
+
 ### 1b. Channels e Pipelines não são equivalentes
 
 `System.Threading.Channels` é uma fila produtor-consumidor de **objetos**. `System.IO.Pipelines` opera sobre **fluxos de bytes**.

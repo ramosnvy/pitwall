@@ -41,7 +41,12 @@ param(
     [string]$ConsumerReport = 'results/matrix-consumer.csv',
     [string]$ProducerReport = 'results/matrix-producer.csv',
     # Faixa de cada carro no RabbitMQ; modulo reproduz a matriz 7e283c2.
-    [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32'
+    [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
+    # Frequencia por carro (0 = nativa, 3,7 Hz) e inicio do trecho da corrida.
+    [double]$Hz = 0,
+    [double]$WindowStart = -1,
+    # cpuset: nucleos exclusivos por container (padrao); quota: como na 7e283c2.
+    [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset'
 )
 
 Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force
@@ -68,9 +73,14 @@ foreach ($broker in $Brokers) {
     }
 }
 
+# Um broker por vez: as rodadas sao agrupadas por broker, na ordem de
+# -Brokers, e embaralhadas dentro de cada bloco. Alternar os brokers a cada
+# rodada exigiria os dois no ar, e o ocioso dividiria os nucleos do medido.
 if (-not $NoShuffle) {
-    $runs = $runs | Sort-Object { Get-Random }
+    $runs = foreach ($b in $Brokers) { $runs | Where-Object broker -eq $b | Sort-Object { Get-Random } }
 }
+
+if (-not $HostProcesses) { Assert-NoDash }
 
 $total = $runs.Count
 $perRun = $Seconds + $WarmupSeconds + 30
@@ -84,7 +94,7 @@ if ($HostProcesses) { $placementLabel = 'processos no host Windows' }
 
 Write-Host "Matriz de experimentos" -ForegroundColor Cyan
 Write-Host "$total rodadas | $WarmupSeconds s aquecimento + $Seconds s medicao | ordem $order | persistencia $persistLabel"
-Write-Host "Clientes: $placementLabel"
+Write-Host "Clientes: $placementLabel | CPU: $CpuMode | frequencia: $(if ($Hz -gt 0) { "$Hz Hz (interpolado)" } else { 'nativa (3,7 Hz)' }) | janela: $(if ($WindowStart -ge 0) { "a partir de $WindowStart s" } else { 'corrida inteira' })"
 Write-Host "Commit: $commit"
 Write-Host "Tempo estimado: $($estimate.ToString('hh\:mm\:ss'))"
 Write-Host "Inicio: $(Get-Date -Format 'HH:mm:ss')"
@@ -94,9 +104,17 @@ $index = 0
 $failures = 0
 $started = Get-Date
 
+$activeBroker = $null
+
 foreach ($run in $runs) {
     $index++
     $prefix = "[{0,3}/{1}]" -f $index, $total
+
+    if (-not $HostProcesses -and $run.broker -ne $activeBroker) {
+        $state = Use-Broker -Broker $run.broker -CpuMode $CpuMode
+        Write-Host "--- broker: $state" -ForegroundColor Yellow
+        $activeBroker = $run.broker
+    }
 
     try {
         $row = Invoke-PitwallRun -Broker $run.broker -Mode $run.mode -Rate $run.rate `
@@ -104,7 +122,7 @@ foreach ($run in $runs) {
             -Replication $run.rep -Persist:(-not $NoPersist) -Dataset $Dataset `
             -ConsumerReport $ConsumerReport -ProducerReport $ProducerReport `
             -SyntheticCostUs $SyntheticCostUs -Commit $commit -HostProcesses:$HostProcesses `
-            -LaneHash $LaneHash
+            -LaneHash $LaneHash -Hz $Hz -WindowStart $WindowStart -CpuMode $CpuMode
     }
     catch {
         $row = $null

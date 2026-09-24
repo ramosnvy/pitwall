@@ -112,6 +112,19 @@ A OpenF1 entrega 3,7 Hz por carro. Um carro de F1 real tem de 150 a 300 sensores
 
 *Mitigação:* declarar a diferença e obter a carga por multiplicação de frota, que preserva a cadência real de cada sensor, em vez de aceleração do tempo, que a distorceria.
 
+*A partir da matriz refeita:* o cenário principal usa 100 Hz por carro por interpolação (PLANO 1a). Isso resolve a cadência, mas cria outra ameaça.
+- **Os pontos entre duas amostras reais não são medidos:** são interpolados, em linha reta nos canais contínuos e em degrau nos discretos.
+- **O que isso não afeta:** para os brokers o conteúdo não importa, porque o evento tem 46 bytes do mesmo jeito. Para o processamento, frenagens e trocas de marcha são idênticas às da corrida medida, e há teste que garante isso.
+- **O que muda:** a forma da carga. São menos carros distintos, mais eventos por carro e por janela, e menos janelas gravadas.
+- **Lacunas:** intervalos acima de 1 s não são preenchidos. No Bahrein são ~28 por carro, segundo o replay.
+- **Sensibilidade:** a bateria a 3,7 Hz no mesmo protocolo mostra o que depende da frequência.
+
+### Os dois brokers no ar durante a matriz `7e283c2`
+
+O runner não ligava nem desligava os brokers, e a matriz embaralhava rodadas dos dois. Os dois containers ficaram no ar o tempo todo, e o ocioso disputava a máquina com o medido, ainda que com pouca CPU. Isso contraria o PLANO ("um broker por vez").
+
+*Mitigação:* desde o protocolo de núcleos exclusivos, o runner deixa só o broker medido no ar (`Use-Broker`), com as rodadas agrupadas por broker e embaralhadas dentro de cada bloco.
+
 ### Payload repetitivo favorece compressão
 
 As réplicas de uma mesma amostra têm payload quase idêntico. A compressão em lote do Kafka renderia muito mais do que renderia com telemetria real.
