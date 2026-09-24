@@ -21,6 +21,37 @@ public sealed class TelemetryDataset
     public TelemetryEvent[] Events { get; }
     public int SessionKey { get; }
 
+    /// <summary>
+    /// Trecho da corrida de <paramref name="length"/> a partir de
+    /// <paramref name="start"/>, contados do primeiro evento.
+    ///
+    /// Com a frota compensando a taxa alvo, uma rodada consome da corrida so o
+    /// tempo que ela dura. Recortar a janela permite reamostrar a 100 Hz sem
+    /// materializar a corrida inteira (~12 milhoes de eventos), e deixa as
+    /// duas frequencias comparaveis sobre o mesmo trecho.
+    /// </summary>
+    public TelemetryDataset Window(TimeSpan start, TimeSpan length)
+    {
+        var from = Events[0].EventTime + start;
+        var to = from + length;
+
+        var slice = Events
+            .Where(e => e.EventTime >= from && e.EventTime < to)
+            .Select((e, i) => e with { Sequence = i })
+            .ToArray();
+
+        if (slice.Length == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(start), "A janela nao contem nenhum evento.");
+        }
+
+        return new TelemetryDataset(slice, SessionKey);
+    }
+
+    /// <summary>Reamostra cada carro para <paramref name="hz"/>; ver <see cref="TelemetryInterpolator"/>.</summary>
+    public TelemetryDataset Upsample(double hz, TimeSpan? maxGap = null) =>
+        new(TelemetryInterpolator.Upsample(Events, hz, maxGap), SessionKey);
+
     public static TelemetryDataset Load(string jsonlPath, int? maxEvents = null)
     {
         if (!File.Exists(jsonlPath))

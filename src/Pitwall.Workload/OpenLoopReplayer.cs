@@ -23,7 +23,7 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
     public async Task<ReplayResult> RunAsync(ReplayOptions options, CancellationToken ct)
     {
         var events = dataset.Events;
-        var amplifier = new FleetAmplifier(options.FleetFactor);
+        var amplifier = new FleetAmplifier(options.FleetFactor, options.SamplePeriodMs);
         if (events.Length == 0)
         {
             throw new InvalidOperationException("O dataset esta vazio.");
@@ -167,6 +167,12 @@ public sealed record ReplayOptions
     /// originais; 50 simula mil carros com a mesma cadencia de sensor.
     /// </summary>
     public int FleetFactor { get; init; } = 1;
+
+    /// <summary>
+    /// Intervalo entre amostras de um carro, usado para espalhar as replicas.
+    /// 270 ms na cadencia da OpenF1; menor quando o dataset foi reamostrado.
+    /// </summary>
+    public double SamplePeriodMs { get; init; } = FleetAmplifier.NativeSamplePeriodMs;
 
     /// <summary>
     /// Encerra apos publicar exatamente esta quantidade de eventos, em vez

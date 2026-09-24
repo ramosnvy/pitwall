@@ -7,6 +7,8 @@ Achados sobre como decisões de implementação e de ambiente afetam os resultad
 
 Os três primeiros achados são assimetrias entre os brokers, o que é o tipo mais grave de problema num trabalho comparativo.
 
+> **Atualização (experimento 2×2, §7):** a cota de CPU se confirmou como fator de peso: com núcleos fixos, o P99 do RabbitMQ caiu de 40% a 64%. Já a hipótese do §1 foi **refutada** a 40 e 60 mil ev/s: equilibrar as filas aumentou a CPU do broker e o P99, em vez de reduzir. O desbalanceamento não prejudicava o RabbitMQ nessas cargas; ajudava. O efeito sobre o teto de vazão ainda não foi medido.
+
 ## 1. As faixas do RabbitMQ são desbalanceadas; as do Kafka, não (medido)
 
 **O que acontece.** O `RabbitMqSink` escolhe a fila por `carro % 4`. O `FleetAmplifier` numera as réplicas somando múltiplos de 100 ao número original do piloto, e 100 ≡ 0 (mod 4). Com isso, a fila de cada réplica é decidida só pelo número do piloto original: 20 pilotos em 4 filas, sem garantia de equilíbrio. No Kafka, o partitioner padrão da librdkafka (`consistent_random`) aplica CRC32 à chave ([CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md)), e os ~26 mil carros distintos se espalham de forma uniforme.
@@ -96,6 +98,51 @@ Num ambiente com cota de CPU, a espera ativa do consumidor .NET gasta cota que o
 | 5 | Deserializer por `ReadOnlySpan` | Otimização do cliente, não da comparação | opcional |
 
 Os itens 1 e 2 afetam a conclusão principal da matriz e devem vir **antes** do aprofundamento: os dois podem mudar o teto e a cauda do RabbitMQ. Faz sentido rodá-los juntos: um A/B com faixas balanceadas, com e sem `cpuset`.
+
+## 7. Resultado do experimento 2×2 (medido)
+
+`experiments/asymmetry-ab.ps1`, commit `247fd7c`, análise em `analysis/asymmetry-effects.ps1`. RabbitMQ em modo direct, 40 e 60 mil ev/s, 5 repetições por célula, ordem aleatória, persistência ligada.
+- **Fatores:** faixas (módulo, como na matriz, × CRC32, igual ao Kafka) e CPU do broker (cota `--cpus 4`, como na matriz, × núcleos fixos 4-7 sem cota).
+- **Rodadas:** 40 executadas, 35 válidas; as 5 inválidas foram por jitter do produtor, 4 delas a 60 mil ev/s.
+- **Corretude:** digest idêntico nas 20 rodadas de cada carga. Mudar a fila de cada carro não alterou o resultado do processamento.
+- **Painel:** o painel local ficou ligado a partir da 3ª rodada, preso nos núcleos 0-1 (`results/asym-ab-dash.txt`). Como a ordem é aleatória, as quatro células ficaram igualmente expostas.
+
+**Medianas das rodadas válidas:**
+
+| Carga | Faixas | CPU do broker | P99 | P50 | Estrangulado | CPU do broker |
+| --- | --- | --- | --- | --- | --- | --- |
+| 40 mil | módulo | cota | 10,2 ms | 0,62 ms | 6,8% | 259% |
+| 40 mil | módulo | núcleos fixos | **6,1 ms** | 0,72 ms | 0% | 245% |
+| 40 mil | crc32 | cota | 30,5 ms | 0,86 ms | 99,7% | 392% |
+| 40 mil | crc32 | núcleos fixos | 11,0 ms | 1,37 ms | 0% | 306% |
+| 60 mil | módulo | cota | 24,4 ms | 1,00 ms | 8,7% | 302% |
+| 60 mil | módulo | núcleos fixos | **14,1 ms** | 1,24 ms | 0% | 271% |
+| 60 mil | crc32 | cota | 36,0 ms | 1,81 ms | 98,0% | 389% |
+| 60 mil | crc32 | núcleos fixos | 30,0 ms | 3,41 ms | 0% | 322% |
+
+**Reprodução da matriz.** A célula módulo + cota é a configuração da matriz `7e283c2`, e deu 10,2 e 24,4 ms, contra 9,4 e 22,8 ms na matriz. A diferença, de 7% a 9%, fica dentro da variação entre dias e confirma que o experimento mede o mesmo sistema.
+
+**Quanto cada fator explica da variação do P99** (fatorial 2² com repetição; Jain, 1991, cap. 18):
+
+| Carga | Faixas | CPU | Interação | Erro |
+| --- | --- | --- | --- | --- |
+| 40 mil | 43,9% | 39,6% | 14,4% | 2,0% |
+| 60 mil | 49,8% | 19,9% | 0,7% | 29,5% |
+
+**1. A cota de CPU é um fator de peso: a regra de decisão foi atingida.** Com núcleos fixos, o P99 caiu 40% (40 mil, módulo), 64% (40 mil, crc32) e 42% (60 mil, módulo). Só na célula 60 mil com crc32 a queda ficou abaixo do limiar (−17%). Pela regra fixada antes de medir, o protocolo passa a usar núcleos fixos nos brokers, e o Kafka precisa ser conferido. Parte relevante da cauda atribuída ao RabbitMQ na matriz era efeito da cota.
+
+**2. Equilibrar as filas piorou o RabbitMQ nessas cargas, ao contrário da hipótese do §1.** Com CRC32, o broker gastou de 50 a 130 pontos percentuais a mais de CPU e o P99 subiu, com cota e com núcleos fixos. Sob cota, a combinação é a pior: o broker passa a pedir quase 4 núcleos e fica estrangulado em ~99% dos períodos. A interação responde por 14% da variação a 40 mil.
+
+Não há ainda explicação medida para o gasto maior com filas equilibradas. A hipótese mais coerente com os dados é a **amortização por lote**, a mesma ideia da Q1 do APROFUNDAMENTO, agora dentro do broker:
+- **Com módulo:** a fila de 35% trabalha com acúmulo e atende em lotes maiores, e as de 15% e 25% têm folga. O custo por mensagem cai.
+- **Com CRC32:** as quatro filas operam no mesmo ponto intermediário. Cada uma paga custo por mensagem sem acúmulo que o amortize, e todas ao mesmo tempo.
+
+Para testar, é preciso medir a CPU por fila e o tamanho das entregas (`rabbitmq-diagnostics`) nas duas funções de faixa.
+
+**3. O que muda na comparação.**
+- **Justiça:** o CRC32 continua sendo a escolha correta, porque dá aos dois brokers a mesma divisão dos carros.
+- **Direção do efeito:** a correção **não favorece** o RabbitMQ nessas cargas; ao contrário, piora sua latência. O §1 dizia que o desbalanceamento favorecia o Kafka, e isso estava errado para latência a 40 e 60 mil ev/s.
+- **Teto:** a varredura de saturação com as duas funções dirá se o equilíbrio ao menos eleva o teto de vazão.
 
 ## Fontes
 

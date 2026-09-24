@@ -44,6 +44,34 @@ Console.WriteLine(
     $"{data.Events.Length:N0} eventos da sessao {data.SessionKey} " +
     $"carregados em {loadWatch.Elapsed.TotalSeconds:0.0}s");
 
+// Frequencia por carro. Sem --hz, a cadencia nativa da OpenF1 (3,7 Hz). Com
+// --hz, cada carro e reamostrado por interpolacao (TelemetryInterpolator): os
+// pontos inseridos nao sao medidos. Nos dois casos, --window-start recorta o
+// trecho da corrida usado, para que as frequencias se comparem sobre o mesmo
+// trecho; com --hz o recorte e obrigatorio, porque a corrida inteira a 100 Hz
+// nao cabe na memoria do produtor.
+var targetHz = GetArg("--hz") is { } hzArg ? double.Parse(hzArg, CultureInfo.InvariantCulture) : (double?)null;
+var windowStart = GetArg("--window-start") is { } wsArg
+    ? TimeSpan.FromSeconds(double.Parse(wsArg, CultureInfo.InvariantCulture))
+    : (TimeSpan?)null;
+
+if (windowStart is not null || targetHz is not null)
+{
+    var start = windowStart ?? TimeSpan.Zero;
+    var length = warmup + duration + TimeSpan.FromSeconds(30);
+    data = data.Window(start, length);
+    Console.WriteLine($"Janela da corrida: {start.TotalSeconds:0} s a {(start + length).TotalSeconds:0} s | {data.Events.Length:N0} eventos");
+}
+
+if (targetHz is { } hz)
+{
+    var before = data.Events.Length;
+    data = data.Upsample(hz);
+    Console.WriteLine($"Reamostrado para {hz:0.#} Hz por carro: {before:N0} -> {data.Events.Length:N0} eventos (pontos interpolados, nao medidos)");
+}
+
+var samplePeriodMs = targetHz is { } h ? 1000.0 / h : FleetAmplifier.NativeSamplePeriodMs;
+
 var span = data.Events[^1].EventTime - data.Events[0].EventTime;
 var naturalRate = data.Events.Length / span.TotalSeconds;
 var distinctDrivers = data.Events.Select(e => e.DriverNumber).Distinct().Count();
@@ -103,7 +131,11 @@ var replayer = new OpenLoopReplayer(data, sink);
 // tomaria metade do minimo do pool e atrasaria as continuacoes de E/S do
 // cliente do broker -- o mesmo esgotamento corrigido no consumidor. Por isso
 // roda numa thread dedicada.
-var replayOptions = new ReplayOptions { TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents };
+var replayOptions = new ReplayOptions
+{
+    TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents,
+    SamplePeriodMs = samplePeriodMs
+};
 var result = await Task.Factory.StartNew(
         () => replayer.RunAsync(replayOptions, cts.Token),
         CancellationToken.None,
@@ -210,6 +242,11 @@ static void PrintUsage() => Console.WriteLine("""
                            mesma cadencia de sensor (padrao: auto, que escolhe
                            o fator que entrega a taxa alvo sem acelerar o tempo)
       --max-events <n>     Limita quantos eventos carregar (testes rapidos)
+      --hz <n>             Reamostra cada carro para n Hz por interpolacao
+                           (padrao: cadencia nativa da OpenF1, 3,7 Hz). Os
+                           pontos inseridos nao sao medidos; ver docs
+      --window-start <s>   Usa o trecho da corrida a partir de s segundos, com
+                           a duracao da rodada (obrigatorio o recorte com --hz)
 
     Codigo de saida 2 indica que o gerador nao sustentou a taxa alvo.
     """);

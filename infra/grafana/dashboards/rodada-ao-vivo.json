@@ -1,7 +1,7 @@
 {
   "uid": "pitwall-live",
-  "title": "PitWall Â· Rodada ao vivo",
-  "description": "CPU, memÃ³ria e rede dos containers, filas do RabbitMQ e logs da rodada em andamento.",
+  "title": "PitWall · Rodada ao vivo",
+  "description": "CPU, memória e rede dos containers, filas do RabbitMQ e logs da rodada em andamento.",
   "tags": [
     "pitwall"
   ],
@@ -59,7 +59,7 @@
       "type": "timeseries",
       "id": 2,
       "title": "CPU por container",
-      "description": "Percentual de um nÃºcleo, como em RESULTADOS.md. Limites: produtor 400%, consumidor 300%, broker 400%, banco 200%.",
+      "description": "Percentual de um núcleo, como em RESULTADOS.md. Limites: produtor 400%, consumidor 300%, broker 400%, banco 200%.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -112,8 +112,8 @@
     {
       "type": "timeseries",
       "id": 3,
-      "title": "MemÃ³ria por container",
-      "description": "Working set, a mesma mÃ©trica que o runner grava. No Kafka, o heap da JVM Ã© prÃ©-alocado.",
+      "title": "Memória por container",
+      "description": "Working set, a mesma métrica que o runner grava. No Kafka, o heap da JVM é pré-alocado.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -167,7 +167,7 @@
       "type": "timeseries",
       "id": 4,
       "title": "Rede recebida por container",
-      "description": "Bytes recebidos por segundo. No broker, aproxima a taxa de publicaÃ§Ã£o: cada evento tem 46 bytes de payload mais o envelope do protocolo.",
+      "description": "Bytes recebidos por segundo. No broker, aproxima a taxa de publicação: cada evento tem 46 bytes de payload mais o envelope do protocolo.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -220,8 +220,8 @@
     {
       "type": "timeseries",
       "id": 5,
-      "title": "Custo da prÃ³pria observaÃ§Ã£o",
-      "description": "CPU do Prometheus, do cAdvisor e do painel. Em rodada oficial, sÃ³ Prometheus e cAdvisor devem aparecer: o profile dash fica desligado.",
+      "title": "Custo da própria observação",
+      "description": "CPU do Prometheus, do cAdvisor e do painel. Em rodada oficial, só Prometheus e cAdvisor devem aparecer: o profile dash fica desligado.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -274,7 +274,7 @@
     {
       "type": "row",
       "id": 6,
-      "title": "RabbitMQ (sÃ³ com o profile rabbit)",
+      "title": "RabbitMQ (só com o profile rabbit)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -372,7 +372,7 @@
       "type": "timeseries",
       "id": 8,
       "title": "Mensagens nas filas",
-      "description": "Prontas e nÃ£o confirmadas, por fila. Fila crescendo significa consumidor atrÃ¡s do produtor.",
+      "description": "Prontas e não confirmadas, por fila. Fila crescendo significa consumidor atrás do produtor.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -480,6 +480,73 @@
         "enableLogDetails": true,
         "dedupStrategy": "none",
         "prettifyLogMessage": false
+      }
+    },
+    {
+      "type": "row",
+      "id": 11,
+      "title": "Cota de CPU",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "Estrangulamento pela cota",
+      "description": "Percentual dos períodos CFS (100 ms) em que o container esgotou a cota e ficou congelado até o período seguinte. Zero com núcleos fixos (cpuset). Ver docs/IMPLEMENTACAO.md, seção 2.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum by (name) (rate(container_cpu_cfs_throttled_periods_total{name=~\"pitwall-(producer|consumer|kafka|rabbitmq|postgres)\"}[$__rate_interval])) / sum by (name) (rate(container_cpu_cfs_periods_total{name=~\"pitwall-(producer|consumer|kafka|rabbitmq|postgres)\"}[$__rate_interval]))",
+          "legendFormat": "{{name}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     }
   ]

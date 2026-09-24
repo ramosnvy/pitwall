@@ -41,8 +41,11 @@ Módulos da Figura 1 do TCC1 e o que cada um virou:
 
 | Item | Origem | Situação |
 | --- | --- | --- |
-| **Faixas balanceadas no RabbitMQ (CRC32) e refazer as células do RabbitMQ** | IMPLEMENTACAO §1 | **prioritário**: assimetria que favorece o Kafka |
-| **A/B `cpuset` contra cota de CPU no RabbitMQ** | IMPLEMENTACAO §2 | **prioritário**: pode explicar parte da cauda do RabbitMQ |
+| Faixas por CRC32 no RabbitMQ | IMPLEMENTACAO §1, §7 | **feito** (`247fd7c`); contra o suposto, piora o RabbitMQ a 40 e 60 mil |
+| A/B `cpuset` contra cota de CPU | IMPLEMENTACAO §2, §7 | **feito**: núcleos fixos reduzem o P99 do RabbitMQ em 40% a 64% |
+| **Matriz refeita**: CRC32, núcleos fixos, conferência do Kafka e varredura de saturação | IMPLEMENTACAO §7 | **próximo**; frequência por carro (3,7 ou 100 Hz) a decidir |
+| Frequência por carro de 100 Hz por interpolação | conversa de 24/09 | implementado e testado (`TelemetryInterpolator`); fumaça ok |
+| Explicar o custo maior das filas equilibradas | IMPLEMENTACAO §7 | hipótese: amortização por lote dentro do broker |
 | Aprofundamento dos mecanismos (lote, escalonamento, topologia, contrapressão) | APROFUNDAMENTO | proposto; começa pela etapa A |
 | Experimento de evento lento | PLANO 1d; REVISAO §4.2 | incorporado à Q3 do APROFUNDAMENTO |
 | Pipelines em lote | REVISAO §2.1 | não iniciado |

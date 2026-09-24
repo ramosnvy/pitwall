@@ -76,11 +76,15 @@ As filas do RabbitMQ recebem 25%, 15%, 25% e 35% da carga, porque a faixa é `ca
 
 *Mitigação proposta:* usar no sink do RabbitMQ o mesmo CRC32 da librdkafka e refazer as células do RabbitMQ.
 
+*Resultado do 2×2 (IMPLEMENTACAO §7):* a direção do efeito era a oposta da suposta. A 40 e 60 mil ev/s, as filas desbalanceadas davam ao RabbitMQ **menor** latência e menor CPU. O CRC32 foi adotado (commit `247fd7c`) por dar aos dois brokers a mesma divisão dos carros, e a matriz refeita mostrará o RabbitMQ sem essa vantagem.
+
 ### Cota de CPU estrangula o broker RabbitMQ
 
 Com `--cpus`, o broker RabbitMQ foi estrangulado em 4 a 8% dos períodos CFS, crescendo com a carga e com a cauda. O broker Kafka ficou em 0%. Parte da cauda do RabbitMQ pode ser efeito do jeito de limitar CPU, não do broker. Detalhado em [IMPLEMENTACAO.md](IMPLEMENTACAO.md) §2.
 
 *Mitigação proposta:* A/B com `--cpuset-cpus`. Se o P99 mudar, o protocolo muda para os dois brokers.
+
+*Resultado do 2×2 (IMPLEMENTACAO §7):* confirmado. Com núcleos fixos, o P99 do RabbitMQ caiu de 40% a 64% em três das quatro células, acima do limiar de 20% fixado antes de medir. O protocolo passa a usar núcleos fixos nos brokers, e o Kafka precisa ser conferido.
 
 ### Mecanismos internos usados no modo padrão
 

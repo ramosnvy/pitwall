@@ -48,9 +48,16 @@ $columns = [ordered]@{
     producer_jitter_ms         = 'producer_jitter_ms'
     client_placement           = 'client_placement'
     code_commit                = 'commit'
+    lane_hash                  = 'lane_hash'
+    broker_cpu_mode            = 'broker_cpu_mode'
+    broker_throttled_pct       = 'broker_throttled_pct'
+    consumer_throttled_pct     = 'consumer_throttled_pct'
+    producer_throttled_pct     = 'producer_throttled_pct'
+    sample_hz                  = 'sample_hz'
 }
 
-$text = @('run_id', 'architecture', 'digest_hash', 'client_placement', 'code_commit', 'finished_at')
+$text = @('run_id', 'architecture', 'digest_hash', 'client_placement', 'code_commit', 'finished_at',
+          'lane_hash', 'broker_cpu_mode', 'sample_hz')
 
 function Sql-Value($value, [bool]$isText) {
     if ([string]::IsNullOrWhiteSpace($value)) { return 'NULL' }
@@ -63,6 +70,9 @@ function Sql-Value($value, [bool]$isText) {
 
 $schema = Get-Content (Join-Path $root 'infra/postgres/init/02-results.sql') -Raw
 $sql = [System.Text.StringBuilder]::new()
+# Os NOTICEs do esquema idempotente ("ja existe, pulando") iriam para o stderr
+# e o PowerShell os trataria como erro.
+[void]$sql.AppendLine('SET client_min_messages TO WARNING;')
 [void]$sql.AppendLine($schema)
 [void]$sql.AppendLine('BEGIN;')
 

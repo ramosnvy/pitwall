@@ -17,8 +17,11 @@ namespace Pitwall.Workload;
 /// deslocamento, a frota inteira publicaria em rajadas sincronizadas, o que
 /// favoreceria artificialmente o broker que agrupa melhor em lote.
 /// </summary>
-public sealed class FleetAmplifier(int factor)
+public sealed class FleetAmplifier(int factor, double samplePeriodMs = FleetAmplifier.NativeSamplePeriodMs)
 {
+    /// <summary>Intervalo entre amostras da OpenF1: 3,7 Hz, uma amostra a cada 270 ms.</summary>
+    public const double NativeSamplePeriodMs = 270.0;
+
     /// <summary>
     /// Numero de carros originais no dataset. Usado para que o numero do
     /// carro replicado nao colida com o de outra replica.
@@ -56,11 +59,12 @@ public sealed class FleetAmplifier(int factor)
     }
 
     /// <summary>
-    /// Deslocamento de fase da replica dentro do intervalo entre amostras.
-    /// A OpenF1 amostra a 3,7 Hz, ou seja, uma amostra a cada 270 ms.
+    /// Deslocamento de fase da replica dentro do intervalo entre amostras:
+    /// 270 ms na cadencia nativa da OpenF1, 10 ms com a telemetria reamostrada
+    /// a 100 Hz.
     /// </summary>
     private TimeSpan PhaseOffset(int replica) =>
-        TimeSpan.FromMilliseconds(270.0 * replica / Factor);
+        TimeSpan.FromMilliseconds(samplePeriodMs * replica / Factor);
 
     /// <summary>
     /// Quantos carros a frota tem, dado o numero de carros do dataset.

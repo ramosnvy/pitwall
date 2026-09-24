@@ -1,0 +1,612 @@
+{
+  "uid": "pitwall-stats",
+  "title": "PitWall · Estatísticas",
+  "description": "Estatísticas de tudo o que o experimento captura: rodadas e validade por fonte, precisão entre repetições, distribuições, o 2x2 das assimetrias e a cota de CPU ao vivo.",
+  "tags": [
+    "pitwall"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "source",
+        "label": "Fonte",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres"
+        },
+        "query": "SELECT DISTINCT source FROM matrix_run ORDER BY 1 DESC",
+        "definition": "SELECT DISTINCT source FROM matrix_run ORDER BY 1 DESC",
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "pitwall"
+      ],
+      "asDropdown": false,
+      "title": "PitWall",
+      "includeVars": false,
+      "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "Replay 2D",
+      "url": "http://localhost:3001",
+      "targetBlank": true,
+      "icon": "external link",
+      "tooltip": "Replay das corridas (tools/race-replay)"
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "id": 1,
+      "title": "Visão geral de tudo o que foi capturado",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "id": 2,
+      "title": "Rodadas por fonte",
+      "description": "Cada CSV carregado por analysis/load-results.ps1. Inválidas pelas regras do summarize.ps1: sem relatório do produtor, jitter acima de 50 ms ou digest diferente do da maioria na carga.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT source AS fonte, count(*) AS rodadas,\n  count(*) FILTER (WHERE valid) AS validas,\n  count(*) FILTER (WHERE invalid_reason LIKE '%jitter%') AS inval_jitter,\n  count(*) FILTER (WHERE invalid_reason LIKE '%digest%') AS inval_digest,\n  count(*) FILTER (WHERE invalid_reason LIKE '%produtor%') AS inval_produtor,\n  count(DISTINCT architecture) AS arquiteturas, count(DISTINCT target_rate) AS cargas,\n  min(finished_at) AS inicio, max(finished_at) AS fim,\n  string_agg(DISTINCT code_commit, ', ') AS commits\nFROM v_matrix GROUP BY source ORDER BY min(finished_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "row",
+      "id": 3,
+      "title": "Precisão da medição",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "id": 4,
+      "title": "Dispersão entre repetições",
+      "description": "Só rodadas válidas. CV = desvio padrão / média: abaixo de 5% (verde) a medida é precisa; acima de 15% (vermelho), a célula é ruidosa e a mediana deve ser lida com o mínimo e o máximo.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT architecture AS arquitetura, target_rate AS carga, count(*) AS n,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms)::numeric, 2) AS p99_mediana_ms,\n  round(min(p99_ms)::numeric, 2) AS p99_min, round(max(p99_ms)::numeric, 2) AS p99_max,\n  round(stddev_samp(p99_ms)::numeric, 2) AS p99_desvio,\n  round((100 * stddev_samp(p99_ms) / nullif(avg(p99_ms), 0))::numeric, 1) AS p99_cv_pct,\n  round((100 * stddev_samp(p50_ms) / nullif(avg(p50_ms), 0))::numeric, 1) AS p50_cv_pct,\n  round((100 * stddev_samp(throughput) / nullif(avg(throughput), 0))::numeric, 2) AS vazao_cv_pct,\n  round((100 * stddev_samp(total_cpu) / nullif(avg(total_cpu), 0))::numeric, 1) AS cpu_total_cv_pct\nFROM v_matrix WHERE valid AND source = '$source'\nGROUP BY architecture, target_rate ORDER BY target_rate, architecture"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99_cv_pct"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50_cv_pct"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vazao_cv_pct"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cpu_total_cv_pct"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "row",
+      "id": 5,
+      "title": "Distribuições",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "histogram",
+      "id": 6,
+      "title": "Distribuição do P99 por broker",
+      "description": "Uma observação por rodada válida da fonte escolhida.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "fillOpacity": 60,
+            "lineWidth": 1
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "bucketCount": 24,
+        "combine": false,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT p99_ms AS \"Kafka\" FROM v_matrix WHERE valid AND source = '$source' AND broker = 'kafka'"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT p99_ms AS \"RabbitMQ\" FROM v_matrix WHERE valid AND source = '$source' AND broker = 'rabbitmq'"
+        }
+      ]
+    },
+    {
+      "type": "trend",
+      "id": 7,
+      "title": "P99 × estrangulamento do broker",
+      "description": "Cada ponto é uma rodada (válida ou não). Só aparecem as fontes que registram o estrangulamento, como o experimento 2x2 (asym-ab-runs.csv).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT broker_throttled_pct + 0.001 * row_number() OVER (ORDER BY broker_throttled_pct, run_id) AS estrangulado,\n  CASE WHEN broker_cpu_mode LIKE 'quota%' AND lane_hash = 'modulo' THEN p99_ms END AS \"cota, módulo\",\n  CASE WHEN broker_cpu_mode LIKE 'quota%' AND lane_hash = 'crc32' THEN p99_ms END AS \"cota, crc32\",\n  CASE WHEN broker_cpu_mode NOT LIKE 'quota%' AND lane_hash = 'modulo' THEN p99_ms END AS \"núcleos fixos, módulo\",\n  CASE WHEN broker_cpu_mode NOT LIKE 'quota%' AND lane_hash = 'crc32' THEN p99_ms END AS \"núcleos fixos, crc32\"\nFROM v_matrix WHERE source = '$source' AND broker_throttled_pct IS NOT NULL\nORDER BY broker_throttled_pct"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "points",
+            "lineWidth": 0,
+            "showPoints": "always",
+            "pointSize": 8,
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estrangulado"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "estrangulado",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "type": "row",
+      "id": 8,
+      "title": "Assimetrias: faixas × CPU do broker (experimento 2x2)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "id": 9,
+      "title": "Células do 2x2",
+      "description": "Medianas de todas as rodadas e só das válidas. Estrangulado = percentual de períodos CFS congelados. Recarregue com analysis/load-results.ps1 para ver as rodadas novas.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT target_rate AS carga, lane_hash AS faixas,\n  CASE WHEN broker_cpu_mode LIKE 'quota%' THEN 'cota' ELSE 'núcleos fixos' END AS cpu,\n  count(*) AS rodadas, count(*) FILTER (WHERE valid) AS validas,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms)::numeric, 2) AS p99_todas_ms,\n  round((percentile_cont(0.5) WITHIN GROUP (ORDER BY p99_ms) FILTER (WHERE valid))::numeric, 2) AS p99_validas_ms,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p50_ms)::numeric, 2) AS p50_ms,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY broker_throttled_pct)::numeric, 1) AS estrangulado_pct,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY producer_jitter_ms)::numeric, 1) AS jitter_ms,\n  round(percentile_cont(0.5) WITHIN GROUP (ORDER BY broker_cpu_avg)::numeric, 1) AS cpu_broker_pct\nFROM v_matrix WHERE lane_hash IS NOT NULL AND broker_cpu_mode IS NOT NULL AND source = '$source'\nGROUP BY 1, 2, 3 ORDER BY 1, 2, 3"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "type": "row",
+      "id": 10,
+      "title": "Ao vivo (Prometheus)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "Estrangulamento pela cota",
+      "description": "Percentual dos períodos CFS em que cada container ficou congelado.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum by (name) (rate(container_cpu_cfs_throttled_periods_total{name=~\"pitwall-(producer|consumer|kafka|rabbitmq|postgres)\"}[$__rate_interval])) / sum by (name) (rate(container_cpu_cfs_periods_total{name=~\"pitwall-(producer|consumer|kafka|rabbitmq|postgres)\"}[$__rate_interval]))",
+          "legendFormat": "{{name}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "CPU: percentil 95 móvel de 5 min",
+      "description": "Percentil 95 do uso de CPU de cada container nos últimos 5 minutos, em percentual de um núcleo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "quantile_over_time(0.95, (sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"pitwall-(producer|consumer|kafka|rabbitmq|postgres)\"}[30s])) * 100)[5m:15s])",
+          "legendFormat": "{{name}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

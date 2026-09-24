@@ -278,6 +278,12 @@ function Invoke-PitwallRun {
         # Faixa de cada carro no RabbitMQ: crc32 (igual ao Kafka) ou modulo
         # (como na matriz 7e283c2). No Kafka quem decide e a librdkafka.
         [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
+        # Frequencia por carro. 0 = cadencia nativa da OpenF1 (3,7 Hz); acima
+        # disso o produtor reamostra por interpolacao (TelemetryInterpolator).
+        [double]$Hz = 0,
+        # Inicio do trecho da corrida usado, em segundos; negativo = corrida
+        # inteira, como na matriz 7e283c2. Obrigatorio com -Hz.
+        [double]$WindowStart = -1,
         [string]$Commit = ''
     )
 
@@ -353,6 +359,12 @@ function Invoke-PitwallRun {
         '--lane-hash', $LaneHash,
         '--report', $producerReportArg
     )
+
+    if ($Hz -gt 0 -and $WindowStart -lt 0) {
+        throw 'Com -Hz, informe -WindowStart: a corrida inteira reamostrada nao cabe na memoria do produtor.'
+    }
+    if ($Hz -gt 0) { $producerArgs += @('--hz', $Hz.ToString($inv)) }
+    if ($WindowStart -ge 0) { $producerArgs += @('--window-start', $WindowStart.ToString($inv)) }
 
     $timeout = ($Seconds + $WarmupSeconds) * 3 + 180
 
@@ -508,6 +520,8 @@ function Invoke-PitwallRun {
     # sao divididos entre as faixas, como a CPU do broker e limitada, e quanto
     # cada container foi estrangulado pela cota na janela medida.
     $enriched['lane_hash'] = if ($Broker -eq 'kafka') { 'crc32' } else { $LaneHash }
+    $enriched['sample_hz'] = if ($Hz -gt 0) { $Hz.ToString($script:Invariant) } else { 'nativo' }
+    $enriched['window_start_s'] = if ($WindowStart -ge 0) { $WindowStart.ToString($script:Invariant) } else { '' }
     $enriched['broker_cpu_mode'] = $brokerCpuMode
     $enriched['broker_throttled_pct'] = $brokerThrottled
     $enriched['consumer_throttled_pct'] = $consumerThrottled

@@ -1,7 +1,7 @@
 {
   "uid": "pitwall-logs",
-  "title": "PitWall Â· Logs",
-  "description": "Logs de todos os containers pitwall-*, filtrÃ¡veis pelos rÃ³tulos da rodada.",
+  "title": "PitWall · Logs",
+  "description": "Logs de todos os containers pitwall-*, filtráveis pelos rótulos da rodada.",
   "tags": [
     "pitwall"
   ],
@@ -133,7 +133,7 @@
       "type": "timeseries",
       "id": 1,
       "title": "Linhas de log por container",
-      "description": "Volume de log. Um salto fora do fim de rodada costuma ser erro ou reconexÃ£o.",
+      "description": "Volume de log. Um salto fora do fim de rodada costuma ser erro ou reconexão.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -187,7 +187,7 @@
       "type": "logs",
       "id": 2,
       "title": "Avisos e erros",
-      "description": "Linhas com aviso, erro, exceÃ§Ã£o ou falha.",
+      "description": "Linhas com aviso, erro, exceção ou falha.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -224,7 +224,7 @@
       "type": "logs",
       "id": 3,
       "title": "Todos os logs",
-      "description": "Filtros no topo; a caixa de busca aceita expressÃ£o regular.",
+      "description": "Filtros no topo; a caixa de busca aceita expressão regular.",
       "datasource": {
         "type": "loki",
         "uid": "loki"

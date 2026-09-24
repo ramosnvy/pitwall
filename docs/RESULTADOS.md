@@ -39,6 +39,12 @@ O teto real do Kafka não foi encontrado: a 400 mil ev/s o que satura primeiro �
 
 Até a verificação, o teto de ~60 mil ev/s e a cauda do RabbitMQ valem para esta implementação, não para o broker em geral.
 
+**Verificação (experimento 2×2, [IMPLEMENTACAO.md](IMPLEMENTACAO.md) §7):**
+- **Cota de CPU:** o efeito se confirmou. Com núcleos fixos, o P99 do RabbitMQ cai de 40% a 64%, e a cauda desta tabela está inflada pela cota.
+- **Faixas desbalanceadas:** o efeito foi o **contrário** do suposto. Elas davam ao RabbitMQ menor latência e menor CPU a 40 e 60 mil ev/s.
+
+A matriz será refeita com as faixas iguais às do Kafka e com núcleos fixos.
+
 ## 3. Latência: a resposta depende do percentil
 
 Mediana entre as cinco repetições; os três mecanismos agrupados, por não diferirem de forma relevante (§4).

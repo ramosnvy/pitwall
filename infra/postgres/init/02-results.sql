@@ -33,10 +33,23 @@ CREATE TABLE IF NOT EXISTS matrix_run (
     PRIMARY KEY (source, run_id)
 );
 
+-- Colunas acrescentadas depois da matriz 7e283c2 (docs/IMPLEMENTACAO.md):
+-- funcao de faixa, modo de CPU do broker, estrangulamento pela cota e
+-- frequencia por carro. Ficam nulas nas fontes que nao as registravam.
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS lane_hash              TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS broker_cpu_mode        TEXT;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS broker_throttled_pct   DOUBLE PRECISION;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS consumer_throttled_pct DOUBLE PRECISION;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS producer_throttled_pct DOUBLE PRECISION;
+ALTER TABLE matrix_run ADD COLUMN IF NOT EXISTS sample_hz              TEXT;
+
+-- Recriada (e nao substituida) porque m.* muda quando a tabela ganha colunas.
+DROP VIEW IF EXISTS v_matrix;
+
 -- Mesmas regras de validade de analysis/summarize.ps1: sem relatorio do
 -- produtor, jitter acima de 50 ms ou digest diferente do da maioria na mesma
 -- carga, a rodada nao entra na analise.
-CREATE OR REPLACE VIEW v_matrix AS
+CREATE VIEW v_matrix AS
 WITH digest_count AS (
     SELECT source, target_rate, digest_hash, count(*) AS n
     FROM matrix_run
