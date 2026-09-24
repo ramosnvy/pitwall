@@ -1,0 +1,4 @@
+﻿"architecture","max_sustained"
+"rabbit-direct","60000"
+"rabbit-channels","80000"
+"rabbit-pipelines","50000"
