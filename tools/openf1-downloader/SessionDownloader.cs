@@ -43,6 +43,8 @@ internal sealed class SessionDownloader(OpenF1Client client, string outputRoot)
 
         Console.WriteLine($"Pilotos: {driverNumbers.Length}");
 
+        await SaveSessionMetadataAsync(sessionDir, sessionKey, drivers, ct);
+
         var windows = BuildWindows(start, end, TimeSpan.FromMinutes(chunkMinutes)).ToArray();
         var totalRequests = windows.Length * driverNumbers.Length * endpoints.Length;
 
@@ -133,6 +135,37 @@ internal sealed class SessionDownloader(OpenF1Client client, string outputRoot)
         File.Move(temp, target, overwrite: true);
 
         return written;
+    }
+
+    /// <summary>
+    /// Dados de contexto da sessao, usados so pelo replay visual
+    /// (tools/race-replay), nunca pelo experimento: pilotos (sigla e cor da
+    /// equipe), voltas e mudancas de posicao. Cada um cabe numa requisicao
+    /// por sessao, entao nao precisa do fatiamento por piloto e janela.
+    /// </summary>
+    private async Task SaveSessionMetadataAsync(
+        string sessionDir, int sessionKey, JsonElement[] drivers, CancellationToken ct)
+    {
+        await WriteJsonArrayAsync(Path.Combine(sessionDir, "drivers.json"), drivers, ct);
+
+        foreach (var endpoint in (string[])["laps", "position"])
+        {
+            var target = Path.Combine(sessionDir, $"{endpoint}.json");
+            if (File.Exists(target))
+            {
+                continue;
+            }
+
+            var rows = await client.GetJsonAsync(endpoint, $"session_key={sessionKey}", ct);
+            await WriteJsonArrayAsync(target, rows, ct);
+            Console.WriteLine($"[{endpoint}] {rows.Length:N0} registros gravados em {target}");
+        }
+    }
+
+    private static async Task WriteJsonArrayAsync(string path, JsonElement[] rows, CancellationToken ct)
+    {
+        await using var stream = File.Create(path);
+        await JsonSerializer.SerializeAsync(stream, rows, cancellationToken: ct);
     }
 
     private async Task<JsonElement?> GetSessionAsync(int sessionKey, CancellationToken ct)

@@ -17,4 +17,7 @@
   <Folder Name="/tools/processing-verify/">
     <Project Path="tools/processing-verify/Pitwall.Tools.ProcessingVerify.csproj" />
   </Folder>
+  <Folder Name="/tools/race-replay/">
+    <Project Path="tools/race-replay/Pitwall.Tools.RaceReplay.csproj" />
+  </Folder>
 </Solution>

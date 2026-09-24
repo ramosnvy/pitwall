@@ -219,6 +219,21 @@ services:
     mem_limit: ${ALLOY_MEMORY:-256m}
     restart: unless-stopped
 
+  replay:
+    # Replay 2D das corridas (tools/race-replay). Os dados sao gerados por
+    #   dotnet run -c Release --project ../tools/race-replay -- --raw ../data/raw --out ../tools/race-replay/web/data
+    image: nginx:1.27-alpine
+    container_name: pitwall-replay
+    profiles: ["dash"]
+    ports:
+      - "127.0.0.1:${REPLAY_PORT:-3001}:80"
+    volumes:
+      - ../tools/race-replay/web:/usr/share/nginx/html:ro
+      - ./replay/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    cpus: ${ALLOY_CPUS:-0.25}
+    mem_limit: ${ALLOY_MEMORY:-256m}
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   kafka-data:

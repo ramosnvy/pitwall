@@ -1,0 +1,132 @@
+/* Tela de pit wall: fundo escuro de proposito, como os monitores de box. */
+:root {
+  color-scheme: dark;
+  --bg: #0E1216;
+  --panel: #151B21;
+  --panel-2: #1B232B;
+  --line: #28323C;
+  --ink: #E6EAE8;
+  --muted: #8E99A3;
+  --dim: #5B6670;
+  --accent: #F2C14E;   /* amarelo de bandeira, usado com parcimonia */
+  --brake: #FF4D5A;
+  --throttle: #3DDC84;
+  --rpm: #6FA8FF;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font: 14px/1.45 var(--sans);
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+}
+button, select, input { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: .9em; }
+
+/* Barra superior */
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px;
+  padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.brand { display: flex; align-items: baseline; gap: 8px; font-family: var(--display); letter-spacing: .04em; text-transform: uppercase; }
+.brand b { font-size: 1.5rem; font-weight: 700; }
+.brand span { color: var(--accent); font-weight: 600; font-size: 1.1rem; }
+.field { display: flex; align-items: center; gap: 8px; }
+.field span, .lap span, .clock span {
+  font: 500 .68rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; }
+.lap, .clock { display: grid; gap: 3px; }
+.lap b, .clock b { font: 600 1.35rem/1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.status { margin-left: auto; color: var(--muted); font-size: .82rem; }
+
+/* Layout principal */
+.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr) 300px; min-height: 0; }
+
+.board { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
+.board-head, .board li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3rem; align-items: center; gap: 6px; padding: 0 12px; }
+.board-head { height: 32px; font: 500 .66rem/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+.board-head span:last-child, .board li .n { text-align: right; }
+.board ol { list-style: none; margin: 0; padding: 0; }
+.board li { height: 30px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.03); font-variant-numeric: tabular-nums; }
+.board li:hover { background: var(--panel-2); }
+.board li.sel { background: #222C36; box-shadow: inset 3px 0 0 var(--accent); }
+.board li.out { color: var(--dim); }
+.board .p { font: 600 1rem/1 var(--display); color: var(--muted); }
+.board .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.board .who i { width: 4px; height: 16px; border-radius: 1px; flex: none; }
+.board .who b { font: 600 1rem/1 var(--display); letter-spacing: .05em; }
+.board .who small { color: var(--dim); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .n { font-family: var(--mono); font-size: .8rem; color: var(--muted); }
+
+.stage { position: relative; min-width: 0; min-height: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+.legend { position: absolute; left: 14px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .75rem; color: var(--muted); pointer-events: none; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.dot.brake { background: var(--brake); }
+.dot.out { background: var(--dim); }
+
+/* Painel do carro */
+.car { border-left: 1px solid var(--line); background: var(--panel); padding: 14px 16px; overflow-y: auto; display: grid; gap: 12px; align-content: start; }
+.car-head { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.car-head i { width: 6px; height: 36px; border-radius: 2px; background: var(--dim); }
+.car-head b { display: block; font: 700 1.7rem/1 var(--display); letter-spacing: .05em; }
+.car-head span { color: var(--muted); font-size: .8rem; }
+.car-head em { font: 600 1.5rem/1 var(--display); font-style: normal; color: var(--accent); }
+
+.gauges { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.speed, .gear { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; display: flex; align-items: baseline; gap: 6px; }
+.speed b { font: 700 2.8rem/1 var(--display); font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
+.gear b { font: 700 2.8rem/1 var(--display); color: var(--accent); min-width: 1ch; text-align: center; }
+.speed span, .gear span { color: var(--muted); font-size: .75rem; }
+
+.meter { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 3.2rem; gap: 8px; align-items: center; font-size: .78rem; color: var(--muted); }
+.meter em { font: 500 .8rem/1 var(--mono); font-style: normal; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.meter .track { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
+.fill { height: 100%; width: 0; border-radius: 4px; transition: width .08s linear; }
+.fill.rpm { background: var(--rpm); }
+.fill.thr { background: var(--throttle); }
+.fill.brk { background: var(--brake); }
+
+.drs { justify-self: start; font: 700 .85rem/1 var(--display); letter-spacing: .1em; padding: 5px 10px; border-radius: 3px; border: 1px solid var(--line); color: var(--dim); }
+.drs.on { color: #0E1216; background: var(--throttle); border-color: var(--throttle); }
+
+.trace { display: grid; gap: 6px; }
+.trace-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: .7rem; color: var(--muted); }
+.trace-head span { white-space: nowrap; }
+.trace-head span:first-child { font: 500 .66rem/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.sw { display: inline-block; width: 10px; height: 3px; margin: 0 3px 2px 6px; vertical-align: middle; }
+.sw.spd { background: var(--ink); }
+.sw.brk { background: var(--brake); opacity: .5; height: 8px; }
+.sw.mk { background: var(--accent); width: 3px; height: 9px; }
+.trace canvas { width: 100%; height: 120px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; }
+
+.facts { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.facts div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.facts dt { font-size: .7rem; color: var(--muted); }
+.facts dd { margin: 2px 0 0; font: 600 1.3rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.note { margin: 0; font-size: .74rem; color: var(--muted); line-height: 1.5; }
+
+/* Transporte */
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+.transport button { background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+.transport button.on { border-color: var(--accent); color: var(--accent); }
+.play { width: 44px; height: 34px; font-size: 1rem; }
+.speeds, .toggles { display: flex; gap: 4px; }
+#scrub { flex: 1 1 260px; accent-color: var(--accent); }
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 180px minmax(0, 1fr); }
+  .car { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  body { grid-template-rows: auto auto auto; }
+  .stage { height: 60vh; }
+}
+@media (max-width: 640px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .board { max-height: 220px; border-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }

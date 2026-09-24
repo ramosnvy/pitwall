@@ -1,7 +1,7 @@
 {
   "uid": "pitwall-live",
-  "title": "PitWall · Rodada ao vivo",
-  "description": "CPU, memória e rede dos containers, filas do RabbitMQ e logs da rodada em andamento.",
+  "title": "PitWall Â· Rodada ao vivo",
+  "description": "CPU, memÃ³ria e rede dos containers, filas do RabbitMQ e logs da rodada em andamento.",
   "tags": [
     "pitwall"
   ],
@@ -31,6 +31,14 @@
       "title": "PitWall",
       "includeVars": false,
       "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "Replay 2D",
+      "url": "http://localhost:3001",
+      "targetBlank": true,
+      "icon": "external link",
+      "tooltip": "Replay das corridas (tools/race-replay)"
     }
   ],
   "panels": [
@@ -51,7 +59,7 @@
       "type": "timeseries",
       "id": 2,
       "title": "CPU por container",
-      "description": "Percentual de um núcleo, como em RESULTADOS.md. Limites: produtor 400%, consumidor 300%, broker 400%, banco 200%.",
+      "description": "Percentual de um nÃºcleo, como em RESULTADOS.md. Limites: produtor 400%, consumidor 300%, broker 400%, banco 200%.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -104,8 +112,8 @@
     {
       "type": "timeseries",
       "id": 3,
-      "title": "Memória por container",
-      "description": "Working set, a mesma métrica que o runner grava. No Kafka, o heap da JVM é pré-alocado.",
+      "title": "MemÃ³ria por container",
+      "description": "Working set, a mesma mÃ©trica que o runner grava. No Kafka, o heap da JVM Ã© prÃ©-alocado.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -159,7 +167,7 @@
       "type": "timeseries",
       "id": 4,
       "title": "Rede recebida por container",
-      "description": "Bytes recebidos por segundo. No broker, aproxima a taxa de publicação: cada evento tem 46 bytes de payload mais o envelope do protocolo.",
+      "description": "Bytes recebidos por segundo. No broker, aproxima a taxa de publicaÃ§Ã£o: cada evento tem 46 bytes de payload mais o envelope do protocolo.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -212,8 +220,8 @@
     {
       "type": "timeseries",
       "id": 5,
-      "title": "Custo da própria observação",
-      "description": "CPU do Prometheus, do cAdvisor e do painel. Em rodada oficial, só Prometheus e cAdvisor devem aparecer: o profile dash fica desligado.",
+      "title": "Custo da prÃ³pria observaÃ§Ã£o",
+      "description": "CPU do Prometheus, do cAdvisor e do painel. Em rodada oficial, sÃ³ Prometheus e cAdvisor devem aparecer: o profile dash fica desligado.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -266,7 +274,7 @@
     {
       "type": "row",
       "id": 6,
-      "title": "RabbitMQ (só com o profile rabbit)",
+      "title": "RabbitMQ (sÃ³ com o profile rabbit)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -364,7 +372,7 @@
       "type": "timeseries",
       "id": 8,
       "title": "Mensagens nas filas",
-      "description": "Prontas e não confirmadas, por fila. Fila crescendo significa consumidor atrás do produtor.",
+      "description": "Prontas e nÃ£o confirmadas, por fila. Fila crescendo significa consumidor atrÃ¡s do produtor.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

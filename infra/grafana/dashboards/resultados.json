@@ -1,7 +1,7 @@
 {
   "uid": "pitwall-results",
-  "title": "PitWall · Resultados da matriz",
-  "description": "Rodadas carregadas por analysis/load-results.ps1: latência, CPU e validade por arquitetura e carga.",
+  "title": "PitWall Â· Resultados da matriz",
+  "description": "Rodadas carregadas por analysis/load-results.ps1: latÃªncia, CPU e validade por arquitetura e carga.",
   "tags": [
     "pitwall"
   ],
@@ -47,6 +47,14 @@
       "title": "PitWall",
       "includeVars": false,
       "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "Replay 2D",
+      "url": "http://localhost:3001",
+      "targetBlank": true,
+      "icon": "external link",
+      "tooltip": "Replay das corridas (tools/race-replay)"
     }
   ],
   "panels": [
@@ -75,7 +83,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT count(*) AS rodadas,\n  count(*) FILTER (WHERE valid) AS \"válidas\",\n  count(*) FILTER (WHERE NOT valid) AS \"inválidas\",\n  min(code_commit) AS commit\nFROM v_matrix WHERE source = '$source'"
+          "rawSql": "SELECT count(*) AS rodadas,\n  count(*) FILTER (WHERE valid) AS \"vÃ¡lidas\",\n  count(*) FILTER (WHERE NOT valid) AS \"invÃ¡lidas\",\n  min(code_commit) AS commit\nFROM v_matrix WHERE source = '$source'"
         }
       ],
       "fieldConfig": {
@@ -90,8 +98,8 @@
     {
       "type": "table",
       "id": 2,
-      "title": "Rodadas inválidas",
-      "description": "Motivo: produtor sem relatório, jitter acima de 50 ms ou digest diferente do da maioria na carga.",
+      "title": "Rodadas invÃ¡lidas",
+      "description": "Motivo: produtor sem relatÃ³rio, jitter acima de 50 ms ou digest diferente do da maioria na carga.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"
@@ -128,7 +136,7 @@
       "type": "barchart",
       "id": 3,
       "title": "P50 por carga",
-      "description": "Mediana entre as repetições válidas de cada célula. Sem barra: carga acima do teto daquela arquitetura.",
+      "description": "Mediana entre as repetiÃ§Ãµes vÃ¡lidas de cada cÃ©lula. Sem barra: carga acima do teto daquela arquitetura.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"
@@ -279,7 +287,7 @@
       "type": "barchart",
       "id": 4,
       "title": "P99 por carga",
-      "description": "Escala logarítmica. O cruzamento das caudas fica entre 20 e 40 mil ev/s.",
+      "description": "Escala logarÃ­tmica. O cruzamento das caudas fica entre 20 e 40 mil ev/s.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"
@@ -433,7 +441,7 @@
       "type": "barchart",
       "id": 5,
       "title": "CPU total da arquitetura",
-      "description": "Produtor + broker + consumidor + banco, em percentual de um núcleo.",
+      "description": "Produtor + broker + consumidor + banco, em percentual de um nÃºcleo.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"
@@ -584,7 +592,7 @@
       "type": "barchart",
       "id": 6,
       "title": "CPU do consumidor",
-      "description": "Container do consumidor: é onde Direct, Channels e Pipelines se diferenciam.",
+      "description": "Container do consumidor: Ã© onde Direct, Channels e Pipelines se diferenciam.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"
@@ -734,8 +742,8 @@
     {
       "type": "table",
       "id": 7,
-      "title": "Mediana por célula",
-      "description": "Uma linha por arquitetura e carga, só rodadas válidas.",
+      "title": "Mediana por cÃ©lula",
+      "description": "Uma linha por arquitetura e carga, sÃ³ rodadas vÃ¡lidas.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "postgres"

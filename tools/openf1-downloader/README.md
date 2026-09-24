@@ -28,6 +28,11 @@ dotnet run -- --session-key 9472 --endpoints car_data --out ../../data/raw
 | `--out <dir>` | `data/raw` | Diretorio de saida |
 | `--chunk-minutes <n>` | `10` | Janela de tempo por requisicao |
 
+Alem dos endpoints pedidos, cada sessao ganha `drivers.json`, `laps.json` e
+`position.json` (uma requisicao cada). O experimento nao os usa; servem ao
+replay visual em `tools/race-replay`. Rodar de novo numa sessao ja baixada
+busca so o que falta.
+
 ## Saida
 
 ```

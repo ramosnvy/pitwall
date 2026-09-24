@@ -36,6 +36,7 @@ no mesmo banco.
 | Prometheus | 9090 | |
 | cAdvisor | 8080 | CPU e memoria por container |
 | Grafana | 3000 | so em `127.0.0.1`, sem login; profile `dash` |
+| Replay 2D | 3001 | so em `127.0.0.1`; profile `dash` (tools/race-replay) |
 
 ## Painel local (profile `dash`)
 

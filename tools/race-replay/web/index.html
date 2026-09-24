@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PitWall Replay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="replay.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand"><b>PitWall</b><span>Replay</span></div>
+    <label class="field">
+      <span>Corrida</span>
+      <select id="session"></select>
+    </label>
+    <div class="lap"><span>Volta</span><b id="lap">–</b></div>
+    <div class="clock"><span>Tempo de corrida</span><b id="clock">–</b></div>
+    <div class="status" id="status">Carregando…</div>
+  </header>
+
+  <main class="layout">
+    <aside class="board" aria-label="Classificação">
+      <div class="board-head"><span>Pos</span><span>Piloto</span><span title="Frenagens detectadas pelo Processing.Core até agora">Fren.</span></div>
+      <ol id="board"></ol>
+    </aside>
+
+    <section class="stage">
+      <canvas id="track" aria-label="Pista com a posição dos carros"></canvas>
+      <div class="legend">
+        <span><i class="dot brake"></i>frenagem detectada pelo Processing.Core</span>
+        <span><i class="dot out"></i>fora da pista ou abandono</span>
+      </div>
+    </section>
+
+    <aside class="car" aria-label="Telemetria do carro selecionado">
+      <div class="car-head">
+        <i id="car-color"></i>
+        <div>
+          <b id="car-code">–</b>
+          <span id="car-name">Clique num carro</span>
+        </div>
+        <em id="car-pos"></em>
+      </div>
+
+      <div class="gauges">
+        <div class="speed"><b id="speed">–</b><span>km/h</span></div>
+        <div class="gear"><b id="gear">–</b><span>marcha</span></div>
+      </div>
+
+      <div class="meter"><span>RPM</span><div class="track"><div id="rpm-bar" class="fill rpm"></div></div><em id="rpm">–</em></div>
+      <div class="meter"><span>Acelerador</span><div class="track"><div id="thr-bar" class="fill thr"></div></div><em id="thr">–</em></div>
+      <div class="meter"><span>Freio</span><div class="track"><div id="brk-bar" class="fill brk"></div></div><em id="brk">–</em></div>
+      <div class="drs" id="drs">DRS</div>
+
+      <div class="trace">
+        <div class="trace-head"><span>Últimos 30 s</span><span><i class="sw spd"></i>velocidade <i class="sw brk"></i>freio <i class="sw mk"></i>frenagem</span></div>
+        <canvas id="trace"></canvas>
+      </div>
+
+      <dl class="facts">
+        <div><dt>Frenagens detectadas</dt><dd id="car-brakes">–</dd></div>
+        <div><dt>Amostras de telemetria</dt><dd id="car-samples">–</dd></div>
+      </dl>
+      <p class="note">Frenagem é a regra do <code>Processing.Core</code>, a mesma das seis variantes da matriz: freio passa de abaixo para acima de <span id="threshold">50</span>. As marcas vêm da própria classe, rodada sobre esta corrida.</p>
+    </aside>
+  </main>
+
+  <footer class="transport">
+    <button id="play" class="play" aria-label="Reproduzir">▶</button>
+    <div class="speeds" role="group" aria-label="Velocidade">
+      <button data-speed="1">1×</button>
+      <button data-speed="4" class="on">4×</button>
+      <button data-speed="16">16×</button>
+      <button data-speed="64">64×</button>
+    </div>
+    <input id="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Posição na corrida">
+    <div class="toggles" role="group" aria-label="Frenagens na pista">
+      <button data-marks="recent" class="on">Recentes</button>
+      <button data-marks="all">Acumuladas</button>
+      <button data-marks="off">Sem marcas</button>
+    </div>
+  </footer>
+
+  <script src="replay.js"></script>
+</body>
+</html>
