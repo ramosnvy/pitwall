@@ -23,6 +23,9 @@ param(
     [double]$P99CeilingMs = 1000,
     [string]$Dataset = 'data/raw/9472/car_data.jsonl',
     [string]$Out = 'results/sweep.csv',
+    [string]$ProducerReport = 'results/sweep-producer.csv',
+    [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32',
+    [switch]$Persist,
     [switch]$HostProcesses
 )
 
@@ -45,7 +48,8 @@ foreach ($broker in $Brokers) {
         foreach ($rate in $Rates) {
             $row = Invoke-PitwallRun -Broker $broker -Mode $mode -Rate $rate `
                 -Seconds $Seconds -Partitions $Partitions -Dataset $Dataset `
-                -ConsumerReport $Out -ProducerReport 'results/sweep-producer.csv' -HostProcesses:$HostProcesses
+                -ConsumerReport $Out -ProducerReport $ProducerReport -LaneHash $LaneHash `
+                -Persist:$Persist -Commit (Get-GitCommit) -HostProcesses:$HostProcesses
 
             # A linha enriquecida (produtor, CPU e memoria de todos os modulos)
             # vai para um CSV proprio; o CSV do consumidor so tem o lado dele.

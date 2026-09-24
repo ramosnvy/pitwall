@@ -39,7 +39,9 @@ param(
     [string]$Dataset = 'data/raw/9472/car_data.jsonl',
     [string]$Out = 'results/matrix-runs.csv',
     [string]$ConsumerReport = 'results/matrix-consumer.csv',
-    [string]$ProducerReport = 'results/matrix-producer.csv'
+    [string]$ProducerReport = 'results/matrix-producer.csv',
+    # Faixa de cada carro no RabbitMQ; modulo reproduz a matriz 7e283c2.
+    [ValidateSet('crc32', 'modulo')][string]$LaneHash = 'crc32'
 )
 
 Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force
@@ -101,7 +103,8 @@ foreach ($run in $runs) {
             -Seconds $Seconds -WarmupSeconds $WarmupSeconds -Partitions $Partitions `
             -Replication $run.rep -Persist:(-not $NoPersist) -Dataset $Dataset `
             -ConsumerReport $ConsumerReport -ProducerReport $ProducerReport `
-            -SyntheticCostUs $SyntheticCostUs -Commit $commit -HostProcesses:$HostProcesses
+            -SyntheticCostUs $SyntheticCostUs -Commit $commit -HostProcesses:$HostProcesses `
+            -LaneHash $LaneHash
     }
     catch {
         $row = $null
