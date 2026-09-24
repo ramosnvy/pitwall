@@ -33,7 +33,10 @@ Antes da matriz, falta corrigir o que a auditoria achou, medir o que ainda está
 | Rodada | 10 s de aquecimento e 90 s de medição | PLANO §2 |
 | Validade | Atraso de envio até 50 ms e resultado idêntico entre as seis combinações; descartes registrados | AMEACAS-VALIDADE |
 | Faixas de carga | Kafka de 10 mil a 300 mil ev/s; RabbitMQ de 10 mil a 60 mil | proposta sem objeção do orientador |
-| Estatística | Descritiva: 10 repetições, mediana, desvio padrão e descarte de discrepantes; Kruskal-Wallis como apoio; sem ANOVA | PLANO §1g |
+| Estatística | Descritiva: 10 repetições, mediana e desvio padrão; Kruskal-Wallis como apoio; sem ANOVA | PLANO §1g |
+| Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação, depois dos critérios de validade | DESENVOLVIMENTO |
+| Ponto de saturação | Maior carga com pelo menos 99% das mensagens entregues e P99 abaixo de 50 ms | DESENVOLVIMENTO |
+| Segundo cenário de carga | Proposto ao orientador agora, construído só depois do aval | DESENVOLVIMENTO |
 | Instabilidade do Kafka com Channels | Investigar antes da matriz | decisão de 24/09 |
 | Figura 1 do texto | Formato da Figura 1 do TCC1, com os passos de cada etapa dentro das caixas | mapa da arquitetura, layout C |
 | Fora do escopo | RabbitMQ Streams (trabalho futuro), tamanho de mensagem, rodadas longas, mais corridas, 8 filas no RabbitMQ | decisões de 24/09 |
@@ -61,23 +64,25 @@ Antes da matriz, falta corrigir o que a auditoria achou, medir o que ainda está
 | Tudo em Docker | Containers com núcleos exclusivos | como planejado, com o protocolo de núcleos de IMPLEMENTACAO §7 |
 | — | Painel local (Grafana, Loki) e replay 2D das corridas | acréscimo; fora da medição |
 
-## 6. O que falta, em ordem de dependência
+## 6. O que falta
 
-| # | Item | Depende de | Situação |
-| --- | --- | --- | --- |
-| 1 | Corrigir os defeitos da auditoria e voltar ao padrão os valores sem justificativa | — | pronto para começar |
-| 2 | Medições pequenas: Nagle, mensagem persistente, `prefetch`, janelas do produtor | 1 | não iniciado |
-| 3 | Congelar o cenário padrão | 2 | não iniciado |
-| 4 | Investigar a instabilidade do Kafka com Channels | 3 | não iniciado |
-| 5 | Corrigir a espera síncrona na contrapressão e o registro incompleto no Pipe; registrar as variáveis `DOTNET_*` por rodada | — | abertos (REVISAO §2.3, §2.4) |
-| 6 | Fixar a regra de descarte de discrepantes e o critério de saturação | — | a decidir |
-| 7 | Matriz v3 no cenário padrão | 3, 4, 5, 6 | não iniciado |
-| 8 | Cenário ajustado | 7 | não iniciado |
-| 9 | Justificativa da parte .NET: memória e coleta de lixo; segundo cenário de carga | 7 | segundo cenário ainda não proposto ao orientador |
-| 10 | Análise, figuras e texto; nova Figura 1 e objetivos; pendências do documento do TCC1 | 7, 8, 9 | não iniciado |
+A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md).
+
+| Fase | Entrega | Situação |
+| --- | --- | --- |
+| 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | próxima |
+| 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | depende da 1 |
+| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | depende da 2 |
+| 4 | Instabilidade do Kafka com Channels | depende da 3 |
+| 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | em paralelo |
+| 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
+| 7 | Cenário ajustado | depende da 6 |
+| 8 | Parte .NET: memória e coleta de lixo | depende da 6 |
+| 9 | Segundo cenário de carga | depende do aval do orientador |
+| 10 | Texto e figuras | depende da 7, 8 e 9 |
 
 ## 7. Pontos de atenção
 
 - **A parte de .NET é a mais frágil aos olhos do orientador.** Sob processamento leve, Channels e Pipelines não ganham latência e custam CPU. Sem o segundo cenário, a conclusão sobre eles fica estreita.
 - **Tempo de máquina.** Com 10 repetições, a matriz fica perto de 370 rodadas contando a sensibilidade. Se apertar, cortar pontos de carga do Kafka, não repetições.
-- **Sem resposta do orientador:** núcleos exclusivos (mantidos) e RabbitMQ Streams (trabalho futuro). O critério de saturação e a regra de descarte não foram enviados a ele.
+- **Sem resposta do orientador:** núcleos exclusivos (mantidos) e RabbitMQ Streams (trabalho futuro). O critério de saturação e a regra de descarte foram decididos por nós em 24/09 (DESENVOLVIMENTO), sem passar por ele.

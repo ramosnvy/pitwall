@@ -174,6 +174,8 @@ Com 5 repetições, 90 s de medição e 30 s de aquecimento e limpeza, a matriz 
 
 ## 5. Sequência de trabalho
 
+**Concluída.** As etapas A a I levaram até a primeira matriz. A sequência atual está em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md).
+
 Etapas em ordem de dependência, sem datas. O que importa é a ordem: cada etapa destrava a seguinte.
 
 | Etapa | Entrega | Destrava |
