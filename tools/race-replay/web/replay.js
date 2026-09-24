@@ -118,6 +118,8 @@ function prepare(raw) {
     max = Math.max(max, raw.laps[i + 2]);
     d.lapT.push(raw.laps[i]);
     d.lapMax.push(max);
+    const drv = d.drivers.get(raw.laps[i + 1]);
+    if (drv) drv.lapCount = Math.max(drv.lapCount ?? 0, raw.laps[i + 2]);
   }
 
   for (let i = 0; i < raw.track.length; i += 2) d.track.push([raw.track[i], raw.track[i + 1]]);
@@ -374,7 +376,7 @@ function updateHeader() {
 
 function frame(now) {
   const d = state.data;
-  if (d) {
+  if (d && state.viewMode !== 'stats') {
     const dt = state.lastFrame ? now - state.lastFrame : 0;
     if (state.playing) {
       state.t = Math.min(d.end, state.t + dt * state.speed);
@@ -444,6 +446,313 @@ window.addEventListener('hashchange', () => {
   }
 });
 
+// ------------------------------------------------------------------ estatisticas
+
+// Tudo calculado aqui, a partir dos dados ja carregados para o replay. As
+// frenagens vem prontas do Processing.Core (tools/race-replay); o resto e
+// contagem sobre as amostras.
+
+const INTERVAL_BIN_MS = 25;
+const INTERVAL_BINS = 40;        // 0 a 1000 ms; um balde extra para lacunas
+const SPEED_BIN = 10;
+const SPEED_BINS = 37;           // 0 a 360 km/h
+const LANES = 4;                 // faixas da matriz
+
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function computeStats(d) {
+  const minutes = Math.ceil(d.end / 60000) + 1;
+  const intervals = new Array(INTERVAL_BINS + 1).fill(0);
+  const speed = new Array(SPEED_BINS).fill(0);
+  const samplesPerMin = new Array(minutes).fill(0);
+  const brakesPerMin = new Array(minutes).fill(0);
+  const rows = [];
+  let tel = 0, loc = 0, gaps = 0, brakesRace = 0, brakesAll = 0, tMin = Infinity, tMax = -Infinity;
+
+  for (const drv of d.drivers.values()) {
+    const s = drv.tel;
+    if (!s) continue;
+    const n = s.t.length;
+    tel += n;
+    loc += drv.loc ? drv.loc.t.length : 0;
+    tMin = Math.min(tMin, s.t[0]);
+    tMax = Math.max(tMax, s.t[n - 1]);
+
+    let carGaps = 0, sumDt = 0, cntDt = 0, max = 0, sumSpeed = 0, race = 0, braking = 0, drs = 0;
+    for (let i = 0; i < n; i++) {
+      const t = s.t[i];
+      samplesPerMin[Math.floor(t / 60000)]++;
+      if (i > 0) {
+        const dt = t - s.t[i - 1];
+        if (dt > 1000) { carGaps++; intervals[INTERVAL_BINS]++; }
+        else { intervals[Math.min(INTERVAL_BINS - 1, Math.floor(dt / INTERVAL_BIN_MS))]++; sumDt += dt; cntDt++; }
+      }
+      if (t >= d.raceStart) {
+        const v = s.speed[i];
+        race++; sumSpeed += v; if (v > max) max = v;
+        speed[Math.min(SPEED_BINS - 1, Math.floor(v / SPEED_BIN))]++;
+        if (s.brake[i] >= d.threshold) braking++;
+        if (s.drs[i] >= 10) drs++;       // 10, 12, 14 = asa aberta
+      }
+    }
+
+    let carBrakes = 0;
+    for (const b of drv.brakes) {
+      brakesPerMin[Math.floor(b / 60000)]++;
+      if (b >= d.raceStart) carBrakes++;
+    }
+    brakesRace += carBrakes;
+    brakesAll += drv.brakes.length;
+    gaps += carGaps;
+
+    rows.push({
+      drv, n,
+      hz: cntDt > 0 ? 1000 / (sumDt / cntDt) : 0,
+      gaps: carGaps,
+      maxSpeed: max,
+      avgSpeed: race ? sumSpeed / race : 0,
+      brakes: carBrakes,
+      laps: drv.lapCount ?? 0,
+      perLap: drv.lapCount ? carBrakes / drv.lapCount : NaN,
+      brakePct: race ? 100 * braking / race : 0,
+      drsPct: race ? 100 * drs / race : 0,
+      finalPos: drv.posP.length ? drv.posP[drv.posP.length - 1] : 99,
+    });
+  }
+
+  // Mediana do intervalo pelo histograma (centro do balde).
+  const inside = intervals.slice(0, INTERVAL_BINS).reduce((a, b) => a + b, 0);
+  let acc = 0, medianMs = NaN;
+  for (let i = 0; i < INTERVAL_BINS; i++) {
+    acc += intervals[i];
+    if (acc >= inside / 2) { medianMs = (i + 0.5) * INTERVAL_BIN_MS; break; }
+  }
+  const upTo300 = intervals.slice(0, Math.ceil(300 / INTERVAL_BIN_MS)).reduce((a, b) => a + b, 0);
+  const cars = rows.length;
+
+  return {
+    cars, tel, loc, gaps, brakesRace, brakesAll, rows, intervals, speed, samplesPerMin, brakesPerMin,
+    medianMs,
+    meanHz: rows.reduce((a, r) => a + r.hz, 0) / Math.max(1, cars),
+    pctUpTo300: 100 * upTo300 / Math.max(1, inside + intervals[INTERVAL_BINS]),
+    // Mesma definicao do replayer: amostras / duracao da telemetria.
+    naturalRate: tel / ((tMax - tMin) / 1000),
+  };
+}
+
+function card(value, label) {
+  return `<div class="st-card"><b>${value}</b><span>${label}</span></div>`;
+}
+
+function renderStats() {
+  const d = state.data;
+  if (!d) return;
+  if (!state.stats || state.stats.key !== d.session.key) {
+    state.stats = { key: d.session.key, ...computeStats(d) };
+  }
+  const st = state.stats;
+  const dur = d.end / 60000;
+
+  $('st-title').textContent = `Estatísticas · ${d.session.circuit} ${d.session.year}`;
+  $('st-cards').innerHTML =
+    card(nf.format(st.tel), 'amostras de telemetria') +
+    card(nf.format(st.loc), 'amostras de posição') +
+    card(st.cars, 'carros') +
+    card(`${Math.floor(dur / 60)}h${String(Math.round(dur % 60)).padStart(2, '0')}`, 'duração da sessão') +
+    card(d.totalLaps, 'voltas') +
+    card(nf.format(st.brakesRace), `frenagens após a largada (${nf.format(st.brakesAll)} na sessão)`) +
+    card(st.meanHz.toFixed(2).replace('.', ',') + ' Hz', 'cadência média por carro') +
+    card(nf.format(st.gaps), 'lacunas acima de 1 s');
+
+  $('st-cadence').innerHTML = [
+    ['intervalo mediano', `${Math.round(st.medianMs)} ms`],
+    ['cadência média', `${st.meanHz.toFixed(2).replace('.', ',')} Hz`],
+    ['intervalos até 300 ms', `${st.pctUpTo300.toFixed(1).replace('.', ',')}%`],
+    ['taxa natural da corrida', `${Math.round(st.naturalRate)} ev/s`],
+  ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+  drawBars($('st-intervals'), st.intervals, {
+    color: css('--rpm'), overflowColor: css('--brake'),
+    label: (i) => (i === INTERVAL_BINS ? '>1 s' : `${i * INTERVAL_BIN_MS}`),
+    every: 4, xTitle: 'ms entre amostras',
+  });
+  drawBars($('st-speed'), st.speed, {
+    color: css('--throttle'), label: (i) => `${i * SPEED_BIN}`, every: 4, xTitle: 'km/h',
+  });
+  drawLines($('st-timeline'), [
+    { values: st.samplesPerMin, color: css('--rpm'), axis: 'left' },
+    { values: st.brakesPerMin, color: css('--brake'), axis: 'right' },
+  ], { raceStartMin: d.raceStart / 60000 });
+
+  renderCalc();
+  renderDriverTable();
+}
+
+function renderCalc() {
+  const st = state.stats;
+  if (!st) return;
+  const rate = +$('st-rate').value;
+  const fmt = (x) => nf.format(Math.round(x));
+
+  const native = { hz: st.meanHz, fleet: Math.max(1, Math.round(rate / st.naturalRate)) };
+  native.cars = st.cars * native.fleet;
+  const hi = { hz: 100, fleet: Math.max(1, Math.round(rate / (st.cars * 100))) };
+  hi.cars = st.cars * hi.fleet;
+
+  const rows = [
+    ['Frequência por carro', `${native.hz.toFixed(1).replace('.', ',')} Hz (medido)`, '100 Hz (interpolado)'],
+    ['Fator de frota', `×${fmt(native.fleet)}`, `×${fmt(hi.fleet)}`],
+    ['Carros distintos (chaves)', fmt(native.cars), fmt(hi.cars)],
+    ['Janelas de 1 s gravadas por segundo', fmt(native.cars), fmt(hi.cars)],
+    ['Eventos por janela por carro', `~${native.hz.toFixed(1).replace('.', ',')}`, '~100'],
+    [`Taxa por faixa (${LANES} faixas)`, `${fmt(rate / LANES)} ev/s`, `${fmt(rate / LANES)} ev/s`],
+    ['Intervalo entre amostras de um carro', `~${Math.round(1000 / native.hz)} ms`, '10 ms'],
+  ];
+  $('st-calc').innerHTML =
+    '<thead><tr><th></th><th>3,7 Hz</th><th>100 Hz</th></tr></thead><tbody>' +
+    rows.map((r) => `<tr><td class="l">${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('') +
+    '</tbody>';
+}
+
+const DRIVER_COLUMNS = [
+  { key: 'finalPos', label: 'Pos', fmt: (r) => (r.finalPos === 99 ? '–' : r.finalPos) },
+  { key: 'code', label: 'Piloto', fmt: (r) => `<span class="who"><i style="background:${r.drv.color}"></i><b>${r.drv.code}</b></span>`, sort: (r) => r.drv.code, left: true },
+  { key: 'team', label: 'Equipe', fmt: (r) => r.drv.team, sort: (r) => r.drv.team, left: true },
+  { key: 'n', label: 'Amostras', fmt: (r) => nf.format(r.n) },
+  { key: 'hz', label: 'Hz', fmt: (r) => r.hz.toFixed(2).replace('.', ',') },
+  { key: 'gaps', label: 'Lacunas >1 s', fmt: (r) => r.gaps },
+  { key: 'laps', label: 'Voltas', fmt: (r) => r.laps },
+  { key: 'maxSpeed', label: 'Vel. máx', fmt: (r) => `${r.maxSpeed} km/h` },
+  { key: 'avgSpeed', label: 'Vel. média', fmt: (r) => `${Math.round(r.avgSpeed)} km/h` },
+  { key: 'brakes', label: 'Frenagens', fmt: (r) => nf.format(r.brakes) },
+  { key: 'perLap', label: 'Fren./volta', fmt: (r) => (Number.isFinite(r.perLap) ? r.perLap.toFixed(1).replace('.', ',') : '–') },
+  { key: 'brakePct', label: '% freando', fmt: (r) => `${r.brakePct.toFixed(1).replace('.', ',')}%<span class="st-bar" style="width:${Math.round(r.brakePct * 2)}px"></span>` },
+  { key: 'drsPct', label: '% DRS', fmt: (r) => `${r.drsPct.toFixed(1).replace('.', ',')}%` },
+];
+
+function renderDriverTable() {
+  const st = state.stats;
+  const sortKey = state.statsSort ?? 'finalPos';
+  const dir = state.statsDir ?? 1;
+  const col = DRIVER_COLUMNS.find((c) => c.key === sortKey) ?? DRIVER_COLUMNS[0];
+  const value = col.sort ?? ((r) => r[col.key]);
+  const rows = [...st.rows].sort((a, b) => {
+    const va = value(a), vb = value(b);
+    return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
+  });
+
+  const table = $('st-drivers');
+  table.innerHTML =
+    '<thead><tr>' + DRIVER_COLUMNS.map((c) =>
+      `<th data-key="${c.key}" aria-sort="${c.key === sortKey ? (dir > 0 ? 'ascending' : 'descending') : 'none'}">${c.label}${c.key === sortKey ? (dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
+    '</tr></thead><tbody>' +
+    rows.map((r) => '<tr>' + DRIVER_COLUMNS.map((c) => `<td class="${c.left ? 'l' : ''}">${c.fmt(r)}</td>`).join('') + '</tr>').join('') +
+    '</tbody>';
+
+  table.querySelectorAll('th').forEach((th) => th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    state.statsDir = state.statsSort === key ? -(state.statsDir ?? 1) : 1;
+    state.statsSort = key;
+    renderDriverTable();
+  }));
+}
+
+// Histograma: um balde por barra, rotulo a cada "every" baldes.
+function drawBars(canvas, bins, opt) {
+  const dpr = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const padL = 44 * dpr, padR = 10 * dpr, padT = 10 * dpr, padB = 34 * dpr;
+  const max = Math.max(1, ...bins);
+  const bw = (W - padL - padR) / bins.length;
+  ctx.clearRect(0, 0, W, H);
+
+  gridY(ctx, max, padL, padR, padT, padB, W, H, dpr, (v) => nf.format(Math.round(v)));
+
+  bins.forEach((v, i) => {
+    const h = (v / max) * (H - padT - padB);
+    ctx.fillStyle = opt.overflowColor && i === bins.length - 1 ? opt.overflowColor : opt.color;
+    ctx.fillRect(padL + i * bw + dpr, H - padB - h, Math.max(1, bw - 2 * dpr), h);
+  });
+
+  ctx.fillStyle = css('--muted');
+  ctx.font = `${10 * dpr}px ${css('--mono') || 'monospace'}`;
+  ctx.textAlign = 'center';
+  bins.forEach((_, i) => {
+    if (i % opt.every === 0 || i === bins.length - 1) ctx.fillText(opt.label(i), padL + (i + 0.5) * bw, H - padB + 14 * dpr);
+  });
+  ctx.fillText(opt.xTitle, padL + (W - padL - padR) / 2, H - 6 * dpr);
+}
+
+// Linhas por minuto, com eixo proprio para a segunda serie.
+function drawLines(canvas, series, opt) {
+  const dpr = resizeCanvas(canvas);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const padL = 50 * dpr, padR = 42 * dpr, padT = 10 * dpr, padB = 30 * dpr;
+  const n = series[0].values.length;
+  const x = (i) => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
+  ctx.clearRect(0, 0, W, H);
+
+  const maxL = Math.max(1, ...series.filter((s) => s.axis === 'left').flatMap((s) => s.values));
+  const maxR = Math.max(1, ...series.filter((s) => s.axis === 'right').flatMap((s) => s.values));
+  gridY(ctx, maxL, padL, padR, padT, padB, W, H, dpr, (v) => nf.format(Math.round(v)));
+
+  // Largada.
+  if (opt.raceStartMin > 0) {
+    ctx.strokeStyle = css('--accent'); ctx.setLineDash([4 * dpr, 4 * dpr]); ctx.lineWidth = dpr;
+    const xs = x(opt.raceStartMin);
+    ctx.beginPath(); ctx.moveTo(xs, padT); ctx.lineTo(xs, H - padB); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = css('--accent'); ctx.font = `${10 * dpr}px ${css('--sans') || 'sans-serif'}`; ctx.textAlign = 'left';
+    ctx.fillText('largada', xs + 4 * dpr, padT + 10 * dpr);
+  }
+
+  for (const s of series) {
+    const max = s.axis === 'right' ? maxR : maxL;
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1.6 * dpr;
+    ctx.beginPath();
+    s.values.forEach((v, i) => {
+      const y = H - padB - (v / max) * (H - padT - padB);
+      i ? ctx.lineTo(x(i), y) : ctx.moveTo(x(i), y);
+    });
+    ctx.stroke();
+  }
+
+  // Eixo da direita e eixo do tempo.
+  ctx.fillStyle = css('--brake'); ctx.font = `${10 * dpr}px ${css('--mono') || 'monospace'}`; ctx.textAlign = 'left';
+  for (let k = 0; k <= 4; k++) {
+    const v = (maxR * k) / 4;
+    ctx.fillText(nf.format(Math.round(v)), W - padR + 4 * dpr, H - padB - (k / 4) * (H - padT - padB) + 3 * dpr);
+  }
+  ctx.fillStyle = css('--muted'); ctx.textAlign = 'center';
+  for (let m = 0; m < n; m += 15) ctx.fillText(`${m} min`, x(m), H - padB + 14 * dpr);
+}
+
+function gridY(ctx, max, padL, padR, padT, padB, W, H, dpr, fmt) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+  ctx.fillStyle = css('--muted'); ctx.font = `${10 * dpr}px ${css('--mono') || 'monospace'}`; ctx.textAlign = 'right';
+  for (let k = 0; k <= 4; k++) {
+    const y = H - padB - (k / 4) * (H - padT - padB);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillText(fmt((max * k) / 4), padL - 6 * dpr, y + 3 * dpr);
+  }
+}
+
+function setView(view) {
+  state.viewMode = view;
+  $('stats').hidden = view !== 'stats';
+  document.querySelector('main.layout').hidden = view === 'stats';
+  document.querySelector('footer.transport').hidden = view === 'stats';
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.view === view)));
+  if (view === 'stats') { setPlaying(false); renderStats(); }
+  else if (state.data) computeView();
+  try { localStorage.setItem('pitwall-replay-view', view); } catch { /* sem armazenamento: tudo bem */ }
+}
+
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+$('st-rate').addEventListener('change', renderCalc);
+window.addEventListener('resize', () => state.viewMode === 'stats' && renderStats());
+
 // ------------------------------------------------------------------ carga
 
 let index = [];
@@ -470,6 +779,7 @@ async function loadSession(key) {
   const first = [...data.drivers.values()].sort((a, b) => (positionAt(a, data.raceStart) ?? 99) - (positionAt(b, data.raceStart) ?? 99))[0];
   select(first);
   updateHeader();
+  if (state.viewMode === 'stats') renderStats();
 }
 
 async function init() {
@@ -486,6 +796,9 @@ async function init() {
   const wanted = location.hash.slice(1) || '9472';
   select.value = index.some((s) => String(s.key) === wanted) ? wanted : index[0].key;
   await loadSession(select.value);
+  let saved = null;
+  try { saved = localStorage.getItem('pitwall-replay-view'); } catch { /* sem armazenamento */ }
+  if (saved === 'stats') setView('stats');
   requestAnimationFrame(frame);
 }
 

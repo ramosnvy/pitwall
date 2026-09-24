@@ -12,6 +12,10 @@
 <body>
   <header class="bar">
     <div class="brand"><b>PitWall</b><span>Replay</span></div>
+    <nav class="tabs" role="tablist" aria-label="Visões">
+      <button role="tab" id="tab-replay" aria-selected="true" data-view="replay">Pista</button>
+      <button role="tab" id="tab-stats" aria-selected="false" data-view="stats">Estatísticas</button>
+    </nav>
     <label class="field">
       <span>Corrida</span>
       <select id="session"></select>
@@ -67,6 +71,60 @@
       <p class="note">Frenagem é a regra do <code>Processing.Core</code>, a mesma das seis variantes da matriz: freio passa de abaixo para acima de <span id="threshold">50</span>. As marcas vêm da própria classe, rodada sobre esta corrida.</p>
     </aside>
   </main>
+
+  <section class="stats" id="stats" hidden aria-label="Estatísticas da corrida">
+    <div class="stats-wrap">
+      <div class="st-head">
+        <h2 id="st-title">Estatísticas da corrida</h2>
+        <p>Calculadas nesta página a partir dos dados carregados: telemetria (<code>car_data</code>), posição (<code>location</code>) e as frenagens detectadas pelo <code>Processing.Core</code>. As estatísticas dos experimentos (latência, CPU, validade) estão no <a href="http://localhost:3000/d/pitwall-stats" target="_blank" rel="noopener">painel Estatísticas do Grafana</a>.</p>
+      </div>
+
+      <div class="st-cards" id="st-cards"></div>
+
+      <div class="st-grid">
+        <article class="st-panel">
+          <h3>Cadência da telemetria</h3>
+          <p class="st-sub">Intervalo entre duas amostras consecutivas do mesmo carro, todos os carros juntos. A OpenF1 entrega ~3,7 Hz; a 100 Hz, o intervalo seria de 10 ms.</p>
+          <canvas id="st-intervals" aria-label="Histograma do intervalo entre amostras"></canvas>
+          <dl class="st-facts" id="st-cadence"></dl>
+        </article>
+
+        <article class="st-panel">
+          <h3>Ao longo da corrida</h3>
+          <p class="st-sub">Amostras de telemetria e frenagens detectadas por minuto, do início da sessão ao fim.</p>
+          <canvas id="st-timeline" aria-label="Amostras e frenagens por minuto"></canvas>
+          <div class="st-legend"><span><i class="sw a"></i>amostras/min</span><span><i class="sw b"></i>frenagens/min (eixo à direita)</span></div>
+        </article>
+
+        <article class="st-panel">
+          <h3>Distribuição de velocidade</h3>
+          <p class="st-sub">Todas as amostras depois da largada, em faixas de 10 km/h.</p>
+          <canvas id="st-speed" aria-label="Histograma de velocidade"></canvas>
+        </article>
+
+        <article class="st-panel">
+          <h3>Carga do experimento a partir desta corrida</h3>
+          <p class="st-sub">O que o replayer monta para uma vazão alvo: a frota é multiplicada até a vazão, com a cadência de cada carro preservada (3,7 Hz, medido) ou reamostrada (100 Hz, interpolado).</p>
+          <label class="st-field"><span>Vazão alvo</span>
+            <select id="st-rate">
+              <option value="10000">10 mil ev/s</option>
+              <option value="40000">40 mil ev/s</option>
+              <option value="100000" selected>100 mil ev/s</option>
+              <option value="200000">200 mil ev/s</option>
+              <option value="400000">400 mil ev/s</option>
+            </select>
+          </label>
+          <table class="st-table compact" id="st-calc"></table>
+        </article>
+      </div>
+
+      <article class="st-panel wide">
+        <h3>Por piloto</h3>
+        <p class="st-sub">Ordenado pela posição final. Frenagens contadas depois da largada; clique no cabeçalho para ordenar.</p>
+        <div class="st-scroll"><table class="st-table" id="st-drivers"></table></div>
+      </article>
+    </div>
+  </section>
 
   <footer class="transport">
     <button id="play" class="play" aria-label="Reproduzir">▶</button>
