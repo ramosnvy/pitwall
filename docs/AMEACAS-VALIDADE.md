@@ -170,7 +170,48 @@ Ordem de escalada quando as variantes empatam:
 1. **Subir a carga até a saturação.** Empate em carga baixa é o esperado: nada está sendo pressionado. As diferenças aparecem no joelho da curva. Um empate abaixo de certa carga já é um achado publicável — *abaixo de X ev/s, a escolha da arquitetura não afeta o desempenho*.
 2. **Aumentar a mensagem para ~1 KB.** Mensagem maior carrega o caminho de bytes, onde Pipelines deve se distinguir de Channels.
 3. **Ligar o custo sintético por evento** (5 e 20 µs, já implementado e desligado). Desloca o gargalo do transporte para o processamento, que é onde os mecanismos internos diferem.
+   *Atualização de 24/09/2026:* a escalada preferida passou a ser o segundo cenário (APROFUNDAMENTO §8), em que o mecanismo interno tem espera real de broker para esconder, em vez de um custo inventado.
 4. **Reportar o empate com intervalos de confiança.** "Sem diferença estatisticamente significativa" é resultado, não fracasso: a conclusão prática vira *escolha por critérios operacionais, não por desempenho* — o que é conselho de engenharia legítimo e útil.
+
+## Segundo cenário (se aprovado)
+
+Ameaças próprias do cenário de APROFUNDAMENTO §8. Valem só se ele for construído.
+
+### A espera pela marca d'água se mistura à latência do broker
+
+Para o resultado não depender da ordem de chegada entre tópicos, a telemetria espera a posição na pista do mesmo instante. Essa espera entra na latência de ponta a ponta sem ser custo do broker.
+
+*Mitigação:* medir a espera à parte, em cada rodada, e reportar a latência com e sem ela.
+
+### Roteamento nativo com custo diferente
+
+O Kafka separa os tipos em tópicos; o RabbitMQ usa um exchange *topic*, cujo roteamento por padrão de chave custa mais que o *direct* do cenário atual. É o recurso nativo de cada um para o mesmo problema, mas o custo não é o mesmo.
+
+*Mitigação:* medir o custo do exchange *topic* contra o *direct* na varredura e declarar no texto.
+
+### A saída enriquecida dobra a carga do broker
+
+Com uma mensagem de saída por mensagem de entrada, o mesmo broker carrega os dois saltos, e os pontos de saturação caem.
+
+*Mitigação:* varredura própria antes da matriz. Os resultados do segundo cenário não são comparados ponto a ponto com os do primeiro, só as conclusões.
+
+### Assimetria de durabilidade em dobro
+
+Com mensagem persistente, o RabbitMQ grava em disco antes de confirmar, nos dois saltos; o Kafka não força a gravação em nenhum (AUDITORIA-CONFIG, assimetria A). Parte do ganho que H5a prevê para Channels e Pipelines no RabbitMQ pode vir de esconder essa gravação.
+
+*Mitigação:* rodar a saída enriquecida também com mensagem transitória no RabbitMQ, em uma carga, para separar os dois efeitos.
+
+### Posição na pista mais antiga que a telemetria
+
+A telemetria está a 100 Hz e a posição a 3,7 Hz: o enriquecimento usa uma posição de até cerca de 270 ms antes. Afeta o significado do resultado (a curva atribuída), não o desempenho medido.
+
+*Mitigação:* declarar. O trabalho não analisa a corrida (PLANO §1g).
+
+### Consumidor final dividindo núcleo
+
+O consumidor final precisa de um núcleo. Se ficar no núcleo 11, divide espaço com o banco e a coleta de métricas.
+
+*Mitigação:* medir a CPU dele na fumaça. Acima de 50% do núcleo, rever a divisão de núcleos antes da varredura.
 
 ## Testes adiados, a lembrar
 

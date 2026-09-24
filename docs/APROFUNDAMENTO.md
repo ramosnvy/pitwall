@@ -225,6 +225,115 @@ A conclusão vira uma tabela de decisão: para cada condição de carga e de cus
 | E | Rodadas do nível 2 | F |
 | F | Tabela de decisão e texto | — |
 
+## 8. Segundo cenário: vários fluxos, etapas e republicação
+
+Proposto em 24/09/2026, depois das respostas do orientador (PLANO §1g e §1h). Só é construído com o aval dele. A sequência está em DESENVOLVIMENTO, fase 9.
+
+### 8.1 Por que
+
+O orientador perguntou o que se ganha com Channels e Pipelines se o tempo está nos brokers e o processamento local é rápido. No cenário atual, a resposta é: nada em latência, e cerca de 3,6 µs de CPU por evento a mais. Isso vale porque o consumidor só faz trabalho de CPU, e o paralelismo de CPU já vem das faixas do broker.
+
+A situação em que um mecanismo interno tem papel real é outra: **esperar por entrada e saída sem parar de trabalhar**. Quando o consumidor precisa publicar o resultado noutro broker e aguardar a confirmação, o modo Direct fica parado nessa espera. Com Channels ou Pipelines, receber, processar e publicar viram etapas ligadas por filas com limite, e uma etapa trabalha enquanto a outra espera. É o uso para o qual o Pipelines nasceu, no servidor Kestrel ([Fowler, 2018](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/)). A pergunta deixa de ser "o cálculo é pesado?" e passa a ser "há espera de broker para esconder?".
+
+**Precedentes de medir o caminho inteiro:**
+- O Yahoo Streaming Benchmark mede o P99 de ponta a ponta num fluxo completo (Kafka, motor de processamento e Redis), e não o processamento isolado, "para imitar mais de perto cenários de produção" ([Chintapalli et al., 2016](https://www.researchgate.net/publication/305871378_Benchmarking_Streaming_Computation_Engines_Storm_Flink_and_Spark_Streaming)).
+- O benchmark da Confluent, com mensagens de 1 KB, encontrou um padrão parecido com o nosso: o RabbitMQ com latência menor em vazão baixa, P99 de 1 ms até cerca de 30 mil mensagens por segundo, e o Kafka indo até 200 mil com P99 de 5 ms ([Confluent, 2020](https://www.confluent.io/blog/kafka-fastest-messaging-system/)). A comparação de durabilidade dele também é assimétrica: Kafka sem fsync por mensagem e RabbitMQ sem persistência nos testes de latência.
+
+### 8.2 Os dados
+
+Contagem da corrida do Bahrein 2024 (sessão 9472), na API e nos arquivos já baixados. Frequências conforme a [documentação da OpenF1](https://openf1.org/docs/).
+
+| Fluxo | Endpoint | Registros | Frequência | Por carro? | Situação |
+| --- | --- | --- | --- | --- | --- |
+| Telemetria | `car_data` | 443.940 | ~3,7 Hz | sim | já usado; interpolado a 100 Hz |
+| Posição na pista (x, y, z) | `location` | 460.040 | ~3,7 Hz, em instantes diferentes da telemetria | sim | já baixado, não usado |
+| Intervalo para o líder e para o carro à frente | `intervals` | 29.844 | a cada ~4 s, só em corrida | sim | a baixar |
+| Voltas e setores | `laps` | 1.129 | por volta | sim | já baixado |
+| Posição na corrida | `position` | 698 | quando muda | sim | já baixado |
+| Clima | `weather` | 157 | a cada minuto | não | a baixar |
+| Direção de prova: bandeiras, safety car | `race_control` | 71 | por evento | às vezes | a baixar |
+| Paradas nos boxes | `pit` | 43 | por parada | sim | a baixar |
+| Stints e pneus | `stints` | 63 | por stint | sim | a baixar |
+
+A carga é da telemetria e da posição na pista: juntas, mais de 90% dos registros. Os fluxos leves não pesam na vazão, mas trazem o que o cenário atual não tem: mensagens de tamanhos diferentes, estado global (clima e bandeira valem para todos) e eventos raros que precisam ser tratados rápido.
+
+**Decisão de carga:** a telemetria segue a 100 Hz interpolados, como no cenário atual. A posição na pista fica na frequência real, 3,7 Hz, sem interpolação: é suficiente para localizar o carro e não inventa pontos. Com a frota multiplicada, cada réplica recebe também a posição e os intervalos do carro de origem.
+
+### 8.3 Tópicos e roteamento
+
+- **Kafka:** um tópico por tipo. Telemetria e posição com 4 partições cada, pela mesma regra (CRC32 do número do carro). É a exigência de co-particionamento para cruzar dois fluxos: mesmo número de partições e mesmo particionador, senão os registros de um carro caem em partições diferentes e o cruzamento não encontra nada ([Confluent](https://docs.confluent.io/5.4.2/ksql/docs/developer-guide/partition-data.html)). Fluxos leves com 1 partição.
+- **RabbitMQ:** exchange do tipo *topic*, com chave de roteamento `tipo.faixa`. As filas de telemetria e de posição da faixa k são lidas pelo mesmo trabalhador. Os fluxos leves ficam numa fila cada.
+- **O mesmo trabalhador por faixa** lê a faixa k de telemetria e de posição, e recebe os fluxos leves por difusão.
+
+O custo de rotear por padrão de chave no exchange *topic* é maior que no *direct*. É um custo próprio do recurso nativo e entra na comparação, mas precisa ser medido à parte na varredura.
+
+### 8.4 Processamento em etapas
+
+1. **Decodificar** cada tipo: formato binário com tipo e tamanho no cabeçalho. Mensagens de tamanhos diferentes são o terreno do Pipelines, que hoje só recorta registros fixos de 46 bytes.
+2. **Manter o estado** por carro: última posição na pista, stint e pneu, intervalo; e o estado global: bandeira e clima.
+3. **Enriquecer** cada amostra de telemetria com o trecho da pista: a distância ao longo da volta, pelo ponto mais próximo numa volta de referência. É custo de CPU que vem do domínio, não um atraso inventado.
+4. **Detectar:**
+   - frenagem por curva;
+   - velocidade acima do permitido sob bandeira amarela ou safety car;
+   - entrada e saída dos boxes.
+5. **Agregar** em janelas de 1 s por carro, como hoje, mais estatísticas por curva.
+6. **Publicar** o resultado no segundo tópico (8.6).
+
+### 8.5 Tempo do evento e conferência do resultado
+
+Hoje a conferência funciona porque cada carro chega em ordem pela sua faixa. Com vários tópicos, a ordem de chegada **entre** tópicos não é garantida: a amostra de telemetria pode chegar antes ou depois da posição do mesmo instante, e o resultado mudaria de uma rodada para outra.
+
+A saída é processar pelo horário do evento, não pela ordem de chegada ([Akidau, 2016](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-102/)):
+- **Marca d'água por faixa:** o menor dos últimos horários vistos entre os fluxos pesados da faixa.
+- Uma amostra de telemetria só é enriquecida quando a marca d'água da posição passa do horário dela. Assim, "a última posição até este instante" é sempre a mesma, em qualquer rodada.
+- Os fluxos leves são aplicados pelo horário do evento, com a mesma regra.
+- **Referência fora de linha:** o mesmo processamento roda sobre o conjunto de dados ordenado por horário e gera o resumo esperado. Toda rodada precisa bater com ele, nas seis combinações.
+
+A espera pela marca d'água acrescenta latência, perto da defasagem entre os fluxos. É igual para os três modos e é registrada à parte, para não ser confundida com o custo do broker.
+
+### 8.6 Republicação com garantia de ponta a ponta
+
+O consumidor publica o resultado num segundo tópico do **mesmo tipo de broker** (Kafka para Kafka, RabbitMQ para RabbitMQ), e um consumidor final, o "painel", o lê. Misturar os brokers nos dois saltos multiplicaria as combinações e impediria dizer qual broker causou o quê.
+
+**Regra de at-least-once de ponta a ponta:** a mensagem de entrada só é confirmada depois que a de saída foi confirmada pelo broker.
+- **RabbitMQ:** é o padrão da ferramenta de retransmissão do próprio RabbitMQ, o Shovel, com `ack-mode` igual a `on-confirm`. Nas palavras da documentação: as mensagens são confirmadas na origem depois de confirmadas pelo destino, o que evita perda em falhas e é a opção mais lenta ([RabbitMQ, dynamic shovels](https://www.rabbitmq.com/docs/shovel-dynamic)). As confirmações do produtor e do consumidor são mecanismos independentes, e a aplicação precisa ligar um ao outro ([RabbitMQ, confirms](https://www.rabbitmq.com/docs/confirms)).
+- **Kafka:** guardar o offset de entrada só depois do relatório de entrega da saída. Com saída assíncrona, as confirmações chegam fora de ordem, então só se registra o maior offset contíguo já confirmado. É a técnica do Confluent Parallel Consumer ([Confluent](https://github.com/confluentinc/parallel-consumer)).
+- **Transações do Kafka (exactly-once) ficam de fora.** O RabbitMQ não tem equivalente, e o custo delas é de 15% a 30% de vazão com intervalo de confirmação de 100 ms ([Confluent, transações](https://www.confluent.io/blog/transactions-apache-kafka/)). Seria uma assimetria nova.
+
+**Como cada modo republica:**
+
+| Modo | Como funciona | O que se espera |
+| --- | --- | --- |
+| Direct | Recebe, processa, publica o lote, espera a confirmação, confirma a entrada. Tudo em série, na thread da faixa | A espera pela confirmação para o recebimento |
+| Channels | Etapas de receber, processar e publicar, ligadas por canais com limite, e um rastreador de confirmações que libera a entrada pelo maior offset contíguo | Receber continua enquanto a publicação espera, até encher o canal |
+| Pipelines | Recorte das mensagens de tamanho variável na entrada; a saída é serializada num Pipe que a etapa de publicação consome em blocos | Mesma sobreposição, com menos alocação por mensagem |
+
+**Duas saídas, porque o volume da saída decide o resultado:**
+- **Resumida:** alertas e uma mensagem por carro por segundo. Cerca de 1% da entrada. A espera pela confirmação é rara.
+- **Enriquecida:** uma mensagem de saída por amostra de telemetria (1 para 1). O broker passa a carregar o dobro e satura antes, mas a espera pela confirmação passa a pesar.
+
+### 8.7 Hipóteses
+
+- **H5a.** Com saída enriquecida, o Direct sustenta menos vazão que Channels e Pipelines no mesmo P99, porque para a cada espera de confirmação. A diferença cresce com a latência de confirmação, maior no RabbitMQ com mensagem persistente, que grava em disco antes de confirmar.
+- **H5b.** Com saída resumida, os três modos empatam: sem espera frequente para esconder, vale a conclusão do cenário atual.
+- **H5c.** A espera pela marca d'água soma aos três modos a mesma latência, perto da defasagem entre telemetria e posição.
+- **H5d.** Com mensagens de tamanhos diferentes, o Pipelines aloca menos bytes por evento que o Channels, porque não cria um objeto por mensagem antes de processar.
+
+### 8.8 O que se mede
+
+- **Latência de ponta a ponta,** do sensor até o painel. O horário de envio viaja na mensagem, e tudo roda na mesma máquina, com o mesmo relógio.
+- Vazão de entrada e de saída.
+- CPU, memória, bytes alocados e coletas de lixo por modo.
+- Tempo parado esperando confirmação, profundidade das filas entre etapas e acionamentos da contrapressão.
+- A espera pela marca d'água, à parte.
+
+### 8.9 Custos e riscos
+
+- **Tamanho:** é o maior bloco de implementação desde a primeira matriz. Codec de tamanho variável, gerador de vários tópicos, roteamento nos dois brokers, etapas, marca d'água, referência fora de linha, republicação nos três modos e o consumidor final.
+- **Núcleos:** o consumidor final precisa caber na divisão atual. Candidato: núcleo 11, com banco e métricas, se medir leve.
+- **Broker com o dobro de carga** na saída enriquecida: os pontos de saturação mudam, e o cenário precisa da sua própria varredura antes da matriz.
+- **Mitigação:** construir em dois passos. Primeiro só a republicação sobre a carga atual (fase 9, passo A), que já testa H5a e H5b com pouco código. Depois os vários fluxos e as etapas (passo B).
+
 ## Referências
 
 - Toub, S. [An Introduction to System.Threading.Channels](https://devblogs.microsoft.com/dotnet/an-introduction-to-system-threading-channels/). .NET Blog, 2019.
@@ -263,3 +372,15 @@ Relatos de praticantes (§2.1):
 - davidfowl/AspNetCoreDiagnosticScenarios [#72](https://github.com/davidfowl/AspNetCoreDiagnosticScenarios/issues/72): custo de continuações assíncronas.
 - akkadotnet/akka.net [#4882](https://github.com/akkadotnet/akka.net/pull/4882): executor do Akka.NET sobre Channels.
 - Uber. [Introducing uFowarder: The Consumer Proxy for Kafka Async Queuing](https://www.uber.com/us/en/blog/introducing-ufowarder/).
+
+Segundo cenário (§8):
+
+- Chintapalli, S. et al. [Benchmarking Streaming Computation Engines: Storm, Flink and Spark Streaming](https://www.researchgate.net/publication/305871378_Benchmarking_Streaming_Computation_Engines_Storm_Flink_and_Spark_Streaming). *IPDPS Workshops*, 2016.
+- Confluent. [Benchmarking Apache Kafka, Apache Pulsar, and RabbitMQ: Which is the Fastest?](https://www.confluent.io/blog/kafka-fastest-messaging-system/) 2020.
+- Confluent. [Transactions in Apache Kafka](https://www.confluent.io/blog/transactions-apache-kafka/).
+- Confluent. [Partition Data to Enable Joins](https://docs.confluent.io/5.4.2/ksql/docs/developer-guide/partition-data.html) (co-particionamento).
+- Confluent. [Parallel Consumer](https://github.com/confluentinc/parallel-consumer).
+- RabbitMQ. [Dynamic Shovels](https://www.rabbitmq.com/docs/shovel-dynamic) (`ack-mode`) e [Consumer Acknowledgements and Publisher Confirms](https://www.rabbitmq.com/docs/confirms).
+- Fowler, D. [System.IO.Pipelines: High performance IO in .NET](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/). .NET Blog, 2018.
+- Akidau, T. [Streaming 102: The world beyond batch](https://www.oreilly.com/radar/the-world-beyond-batch-streaming-102/). O'Reilly, 2016.
+- OpenF1. [API documentation](https://openf1.org/docs/).

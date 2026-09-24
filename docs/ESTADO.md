@@ -36,7 +36,7 @@ Antes da matriz, falta corrigir o que a auditoria achou, medir o que ainda está
 | Estatística | Descritiva: 10 repetições, mediana e desvio padrão; Kruskal-Wallis como apoio; sem ANOVA | PLANO §1g |
 | Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação, depois dos critérios de validade | DESENVOLVIMENTO |
 | Ponto de saturação | Maior carga com pelo menos 99% das mensagens entregues e P99 abaixo de 50 ms | DESENVOLVIMENTO |
-| Segundo cenário de carga | Proposto ao orientador agora, construído só depois do aval | DESENVOLVIMENTO |
+| Segundo cenário de carga | Vários fluxos da OpenF1, processamento em etapas e republicação do resultado noutro tópico do mesmo broker, com at-least-once de ponta a ponta. Proposto ao orientador; construído só depois do aval, em dois passos | PLANO §1h; APROFUNDAMENTO §8 |
 | Instabilidade do Kafka com Channels | Investigar antes da matriz | decisão de 24/09 |
 | Figura 1 do texto | Formato da Figura 1 do TCC1, com os passos de cada etapa dentro das caixas | mapa da arquitetura, layout C |
 | Fora do escopo | RabbitMQ Streams (trabalho futuro), tamanho de mensagem, rodadas longas, mais corridas, 8 filas no RabbitMQ | decisões de 24/09 |
@@ -78,11 +78,12 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
 | 7 | Cenário ajustado | depende da 6 |
 | 8 | Parte .NET: memória e coleta de lixo | depende da 6 |
-| 9 | Segundo cenário de carga | depende do aval do orientador |
-| 10 | Texto e figuras | depende da 7, 8 e 9 |
+| 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | depende do aval do orientador e da 6 |
+| 9B | Segundo cenário, passo B: vários fluxos, etapas e tempo do evento | depende do passo A mostrar efeito, ou de pedido do orientador |
+| 10 | Texto e figuras | depende da 7, 8 e 9A |
 
 ## 7. Pontos de atenção
 
-- **A parte de .NET é a mais frágil aos olhos do orientador.** Sob processamento leve, Channels e Pipelines não ganham latência e custam CPU. Sem o segundo cenário, a conclusão sobre eles fica estreita.
+- **A parte de .NET é a mais frágil aos olhos do orientador.** Sob processamento leve, Channels e Pipelines não ganham latência e custam CPU. Sem o segundo cenário, a conclusão sobre eles fica estreita. A resposta proposta é a republicação (APROFUNDAMENTO §8): o mecanismo interno ganha papel quando há espera de broker para esconder.
 - **Tempo de máquina.** Com 10 repetições, a matriz fica perto de 370 rodadas contando a sensibilidade. Se apertar, cortar pontos de carga do Kafka, não repetições.
 - **Sem resposta do orientador:** núcleos exclusivos (mantidos) e RabbitMQ Streams (trabalho futuro). O critério de saturação e a regra de descarte foram decididos por nós em 24/09 (DESENVOLVIMENTO), sem passar por ele.

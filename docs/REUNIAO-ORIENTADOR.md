@@ -108,6 +108,22 @@ Decisões que já estão em uso. Basta um sim, ou dizer o que mudar.
 | 7 | Garantia de entrega | Nos dois, nenhuma mensagem se perde; numa falha, uma mensagem pode chegar repetida |
 | 8 | Testes independentes | Filas e tabelas são recriadas antes de cada teste |
 
+## Proposta do segundo cenário (a enviar)
+
+Resposta à dúvida sobre o que se ganha com Channels e Pipelines. Desenho completo em APROFUNDAMENTO §8.
+
+> Professor, uma proposta para responder à sua dúvida sobre o que se ganha com Channels e Pipelines.
+>
+> Hoje o teste usa um só tipo de dado da F1 e um cálculo muito leve. Nesse cenário o tempo está quase todo no Kafka e no RabbitMQ, e os mecanismos do .NET não fazem diferença, como o senhor apontou. Vou mostrar isso com números, mas sozinho é uma conclusão pequena.
+>
+> A ideia é criar um segundo cenário, mais parecido com o que uma equipe usa de verdade: vários tipos de dados da própria API (telemetria, posição na pista, clima, bandeiras e paradas nos boxes), cada um no seu próprio canal, e um processamento em etapas que cruza essas informações, por exemplo em qual curva o carro freou e a diferença de tempo entre os carros. Nos dois sistemas de mensagens, cada tipo de dado vai para o seu canal usando o recurso próprio de cada um, sem ajuste para favorecer nenhum dos dois.
+>
+> No fim do processamento, o resultado (alertas e dados enriquecidos) seria publicado num segundo canal, lido por um programa que faz o papel do painel da equipe. É um padrão comum em sistemas reais: consumir, processar e publicar de novo. É justamente nessa espera pela confirmação do broker que Channels e Pipelines podem ajudar, porque deixam o programa continuar recebendo enquanto espera. A medida passa a ser o tempo do sensor até o alerta.
+>
+> Eu construiria em dois passos. Primeiro só a republicação, sobre os dados que já uso, o que é pouco código e já mostra se Channels e Pipelines fazem diferença. Depois, se fizer sentido, os vários tipos de dados.
+>
+> O primeiro cenário continua como está e roda antes. O segundo eu só construiria com o seu aval, porque é um trabalho grande. Faz sentido?
+
 ## Literatura para o texto
 
 O TCC1 cita apenas comparações entre brokers. A literatura de benchmarks de stream processing fundamenta a escolha das operações e do protocolo, e responde antecipadamente a "por que essas operações?".

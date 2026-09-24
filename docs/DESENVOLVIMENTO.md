@@ -13,10 +13,13 @@ flowchart LR
     F4 --> F6[6. Matriz v3, cenário padrão]
     F6 --> F7[7. Cenário ajustado]
     F6 --> F8[8. Parte .NET: memória e coleta de lixo]
-    P[Proposta do 2º cenário ao orientador] -.aval.-> F9[9. Segundo cenário de carga]
+    P[Proposta do 2º cenário ao orientador] -.aval.-> F9A[9A. Republicação]
+    F6 --> F9A
+    F9A -.efeito ou pedido.-> F9B[9B. Vários fluxos e etapas]
+    F9A --> F10
+    F9B --> F10
     F7 --> F10[10. Texto e figuras]
     F8 --> F10
-    F9 --> F10
 ```
 
 A fase 5 e a proposta ao orientador não dependem de nada e andam em paralelo às fases 1 a 4.
@@ -29,7 +32,8 @@ A fase 5 e a proposta ao orientador não dependem de nada e andam em paralelo à
 | Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação de broker, modo e carga: fora de [Q1 − 1,5·IQR, Q3 + 1,5·IQR] sai. Aplicada depois dos critérios de validade (atraso de envio e conferência). Descartes publicados por combinação |
 | Repetições | 10 por combinação, em ordem sorteada dentro de cada broker |
 | Cargas | Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil |
-| Segundo cenário | Proposto ao orientador agora; construído só depois do aval |
+| Segundo cenário | Proposto ao orientador agora; construído só depois do aval, em dois passos: republicação sobre a carga atual e, depois, vários fluxos com processamento em etapas |
+| Republicação | No mesmo tipo de broker (Kafka para Kafka, RabbitMQ para RabbitMQ), com at-least-once de ponta a ponta: a entrada só é confirmada depois da saída. Sem transações do Kafka |
 
 ## Fase 1. Correções
 
@@ -108,14 +112,41 @@ Antes de cada noite: tag conferida, painéis desligados, só o broker medido no 
   - o custo de cada mecanismo interno em relação ao Direct.
 - É a resposta ao "o que se ganha?" do orientador no cenário atual.
 
-## Fase 9. Segundo cenário de carga
+## Fase 9. Segundo cenário: vários fluxos, etapas e republicação
 
-Só depois do aval do orientador. Resumo da proposta:
-- vários tipos de dado da OpenF1 (telemetria, posição na pista, clima, bandeiras, paradas nos boxes), cada um no seu tópico;
-- no Kafka, um tópico por tipo; no RabbitMQ, um exchange de tópicos com roteamento por chave;
-- processamento em etapas que cruza os fluxos: em qual curva o carro freou, diferença entre carros, alertas.
+Só depois do aval do orientador. Desenho, dados, hipóteses (H5a a H5d) e referências em APROFUNDAMENTO §8. Construído em dois passos: o A testa a ideia central com pouco código, e o B só começa se o A mostrar efeito ou se o orientador pedir o cenário completo.
 
-O ponto técnico mais difícil é a conferência do resultado. Com vários tópicos, a ordem de chegada entre eles não é garantida, então o processamento precisa usar o horário do evento, e não a ordem de chegada. Os detalhes vão para o APROFUNDAMENTO quando houver aval.
+### Passo A. Republicação sobre a carga atual
+
+A mesma telemetria de hoje, com o consumidor publicando o resultado num segundo tópico do mesmo broker e um consumidor final medindo de ponta a ponta. Testa H5a e H5b sem a complexidade dos vários fluxos.
+
+| # | Etapa | Pronto quando |
+| --- | --- | --- |
+| 9.1 | Tópico e filas de saída nos dois brokers, com o mesmo número de faixas | o roteiro recria entrada e saída a cada rodada |
+| 9.2 | Formato da saída carregando o horário de envio original | teste de ida e volta do codec |
+| 9.3 | Republicação no Direct: publica o lote, espera a confirmação, confirma a entrada | teste com broker de mentira que confirma com atraso |
+| 9.4 | Rastreador de confirmações: libera a entrada pelo maior offset contíguo confirmado (Kafka) e pela etiqueta de entrega (RabbitMQ) | teste com confirmações fora de ordem |
+| 9.5 | Republicação no Channels e no Pipelines, em etapas ligadas por filas com limite | nenhuma entrada confirmada antes da saída, em teste |
+| 9.6 | Consumidor final, o "painel": latência de ponta a ponta e conferência da saída | a conferência bate nas seis combinações |
+| 9.7 | Saída resumida e saída enriquecida (1 para 1) como opção do roteiro | as duas rodam nos dois brokers |
+| 9.8 | Núcleos: onde fica o consumidor final; CPU medida | o consumidor final abaixo de 50% do núcleo em que ficar |
+| 9.9 | Varredura de saturação e medição de decisão: os três modos, as duas saídas, 3 rodadas | H5a e H5b confirmadas ou refutadas, registrado em IMPLEMENTACAO |
+
+**Portão:** se Channels e Pipelines não mostrarem diferença nem com a saída enriquecida, o passo B só entra se o orientador pedir. O passo A já basta para a resposta sobre a parte .NET.
+
+### Passo B. Vários fluxos e processamento em etapas
+
+| # | Etapa | Pronto quando |
+| --- | --- | --- |
+| 9.10 | Baixar `intervals`, `weather`, `race_control`, `pit` e `stints` das 9 corridas | manifesto de cada corrida com as contagens |
+| 9.11 | Codec com tipo e tamanho no cabeçalho, para mensagens de tamanhos diferentes | testes de ida e volta por tipo |
+| 9.12 | Gerador de vários tópicos: telemetria a 100 Hz, posição a 3,7 Hz, fluxos leves no horário original, réplicas da frota com os fluxos do carro de origem | contagem por tipo igual à do conjunto de dados |
+| 9.13 | Roteamento: um tópico por tipo no Kafka, co-particionados; exchange *topic* no RabbitMQ com chave `tipo.faixa` | o mesmo trabalhador recebe telemetria e posição do mesmo carro |
+| 9.14 | Etapas de processamento: estado por carro e global, trecho da pista, detecções, janelas | testes por etapa |
+| 9.15 | Tempo do evento: marca d'água por faixa, espera medida à parte | o resultado não muda com a ordem de chegada entre tópicos, em teste |
+| 9.16 | Referência fora de linha e conferência | as seis combinações batem com a referência |
+| 9.17 | Varredura de saturação do cenário B | pontos de saturação por combinação |
+| 9.18 | Matriz do cenário B: dimensionada pela varredura, com teto de duas noites | resultados em RESULTADOS |
 
 ## Fase 10. Texto e figuras
 

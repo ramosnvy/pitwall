@@ -129,6 +129,19 @@ Para cada um: valor padrão, valor usado, por quê, e se os dois brokers ficam e
 1. **Custo, com o que já foi medido.** Sob processamento leve, os mecanismos internos não reduzem a latência e custam cerca de 3,6 µs de CPU por evento. Medir também memória e alocações (coleta de lixo), que é o terreno do Pipelines.
 2. **Quando o processamento pesa.** Um segundo cenário de carga, com vários tipos de dado da OpenF1 em tópicos separados e processamento em etapas que cruza os fluxos. Nesse cenário, o consumidor deixa de ser desprezível e o mecanismo interno passa a decidir. É a resposta direta ao "o que se ganha com isso?". Precisa ser proposto ao orientador antes de ser construído.
 
+### 1h. Segundo cenário: vários fluxos, etapas e republicação (proposta de 24/09/2026)
+
+Resposta à pergunta do orientador sobre o que se ganha com Channels e Pipelines. Aguarda o aval dele. Desenho completo em [APROFUNDAMENTO.md](APROFUNDAMENTO.md) §8; sequência em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md), fase 9.
+
+- **Argumento:** o mecanismo interno tem papel real quando há espera por entrada e saída a esconder, e não quando o cálculo é pesado. Publicar o resultado noutro broker e esperar a confirmação cria essa espera.
+- **Republicação no mesmo tipo de broker:** Kafka para Kafka e RabbitMQ para RabbitMQ. A matriz continua 2 × 3.
+- **At-least-once de ponta a ponta:** a entrada só é confirmada depois da saída. É o padrão `on-confirm` do Shovel no RabbitMQ; no Kafka, o maior offset contíguo confirmado. Sem transações do Kafka, que não têm equivalente no RabbitMQ.
+- **Duas saídas:** resumida (cerca de 1% da entrada) e enriquecida (1 para 1).
+- **Vários fluxos:** telemetria a 100 Hz, posição na pista a 3,7 Hz sem interpolação, e fluxos leves (intervalos, clima, bandeiras, paradas, stints) no horário original. Um tópico por tipo, co-particionados no Kafka; exchange *topic* no RabbitMQ.
+- **Conferência:** processamento pelo horário do evento, com marca d'água por faixa e uma referência calculada fora de linha.
+- **Métrica principal:** latência de ponta a ponta, do sensor até o consumidor final.
+- **Em dois passos:** primeiro só a republicação sobre a carga atual; os vários fluxos só se o primeiro passo mostrar efeito ou se o orientador pedir.
+
 ## 2. Desenho experimental
 
 - **Fatores:** broker (2) × mecanismo (3) × nível de carga.
