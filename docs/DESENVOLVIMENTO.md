@@ -2,7 +2,7 @@
 
 24/09/2026. Sequência de trabalho daqui até o texto final, em ordem de dependência e sem datas. Substitui a sequência A–I do PLANO §5, concluída na primeira matriz. O estado de cada item fica no [ESTADO.md](ESTADO.md).
 
-**Onde estamos:** fase 1 concluída em 24/09/2026 (situação em AUDITORIA-CONFIG); próxima, a fase 2. Cada fase termina num commit e, quando mede algo, num registro em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
+**Onde estamos:** fases 1 e 2 concluídas (24 e 25/09/2026; AUDITORIA-CONFIG e IMPLEMENTACAO §8). ANALISE.md, da fase 5, escrito. Próxima: a fase 3. Cada fase termina num commit e, quando mede algo, num registro em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
 
 ```mermaid
 flowchart LR
@@ -80,6 +80,7 @@ Pequenas, com 3 rodadas por lado, intercaladas e com o modo Direct. A regra de d
   2. pausas longas de coleta de lixo;
   3. espera ativa do pool de threads (`DOTNET_ThreadPool_UnfairSemaphoreSpinLimit`);
   4. rajadas grandes da fila local do consumidor Kafka.
+- **Também repete a comparação da fila do produtor Kafka** (1 milhão × 100 mil) com mais rodadas: na fase 2 os atrasos de mais de 1 s a 200 mil ev/s apareceram com os dois valores, e a fila cheia explicou só um (IMPLEMENTACAO §8.4).
 - **Pronto quando:** a causa está identificada e corrigida, ou documentada como variação própria da combinação. Nesse caso, a matriz reporta a dispersão.
 
 ## Fase 5. Análise pré-registrada

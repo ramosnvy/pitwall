@@ -12,7 +12,7 @@ Os valores de fábrica foram lidos na fonte, não de memória:
 
 ## Situação depois da fase 1 (24/09/2026)
 
-Os dois defeitos e os valores sem justificativa foram corrigidos. As assimetrias B e C têm valor provisório no perfil `padrao`, a confirmar nas medições da fase 2 (DESENVOLVIMENTO).
+Os dois defeitos e os valores sem justificativa foram corrigidos. A fase 2 (IMPLEMENTACAO §8) decidiu o `prefetch` e a janela do RabbitMQ, mediu o custo da mensagem persistente (48% no P99 a 40 mil ev/s) e deixou a fila do produtor Kafka provisória até a fase 4.
 
 | Item | Antes | Agora | Conferido |
 | --- | --- | --- | --- |
@@ -23,9 +23,9 @@ Os dois defeitos e os valores sem justificativa foram corrigidos. As assimetrias
 | `compression.type` do broker Kafka | `uncompressed` | padrão, `producer` | `kafka-configs` |
 | `disk_free_limit` | 2 GB | padrão, 50 MB | log do broker |
 | Heap do Kafka | 1,5 GB | padrão, 1 GB | processo Java |
-| B: fila do produtor Kafka | 1.000.000 | padrão, 100.000 (provisório) | configuração gravada |
-| B: janela do produtor RabbitMQ | 8.000 no total | 100.000 no total (12.500 × 2 × 4; provisório) | configuração gravada |
-| C: `prefetch` | 300 | 0, sem limite (provisório) | configuração gravada |
+| B: fila do produtor Kafka | 1.000.000 | padrão, 100.000 (provisório até a fase 4; IMPLEMENTACAO §8.4) | configuração gravada |
+| B: janela do produtor RabbitMQ | 8.000 no total | 100.000 no total (12.500 × 2 × 4); decidido na fase 2 | configuração gravada |
+| C: `prefetch` | 300 | 0, sem limite; decidido na fase 2 | configuração gravada |
 
 **Perfis no roteiro:** `-Profile padrao` (o de cima) e `-Profile legado` (os clientes como até 24/09, para comparar). O lado dos brokers não muda com o perfil: heap, compressão e memória estão no compose.
 

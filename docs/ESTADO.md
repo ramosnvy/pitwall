@@ -51,6 +51,7 @@ As correções da auditoria estão feitas (fase 1). Antes da matriz, falta medir
 | Kafka com Channels | `7b47f88` | Instável: a 100 mil ev/s, um P99 de 200 ms que não se repetiu (5,9 ms duas vezes); a 200 mil, 78 ms e 20 ms |
 | Custo dos mecanismos internos | RESULTADOS | Cerca de 3,6 µs de CPU por evento, sem ganho de latência sob processamento leve |
 | Auditoria das configurações | `e36b3f8` | Nagle ligado só no Kafka, por escolha nossa; limite de memória do RabbitMQ calculado sobre a VM, não sobre o container; assimetrias em gravação em disco, fila do produtor e busca antecipada do consumidor |
+| Medições de decisão da fase 2 | `caf07be` | Nagle sem efeito na latência; mensagem persistente custa 48% no P99 do RabbitMQ a 40 mil ev/s; `prefetch` sem limite e janela de 100 mil decididos; fila do produtor Kafka provisória. Atrasos de envio de mais de 1 s no Kafka a 100 e 200 mil |
 
 ## 5. Planejado no TCC1 × implementado
 
@@ -71,10 +72,10 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | Fase | Entrega | Situação |
 | --- | --- | --- |
 | 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | **concluída** (24/09); fumaça com 4 de 4 rodadas válidas |
-| 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **próxima** |
-| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | depende da 2 |
+| 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **concluída** (25/09; IMPLEMENTACAO §8): 42 rodadas, 36 válidas |
+| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **próxima** |
 | 4 | Instabilidade do Kafka com Channels | depende da 3 |
-| 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | em paralelo |
+| 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | em paralelo; ANALISE.md escrito, falta implementar nos scripts |
 | 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
 | 7 | Cenário ajustado | depende da 6 |
 | 8 | Parte .NET: memória e coleta de lixo | depende da 6 |

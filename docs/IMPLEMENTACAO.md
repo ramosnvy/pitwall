@@ -144,6 +144,74 @@ Para testar, é preciso medir a CPU por fila e o tamanho das entregas (`rabbitmq
 - **Direção do efeito:** a correção **não favorece** o RabbitMQ nessas cargas; ao contrário, piora sua latência. O §1 dizia que o desbalanceamento favorecia o Kafka, e isso estava errado para latência a 40 e 60 mil ev/s.
 - **Teto:** a varredura de saturação com as duas funções dirá se o equilíbrio ao menos eleva o teto de vazão.
 
+## 8. Medições de decisão da fase 2 (medido)
+
+25/09/2026, commit `caf07be`, roteiro `experiments/decisoes-fase2.ps1`. Modo Direct, 100 Hz, 10 s de aquecimento e 90 s de medição, 3 rodadas por lado, intercaladas. 42 rodadas em 82 minutos, dados em `results/fase2-*.csv`. As regras de decisão estavam escritas em DESENVOLVIMENTO antes de medir.
+
+**Validade:** todas as rodadas de cada carga deram o mesmo resumo do resultado, sem registro incompleto e sem janela descartada. As 6 inválidas foram por atraso de envio, todas no Kafka a 100 e 200 mil ev/s.
+
+### 8.1 Nagle no Kafka
+
+| Carga | Lado | P99 (ms), por rodada | Mediana | Atraso de envio (ms) |
+| --- | --- | --- | --- | --- |
+| 20 mil | ligado | 5,81; 5,69; 6,53 | 5,81 | 7,2; 6,1; 7,9 |
+| 20 mil | desligado | 5,72; 6,03; 5,74 | 5,74 | 4,3; 4,2; 4,1 |
+| 100 mil | ligado | inválida; 5,68; 5,57 | 5,63 | 571,6; 4,7; 5,0 |
+| 100 mil | desligado | inválida; 5,68; 11,47 | 8,58 | 113,0; 12,0; 9,5 |
+
+- **Latência:** sem diferença relevante (1% a 20 mil ev/s). A 100 mil, uma rodada sem Nagle chegou a 11,47 ms; com duas rodadas válidas por lado, não dá para separar esse valor do ruído. As rodadas anteriores a 24/09, com o Nagle ligado, não tiveram a latência afetada.
+- **Gerador:** com o Nagle ligado, o atraso de envio foi cerca de 3 ms maior nas três rodadas a 20 mil.
+- **As duas primeiras rodadas a 100 mil foram inválidas,** uma de cada lado. Na com Nagle, a fila local do produtor encheu 17 vezes: o broker parou de confirmar por perto de 1 s. É a instabilidade do Kafka a 100 e 200 mil ev/s que a fase 4 investiga, e aparece com os dois valores de Nagle.
+- **Decisão:** o padrão fica com o Nagle desligado, o padrão da biblioteca, como estava previsto.
+
+### 8.2 Mensagem persistente no RabbitMQ, a 40 mil ev/s
+
+| Lado | P99 (ms), por rodada | Mediana P99 | Mediana P50 |
+| --- | --- | --- | --- |
+| persistente | 8,30; 8,50; 8,37 | 8,37 ms | 1,03 ms |
+| transitória | 4,50; 4,39; 4,22 | 4,39 ms | 0,30 ms |
+
+- **A persistência custa 48% no P99 e 70% no P50.** É o custo da gravação em disco antes de confirmar, a assimetria A da AUDITORIA-CONFIG, agora medido: o Kafka confirma sem forçar essa gravação.
+- **Decisão:** pela regra, o padrão fica persistente, por equivalência de garantia com o `acks=all` do Kafka, e o perfil ajustado usa mensagem transitória (a redução passou dos 10%).
+
+### 8.3 `prefetch` no RabbitMQ
+
+| Carga | Lado | P99 (ms), por rodada | Mediana | Memória do consumidor |
+| --- | --- | --- | --- | --- |
+| 40 mil | 300 | 8,86; 8,49; 9,75 | 8,86 | 91 a 92 MB |
+| 40 mil | sem limite | 9,48; 9,63; 9,46 | 9,48 | 91 a 92 MB |
+| 60 mil | 300 | 32,99; 25,30; 21,54 | 25,30 | 91 a 96 MB |
+| 60 mil | sem limite | 26,06; 24,93; 30,82 | 26,06 | 91 a 92 MB |
+
+- Diferença de 7% e 3% no P99, abaixo do tamanho relevante de 20%, sem rodada inválida e sem diferença de memória.
+- **Decisão:** o padrão fica sem limite, o valor de fábrica do RabbitMQ. O 300 vai para o perfil ajustado como recomendação do fornecedor.
+
+### 8.4 Quanto o gerador segura antes de travar
+
+**RabbitMQ, a 60 mil ev/s:**
+
+| Lado | P99 (ms), por rodada | Mediana | Atraso de envio (ms) |
+| --- | --- | --- | --- |
+| 8 mil em voo | 30,10; 24,62; 24,34 | 24,62 | 43,1; 41,6; 38,7 |
+| 100 mil em voo | 40,86; 32,75; 18,08 | 32,75 | 18,9; 12,3; 12,5 |
+
+- Com 8 mil em voo, o atraso de envio ficou perto do limite de 50 ms nas três rodadas; com 100 mil, caiu para 12 a 19 ms.
+- O P99 mediano foi maior com 100 mil, mas as faixas se sobrepõem. Parte da diferença é artefato: com a janela pequena, o gerador fica parado esperando confirmações, e esse tempo não entra na latência medida, porque o horário de envio é marcado quando o evento sai do gerador (omissão coordenada, AMEACAS-VALIDADE).
+- **Decisão:** o padrão fica com 100 mil em voo, como previsto. Nenhuma rodada foi invalidada, e a margem de validade melhorou.
+
+**Kafka, a 200 mil ev/s:**
+
+| Lado | P99 (ms), por rodada | Atraso de envio (ms) | Vezes que a fila encheu | Válidas |
+| --- | --- | --- | --- | --- |
+| fila de 1 milhão | 889,86; 16,21; 42,59 | 2.773; 22,0; 22,9 | 0; 0; 0 | 2 de 3 |
+| fila de 100 mil (padrão) | 6,47; 119,62; 359,17 | 1.139; 1.265; 1.437 | 0; 0; 6 | 0 de 3 |
+
+- A regra previa ficar com 100 mil, a menos que o valor invalidasse rodadas abaixo da saturação. O resultado não permite aplicá-la de forma limpa:
+  - 200 mil ev/s é justamente a carga em que o Kafka satura; não se sabe se está abaixo da saturação no perfil padrão;
+  - a fila cheia só explica uma das três rodadas inválidas com 100 mil. Nas outras duas, a fila nunca encheu e o atraso passou de 1 s, como na rodada de 1 milhão que chegou a 2,8 s.
+- Os atrasos de envio de mais de 1 s a 200 mil, e o da primeira rodada a 100 mil, são a mesma instabilidade que a fase 4 investiga.
+- **Decisão provisória:** o padrão fica com 100 mil, o valor de fábrica e o mesmo total em voo do RabbitMQ. A fase 4 repete essa comparação com mais rodadas, ao investigar os atrasos. A fila de 1 milhão vai para os candidatos do perfil ajustado.
+
 ## Fontes
 
 - librdkafka. [CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md) e [INTRODUCTION.md](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md).

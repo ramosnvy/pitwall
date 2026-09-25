@@ -333,8 +333,9 @@ function Get-ProfileArgs {
     escolhas de equivalencia da auditoria. Os clientes ja nascem no padrao de
     fabrica; aqui entram so as escolhas da aplicacao. A janela do produtor
     RabbitMQ segura o mesmo total que a fila padrao do produtor Kafka: 12.500
-    por lote x 2 lotes x 4 faixas = 100 mil. Provisorio ate as medicoes da
-    fase 2.
+    por lote x 2 lotes x 4 faixas = 100 mil. Janela do RabbitMQ e prefetch
+    decididos na fase 2; a fila do produtor Kafka (100 mil, padrao da
+    librdkafka) fica provisoria ate a fase 4 (docs/IMPLEMENTACAO.md, secao 8).
 
     legado: a configuracao dos clientes usada ate 24/09 (matriz 7e283c2, 2x2
     e varredura a 100 Hz). Reproduz so o lado dos clientes: heap do Kafka,
