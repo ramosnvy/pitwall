@@ -98,6 +98,14 @@ Prometheus e cAdvisor rodam durante toda rodada, com 0,5 CPU cada, e são os mes
 
 *Mitigação:* o painel fica desligado nas rodadas oficiais. Se for usado numa bateria, o custo dele aparece no próprio painel, em "Custo da própria observação", e a bateria é rotulada como tal.
 
+### Gravação periódica do disco virtual para o Kafka
+
+A cada 15 a 30 s, o Linux da VM do WSL2 grava em lote as páginas que o Kafka escreveu, cerca de 300 MB, e durante a gravação todas as tarefas ficam paradas esperando disco. O broker para de confirmar e de entregar por 200 ms a 2 s (IMPLEMENTACAO §9). O Kafka confia no cache do sistema operacional e não força a gravação; o RabbitMQ, com mensagem persistente, grava aos poucos e confirma depois de cada gravação.
+
+*Efeito:* episódios de latência alta em parte das rodadas do Kafka a partir de 100 mil ev/s, no Direct e no Channels.
+
+*Mitigação:* declarar como comportamento do Kafka nesta máquina. A análise usa a mediana de 10 repetições e o descarte de Tukey (ANALISE.md), então um episódio isolado não decide o ponto de saturação. Ajustar a gravação da VM (`vm.dirty_background_bytes`, `vm.dirty_expire_centisecs`) mexe no kernel da máquina e fica fora do perfil padrão; entra só como teste de sensibilidade, se decidido.
+
 ### Coordinated omission
 
 Gerador de carga em malha fechada desaceleraria sob saturação e deixaria de registrar as latências altas, justamente as que os percentis P95 e P99 medem.

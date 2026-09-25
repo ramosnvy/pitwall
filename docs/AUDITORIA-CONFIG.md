@@ -2,7 +2,7 @@
 
 24/09/2026. Pedida pelo orientador: primeiro um cenário com a configuração padrão dos brokers, depois um ajustado, com limites de armazenamento equivalentes (PLANO §1g).
 
-**Resultado em uma linha:** dois defeitos, três assimetrias de equivalência e seis valores fora do padrão sem motivo forte. Nenhum dos defeitos invalida o que já foi medido, mas os dois precisam ser corrigidos antes da matriz.
+**Resultado em uma linha:** dois defeitos (e um terceiro, achado na fase 4), três assimetrias de equivalência e seis valores fora do padrão sem motivo forte. Nenhum dos defeitos invalida o que já foi medido, mas os dois precisam ser corrigidos antes da matriz.
 
 Os valores de fábrica foram lidos na fonte, não de memória:
 - librdkafka 2.15.1: `CONFIGURATION.md` do pacote `librdkafka.redist` usado pelo projeto;
@@ -23,7 +23,9 @@ Os dois defeitos e os valores sem justificativa foram corrigidos. A fase 2 (IMPL
 | `compression.type` do broker Kafka | `uncompressed` | padrão, `producer` | `kafka-configs` |
 | `disk_free_limit` | 2 GB | padrão, 50 MB | log do broker |
 | Heap do Kafka | 1,5 GB | padrão, 1 GB | processo Java |
-| B: fila do produtor Kafka | 1.000.000 | padrão, 100.000 (provisório até a fase 4; IMPLEMENTACAO §8.4) | configuração gravada |
+| B: fila do produtor Kafka | 1.000.000 | padrão, 100.000; decidido na fase 4 (IMPLEMENTACAO §9.1) | configuração gravada |
+| Defeito 3: diretório do log do Kafka | camada do container | volume `kafka-data` (`KAFKA_LOG_DIRS`) | `log.dirs` no log do broker |
+| Exclusão dos arquivos do tópico | 60 s depois, no meio da rodada seguinte | antes da rodada seguinte (protocolo) | `Reset-KafkaTopic` |
 | B: janela do produtor RabbitMQ | 8.000 no total | 100.000 no total (12.500 × 2 × 4); decidido na fase 2 | configuração gravada |
 | C: `prefetch` | 300 | 0, sem limite; decidido na fase 2 | configuração gravada |
 
@@ -46,6 +48,15 @@ O `rabbitmq.conf` diz que `vm_memory_high_watermark.relative = 0.6` é "0.6 do m
 
 - **Efeito até agora:** nenhum. O container nunca foi morto por memória (`OOMKilled=false`, 0 reinícios) e o log não tem alarme de memória.
 - **Correção:** `total_memory_available_override_value = 3GB` no `rabbitmq.conf`, para que os 60% sejam calculados sobre os 3 GB do container (cerca de 1,8 GB).
+
+### 3. O log do Kafka ficava na camada do container, não no volume
+
+Achado na fase 4 (IMPLEMENTACAO §9.3). A imagem `apache/kafka` grava em `/tmp/kraft-broker-logs` quando `log.dirs` não é definido, e o compose não o definia. O log ficava no sistema de arquivos em camadas do container, e o volume `kafka-data` ficava vazio; o RabbitMQ sempre gravou no volume `rabbit-data`.
+
+- **Correção:** `KAFKA_LOG_DIRS=/var/lib/kafka/data` no compose. Conferido: o broker lista `log.dirs = /var/lib/kafka/data`, e os diretórios das partições aparecem no volume.
+- **Efeito:** as medições do Kafka até a primeira bateria da fase 4 foram feitas com o log na camada do container.
+
+**Protocolo de exclusão do tópico.** O roteiro exclui o tópico a cada rodada, e o Kafka apaga os arquivos 60 s depois (`log.segment.delete.delay.ms`), no meio da rodada seguinte. Desde a fase 4, `Use-Broker` muda esse atraso para 0 no broker em execução, e `Reset-KafkaTopic` espera os arquivos sumirem antes de começar. É isolamento entre rodadas, não ajuste de desempenho: afeta só a limpeza dos dados da rodada anterior. Não reduziu os episódios na medição (IMPLEMENTACAO §9.3).
 
 ## Assimetrias de equivalência
 

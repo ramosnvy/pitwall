@@ -37,7 +37,7 @@ As correções da auditoria estão feitas (fase 1). Antes da matriz, falta medir
 | Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação, depois dos critérios de validade | DESENVOLVIMENTO |
 | Ponto de saturação | Maior carga com pelo menos 99% das mensagens entregues e P99 abaixo de 50 ms | DESENVOLVIMENTO |
 | Segundo cenário de carga | Vários fluxos da OpenF1, processamento em etapas e republicação do resultado noutro tópico do mesmo broker, com at-least-once de ponta a ponta. Proposto ao orientador; construído só depois do aval, em dois passos | PLANO §1h; APROFUNDAMENTO §8 |
-| Instabilidade do Kafka com Channels | Investigar antes da matriz | decisão de 24/09 |
+| Picos do Kafka a 100 e 200 mil ev/s | Comportamento do Kafka sobre o disco virtual da VM, declarado nas ameaças; os arquivos do tópico anterior são apagados antes de cada rodada | IMPLEMENTACAO §9 |
 | Figura 1 do texto | Formato da Figura 1 do TCC1, com os passos de cada etapa dentro das caixas | mapa da arquitetura, layout C |
 | Fora do escopo | RabbitMQ Streams (trabalho futuro), tamanho de mensagem, rodadas longas, mais corridas, 8 filas no RabbitMQ | decisões de 24/09 |
 
@@ -52,6 +52,7 @@ As correções da auditoria estão feitas (fase 1). Antes da matriz, falta medir
 | Custo dos mecanismos internos | RESULTADOS | Cerca de 3,6 µs de CPU por evento, sem ganho de latência sob processamento leve |
 | Auditoria das configurações | `e36b3f8` | Nagle ligado só no Kafka, por escolha nossa; limite de memória do RabbitMQ calculado sobre a VM, não sobre o container; assimetrias em gravação em disco, fila do produtor e busca antecipada do consumidor |
 | Medições de decisão da fase 2 | `caf07be` | Nagle sem efeito na latência; mensagem persistente custa 48% no P99 do RabbitMQ a 40 mil ev/s; `prefetch` sem limite e janela de 100 mil decididos; fila do produtor Kafka provisória. Atrasos de envio de mais de 1 s no Kafka a 100 e 200 mil |
+| Instabilidade do Kafka (fase 4) | `7a2e450`, `d4c2e49` | 45 rodadas com linha do tempo. Picos de 200 ms a 2,1 s no Direct e no Channels, 126 vezes mais prováveis logo depois de a VM parar esperando disco. O log do Kafka estava na camada do container |
 
 ## 5. Planejado no TCC1 × implementado
 
@@ -73,8 +74,8 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | --- | --- | --- |
 | 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | **concluída** (24/09); fumaça com 4 de 4 rodadas válidas |
 | 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **concluída** (25/09; IMPLEMENTACAO §8): 42 rodadas, 36 válidas |
-| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | depende da 4 (ordem trocada em 25/09) |
-| 4 | Instabilidade do Kafka com Channels | **próxima**; pelo critério registrado, ela define a saturação do Kafka com Channels (50 mil ev/s na varredura) |
+| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **próxima** |
+| 4 | Instabilidade do Kafka com Channels | **concluída** (25/09; IMPLEMENTACAO §9): não é do Channels; é a gravação periódica do disco virtual da VM. Log do Kafka passou para o volume (defeito 3) |
 | 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | **concluída** (25/09): `analysis/analise.ps1`, testado na fase 2 e na varredura a 100 Hz |
 | 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
 | 7 | Cenário ajustado | depende da 6 |
@@ -85,6 +86,7 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 
 ## 7. Pontos de atenção
 
+- **O disco virtual da VM dá picos ao Kafka a partir de 100 mil ev/s** (IMPLEMENTACAO §9). Com 10 repetições e mediana, um episódio isolado não decide a saturação, mas as curvas do Kafka terão mais dispersão que as do RabbitMQ.
 - **A parte de .NET é a mais frágil aos olhos do orientador.** Sob processamento leve, Channels e Pipelines não ganham latência e custam CPU. Sem o segundo cenário, a conclusão sobre eles fica estreita. A resposta proposta é a republicação (APROFUNDAMENTO §8): o mecanismo interno ganha papel quando há espera de broker para esconder.
 - **Tempo de máquina.** Com 10 repetições, a matriz fica perto de 370 rodadas contando a sensibilidade. Se apertar, cortar pontos de carga do Kafka, não repetições.
 - **Sem resposta do orientador:** núcleos exclusivos (mantidos) e RabbitMQ Streams (trabalho futuro). O critério de saturação e a regra de descarte foram decididos por nós em 24/09 (DESENVOLVIMENTO), sem passar por ele.

@@ -212,6 +212,45 @@ Para testar, é preciso medir a CPU por fila e o tamanho das entregas (`rabbitmq
 - Os atrasos de envio de mais de 1 s a 200 mil, e o da primeira rodada a 100 mil, são a mesma instabilidade que a fase 4 investiga.
 - **Decisão provisória:** o padrão fica com 100 mil, o valor de fábrica e o mesmo total em voo do RabbitMQ. A fase 4 repete essa comparação com mais rodadas, ao investigar os atrasos. A fila de 1 milhão vai para os candidatos do perfil ajustado.
 
+## 9. Origem dos picos do Kafka a 100 e 200 mil ev/s (medido)
+
+25/09/2026, fase 4. Duas baterias com linha do tempo de 100 ms (RunTracer) no produtor e no consumidor, e as pausas de coleta de lixo do broker:
+- **Primeira:** 25 rodadas, commit `7a2e450`; Direct e Channels a 100 e 200 mil ev/s, e o Direct com a fila do produtor de 1 milhão a 200 mil.
+- **Segunda:** 20 rodadas, commit `d4c2e49`, a 200 mil, com o log já no volume e a pressão da VM na linha do tempo.
+
+Dados em `results/fase4*-{runs,episodios,rodadas}.csv`; análise em `analysis/instabilidade.ps1`.
+
+**Resultado em uma linha:** os picos vêm do disco da máquina virtual do WSL2, e não do Channels, do .NET ou do Kafka em si. A cada 15 a 30 s, o Linux da VM grava em lote as páginas escritas pelo Kafka, cerca de 300 MB, e durante essa gravação todas as tarefas da VM ficam paradas esperando disco. O broker para junto.
+
+### 9.1 O que foi descartado
+
+| Hipótese | Evidência contra |
+| --- | --- |
+| Channels | Os episódios aparecem no Direct e no Channels. Na segunda bateria: 12 episódios em rodadas com Direct e 14 com Channels, em 10 rodadas de cada |
+| Coleta de lixo do .NET | Nos episódios, as pausas somam no máximo 103 ms no produtor e 21 ms no consumidor, contra picos de 200 ms a 2,1 s |
+| Coleta de lixo do broker (G1) | Maior pausa de 115 ms em toda a fase 2; dentro dos episódios, no máximo 9 ms |
+| Fila do produtor Kafka | Os picos aparecem com 100 mil e com 1 milhão. Na primeira bateria, a 200 mil, o Direct com 100 mil (padrão) teve 5 de 5 rodadas válidas; com 1 milhão, 3 de 5 |
+
+### 9.2 O que a linha do tempo mostrou
+
+- **É o broker que para.** No episódio de 1,7 s (Channels, 100 mil ev/s), o Kafka deixou ao mesmo tempo de confirmar ao produtor e de entregar ao consumidor. O consumidor ficou vivo, esperando. O produtor parou quando a fila local encheu. Na volta, veio uma rajada de 233 mil confirmações.
+- **No pior episódio (2,1 s),** até o processo do consumidor congelou por 1,8 s, com a linha do tempo inteira sem amostras. É uma parada da VM, não de um processo.
+- **Os episódios têm período.** Caem perto de 18, 48, 77 e 104 s de rodada. O kernel da VM grava a cada 15 s as páginas sujas com mais de 30 s (`dirty_writeback_centisecs` = 1500 e `dirty_expire_centisecs` = 3000, os padrões). Logo depois de vários episódios, as páginas sujas da VM caem de cerca de 320 MB para cerca de 20 MB.
+- **Associação medida.** Na segunda bateria, logo depois de um intervalo com a VM parada esperando disco (mais de 50 ms de PSI `io full` em 100 ms), a chance de a latência passar de 50 ms foi de 9,1%. Sem essa parada, foi de 0,072%: risco 126 vezes maior. A parada de disco precede 21 dos 36 picos; os outros 15 não têm parada forte perto.
+
+### 9.3 Dois achados de protocolo no caminho
+
+- **O log do Kafka não estava no volume.** A imagem oficial grava em `/tmp/kraft-broker-logs` quando `log.dirs` não é definido, e o compose não o definia. O log ficava na camada do container (overlay), e o volume `kafka-data` ficava vazio. O RabbitMQ sempre gravou no volume dele. Corrigido com `KAFKA_LOG_DIRS`.
+- **Os arquivos da rodada anterior eram apagados no meio da rodada seguinte.** O roteiro exclui o tópico no início da rodada, e o Kafka apaga os arquivos 60 s depois (`log.segment.delete.delay.ms`). Com o log na camada do container, o fim dessas exclusões coincidiu com 6 dos 14 episódios da primeira bateria, inclusive o pior. Com o log no volume, a exclusão imediata não reduziu os episódios: 4 de 10 rodadas com episódio na exclusão padrão, contra 5 de 10 na imediata. Mesmo assim, o protocolo passa a apagar os arquivos antes da rodada seguinte (`Use-Broker`), por isolamento: é trabalho de disco da rodada anterior caindo dentro da medição.
+
+### 9.4 Consequências
+
+- **Não é defeito a corrigir no código.** É o comportamento do Kafka sobre o disco virtual desta máquina: o Kafka confia no cache do sistema operacional e não força a gravação. Fica declarado nas ameaças à validade.
+- **As conclusões anteriores mudam.** A "instabilidade do Kafka com Channels" da varredura a 100 Hz, que dava a essa combinação saturação em 50 mil ev/s pelo critério registrado, vinha de episódios assim numa rodada só por carga. Não era efeito do Channels. Com 10 repetições, mediana e Tukey (ANALISE.md), um episódio isolado não decide o ponto de saturação.
+- **Resultados antigos do Kafka a partir de 100 mil ev/s** (primeira matriz e varreduras) foram medidos com o log na camada do container. Ficam como calibração, como a primeira matriz já estava.
+- **A fila do produtor Kafka fica no padrão, 100 mil**, e deixa de ser provisória.
+- **Uma possibilidade, fora do perfil padrão:** gravar em lotes menores e mais frequentes, ajustando `vm.dirty_background_bytes` e `vm.dirty_expire_centisecs` na VM. Isso mexe no kernel da máquina, então só entra se for decisão explícita, como teste de sensibilidade.
+
 ## Fontes
 
 - librdkafka. [CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md) e [INTRODUCTION.md](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md).

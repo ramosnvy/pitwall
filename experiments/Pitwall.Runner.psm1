@@ -303,6 +303,11 @@ function Use-Broker {
     & $script:Docker start $target 2>$null | Out-Null
     if (-not (Wait-Healthy -Container $target)) { throw "O broker $target nao ficou saudavel." }
 
+    # Isolamento entre rodadas: os arquivos do topico da rodada anterior sao
+    # apagados antes da rodada seguinte comecar, e nao 60 s depois, no meio
+    # dela (docs/IMPLEMENTACAO.md, secao 9). Nao muda o fluxo medido.
+    if ($Broker -eq 'kafka') { Set-KafkaDeleteDelay -Ms 0 }
+
     if ($CpuMode -eq 'cpuset') {
         $brokerMode = Set-BrokerCpuMode -Container $target -Mode cpuset -Cpuset $script:Layout.broker
         foreach ($c in $script:Infra) {

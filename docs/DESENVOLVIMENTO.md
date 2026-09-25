@@ -2,7 +2,7 @@
 
 24/09/2026. Sequência de trabalho daqui até o texto final, em ordem de dependência e sem datas. Substitui a sequência A–I do PLANO §5, concluída na primeira matriz. O estado de cada item fica no [ESTADO.md](ESTADO.md).
 
-**Onde estamos:** fases 1, 2 e 5 concluídas (24 e 25/09/2026). A ordem das fases 3 e 4 foi trocada em 25/09: a investigação da fase 4 pode mudar código ou a fila do produtor Kafka, e congelar antes obrigaria a congelar de novo. Próxima: a fase 4.
+**Onde estamos:** fases 1, 2, 4 e 5 concluídas (24 e 25/09/2026). A fase 4 achou a origem dos picos do Kafka (o disco virtual da VM, IMPLEMENTACAO §9) e um terceiro defeito de configuração. Próxima: a fase 3, congelar o cenário padrão.
 
 ```mermaid
 flowchart LR

@@ -115,6 +115,9 @@ foreach ($run in (Import-Csv (Join-Path $root $In))) {
         [pscustomobject]@{
             run_id = $id; lado = $run.lado; carga = $run.target_rate
             inicio_utc = $g.from.ToString('HH:mm:ss.fff', $inv)
+            # Desde que o consumidor subiu: a exclusao do topico anterior cai
+            # perto de 48 s com o atraso padrao de 60 s.
+            s_desde_inicio = if ($consumer.Count) { [math]::Round(($g.from - $consumer[0].t).TotalSeconds, 1) } else { '' }
             duracao_ms = [int]($g.to - $g.from).TotalMilliseconds + 100
             pico_latencia_ms = [math]::Round((MaxOf (InWindow $consumer $g.from $g.to) 'latency_max_us') / 1000, 1)
             pico_atraso_ms = [math]::Round((MaxOf (InWindow $producer $g.from $g.to) 'lateness_max_us') / 1000, 1)
@@ -127,6 +130,12 @@ foreach ($run in (Import-Csv (Join-Path $root $In))) {
             gc_broker_maior_ms = [math]::Round((($b | Measure-Object ms -Maximum).Maximum), 1)
             gc2_consumidor = SumOf $c 'gc2'
             pool_pendente_max = MaxOf $c 'pool_pending'
+            # Estado da VM inteira, gravado pelo consumidor (RunTracer.VmPressure):
+            # tempo com todas as tarefas paradas esperando disco ou memoria, e o
+            # maior volume de paginas sujas.
+            vm_io_parado_ms = [math]::Round((SumOf $c 'vm_io_full_us') / 1000, 1)
+            vm_mem_parado_ms = [math]::Round((SumOf $c 'vm_mem_full_us') / 1000, 1)
+            vm_sujas_max_mb = [math]::Round((MaxOf $c 'vm_dirty_kb') / 1024, 0)
             cpu_produtor_ms = if ($p.Count) { [math]::Round((SumOf $p 'cpu_ms') / $p.Count, 0) } else { '' }
             cpu_consumidor_ms = if ($c.Count) { [math]::Round((SumOf $c 'cpu_ms') / $c.Count, 0) } else { '' }
         }
@@ -148,6 +157,10 @@ foreach ($run in (Import-Csv (Join-Path $root $In))) {
         pior_gc_produtor_ms = $worst.gc_produtor_ms
         pior_gc_consumidor_ms = $worst.gc_consumidor_ms
         pior_gc_broker_ms = $worst.gc_broker_maior_ms
+        pior_vm_io_parado_ms = $worst.vm_io_parado_ms
+        # Fora dos episodios tambem: a VM ficou parada esperando disco na rodada?
+        vm_io_parado_total_ms = [math]::Round((SumOf $consumer 'vm_io_full_us') / 1000, 0)
+        vm_sujas_max_mb = [math]::Round((MaxOf $consumer 'vm_dirty_kb') / 1024, 0)
     }
 }
 
