@@ -30,6 +30,32 @@ function Invoke-KafkaTopics {
         --bootstrap-server localhost:19092 @Arguments 2>$null
 }
 
+$script:WaitKafkaDeletion = $false
+
+function Set-KafkaDeleteDelay {
+    <#
+    .SYNOPSIS
+    Atraso entre excluir um topico e apagar os arquivos dele
+    (log.segment.delete.delay.ms, padrao 60.000 ms), alterado no broker em
+    execucao. Com 0, Reset-KafkaTopic espera os arquivos sumirem antes da
+    rodada; com o padrao, eles sao apagados cerca de 50 s depois do inicio da
+    rodada seguinte, no meio da medicao (fase 4).
+    #>
+    param(
+        # Negativo remove a alteracao e volta ao padrao do broker. A alteracao
+        # fica nos metadados do cluster e sobrevive a reinicio: nao basta
+        # gravar 60000 por cima.
+        [Parameter(Mandatory)][int]$Ms
+    )
+
+    $change = if ($Ms -lt 0) { @('--delete-config', 'log.segment.delete.delay.ms') }
+        else { @('--add-config', "log.segment.delete.delay.ms=$Ms") }
+
+    & $script:Docker (@('exec', 'pitwall-kafka', '/opt/kafka/bin/kafka-configs.sh', '--bootstrap-server', 'localhost:19092',
+        '--entity-type', 'brokers', '--entity-default', '--alter') + $change) 2>$null | Out-Null
+    $script:WaitKafkaDeletion = $Ms -eq 0
+}
+
 function Reset-KafkaTopic {
     param([int]$Partitions = 4)
 
@@ -46,6 +72,17 @@ function Reset-KafkaTopic {
         $topics = Invoke-KafkaTopics @('--list')
         if (-not ($topics -contains 'telemetry')) { break }
         Start-Sleep -Milliseconds 500
+    }
+
+    # Com exclusao imediata (Set-KafkaDeleteDelay -Ms 0), espera os arquivos
+    # do topico anterior sumirem do disco antes de comecar: apaga-los durante
+    # a medicao trava o broker (docs/IMPLEMENTACAO.md, secao 9).
+    if ($script:WaitKafkaDeletion) {
+        for ($i = 0; $i -lt 240; $i++) {
+            $pending = & $script:Docker exec pitwall-kafka sh -c 'ls /var/lib/kafka/data | grep -c -- "-delete$"' 2>$null
+            if ([int]$pending -eq 0) { break }
+            Start-Sleep -Milliseconds 500
+        }
     }
 
     for ($i = 0; $i -lt 10; $i++) {
@@ -761,4 +798,5 @@ function Test-RunSaturated {
 
 Export-ModuleMember -Function Reset-KafkaTopic, Reset-RabbitQueues, Reset-Broker,
     Get-ContainerMetrics, Get-GitCommit, Invoke-PitwallRun, Test-RunSaturated,
-    Get-ThrottledPercent, Get-CpuMode, Set-BrokerCpuMode, Use-Broker, Assert-NoDash
+    Get-ThrottledPercent, Get-CpuMode, Set-BrokerCpuMode, Use-Broker, Assert-NoDash,
+    Set-KafkaDeleteDelay, Save-KafkaGcPauses

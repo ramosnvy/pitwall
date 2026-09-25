@@ -161,7 +161,8 @@ if (GetArg("--trace") is { } tracePath)
 {
     tracer = new RunTracer(tracePath, TimeSpan.FromMilliseconds(100))
         .Counter("processed", () => latency.RecordedSoFar)
-        .Gauge("latency_max_us", latency.TakeIntervalMaxMicros);
+        .Gauge("latency_max_us", latency.TakeIntervalMaxMicros)
+        .VmPressure();
     tracer.Start();
 }
 

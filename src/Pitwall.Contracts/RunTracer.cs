@@ -51,6 +51,58 @@ public sealed class RunTracer : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Estado da maquina virtual inteira, nao so do container: paginas sujas
+    /// e em gravacao (/proc/meminfo) e tempo em que todas as tarefas ficaram
+    /// paradas esperando disco ou memoria (PSI, /proc/pressure, linha "full").
+    /// Dentro do container esses arquivos mostram a VM do WSL2. Sem eles
+    /// (Windows), nao acrescenta nada.
+    /// </summary>
+    public RunTracer VmPressure()
+    {
+        if (!File.Exists("/proc/meminfo")) return this;
+
+        Gauge("vm_dirty_kb", () => MemInfo("Dirty:"));
+        Gauge("vm_writeback_kb", () => MemInfo("Writeback:"));
+
+        if (File.Exists("/proc/pressure/io"))
+        {
+            Counter("vm_io_full_us", () => PressureFullTotal("/proc/pressure/io"));
+            Counter("vm_mem_full_us", () => PressureFullTotal("/proc/pressure/memory"));
+        }
+
+        return this;
+    }
+
+    private static long MemInfo(string key)
+    {
+        foreach (var line in File.ReadLines("/proc/meminfo"))
+        {
+            if (line.StartsWith(key, StringComparison.Ordinal))
+            {
+                return long.Parse(line.AsSpan(key.Length).Trim().ToString().Split(' ')[0], CultureInfo.InvariantCulture);
+            }
+        }
+
+        return -1;
+    }
+
+    // "full avg10=0.00 avg60=0.00 avg300=0.00 total=188553523": microssegundos
+    // acumulados em que todas as tarefas ativas esperavam o recurso.
+    private static long PressureFullTotal(string path)
+    {
+        foreach (var line in File.ReadLines(path))
+        {
+            if (line.StartsWith("full", StringComparison.Ordinal))
+            {
+                var total = line[(line.LastIndexOf("total=", StringComparison.Ordinal) + 6)..];
+                return long.Parse(total, CultureInfo.InvariantCulture);
+            }
+        }
+
+        return 0;
+    }
+
     public void Start()
     {
         _lastPause = GC.GetTotalPauseDuration();

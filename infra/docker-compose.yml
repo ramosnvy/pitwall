@@ -76,6 +76,12 @@ services:
       # duas horas de retencao guardariam dezenas de GB de rodadas ja
       # analisadas. As rodadas duram minutos e o topico e recriado entre elas.
       KAFKA_LOG_RETENTION_MINUTES: 15
+      # Onde o log fica no disco: no volume kafka-data, como o RabbitMQ fica no
+      # rabbit-data. Sem isto a imagem usa /tmp/kraft-broker-logs, dentro da
+      # camada gravavel do container (overlay), e o volume ficava vazio -- os
+      # dois brokers gravavam em sistemas de arquivos diferentes. Achado em
+      # 25/09 (docs/IMPLEMENTACAO.md, secao 9).
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
       # Compressao: o produtor nao comprime (compression.type=none no
       # KafkaSink), porque o workload replica a mesma amostra em varios carros
       # e a compressao renderia muito mais do que com telemetria real. No
