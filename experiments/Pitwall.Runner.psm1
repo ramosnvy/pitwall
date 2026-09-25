@@ -323,6 +323,31 @@ function Wait-Container {
     return $false
 }
 
+function Save-KafkaGcPauses {
+    <#
+    .SYNOPSIS
+    Guarda as pausas de coleta de lixo do broker Kafka (log do G1) que caem
+    na janela da rodada, com 5 s de margem, para cruzar com a linha do tempo
+    do produtor e do consumidor (fase 4). O horario do log e UTC.
+    #>
+    param([DateTimeOffset]$Start, [DateTimeOffset]$End, [string]$Path)
+
+    $from = $Start.UtcDateTime.AddSeconds(-5)
+    $to = $End.UtcDateTime.AddSeconds(5)
+    $lines = & $script:Docker exec pitwall-kafka sh -c 'cat /opt/kafka/logs/kafkaServer-gc.log' 2>$null
+
+    $kept = foreach ($line in $lines) {
+        if ($line -notmatch 'Pause') { continue }
+        if ($line -match '^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})\+0000\]') {
+            $t = [datetime]::ParseExact($Matches[1], 'yyyy-MM-ddTHH:mm:ss.fff', $script:Invariant,
+                [System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+            if ($t -ge $from -and $t -le $to) { $line }
+        }
+    }
+
+    Set-Content -Path $Path -Value @($kept) -Encoding utf8
+}
+
 function Get-ProfileArgs {
     <#
     .SYNOPSIS
@@ -413,6 +438,9 @@ function Invoke-PitwallRun {
         # do perfil: os clientes leem a primeira ocorrencia de cada opcao.
         [string[]]$ProducerExtraArgs = @(),
         [string[]]$ConsumerExtraArgs = @(),
+        # Linha do tempo de 100 ms do produtor e do consumidor e pausas de coleta
+        # de lixo do broker Kafka, em results/traces (fase 4).
+        [switch]$Trace,
         [string]$Commit = ''
     )
 
@@ -495,6 +523,14 @@ function Invoke-PitwallRun {
     }
     if ($Hz -gt 0) { $producerArgs += @('--hz', $Hz.ToString($inv)) }
     if ($WindowStart -ge 0) { $producerArgs += @('--window-start', $WindowStart.ToString($inv)) }
+
+    if ($Trace) {
+        $traceDir = Join-Path $root 'results/traces'
+        if (-not (Test-Path $traceDir)) { New-Item -ItemType Directory -Path $traceDir | Out-Null }
+        $traceBase = if ($HostProcesses) { Join-Path $traceDir $runId } else { '/results/traces/' + $runId }
+        $producerArgs += @('--trace', "$traceBase-produtor.csv")
+        $consumerArgs += @('--trace', "$traceBase-consumidor.csv")
+    }
 
     # Avulsos antes do perfil, para vencerem (primeira ocorrencia).
     $producerArgs = $producerArgs + $ProducerExtraArgs + $profileArgs.Producer
@@ -588,6 +624,10 @@ function Invoke-PitwallRun {
     $measureStart = $producerStart.AddSeconds($WarmupSeconds + 3)
     $brokerContainer = 'pitwall-kafka'
     if ($Broker -ne 'kafka') { $brokerContainer = 'pitwall-rabbitmq' }
+
+    if ($Trace -and $Broker -eq 'kafka') {
+        Save-KafkaGcPauses -Start $producerStart -End $producerEnd -Path (Join-Path $root "results/traces/$runId-broker-gc.log")
+    }
 
     $brokerMetrics = Get-ContainerMetrics -Container $brokerContainer -Start $measureStart -End $producerEnd
     $dbMetrics = Get-ContainerMetrics -Container 'pitwall-postgres' -Start $measureStart -End $producerEnd

@@ -31,6 +31,10 @@ public sealed class LatencyRecorder(int lanes, TimeSpan warmup)
     private readonly long[] _counts = new long[lanes];
     private readonly long[] _warmupCounts = new long[lanes];
 
+    // Maior latencia desde a ultima leitura, por faixa, para a linha do tempo
+    // da rodada (RunTracer, fase 4). So o worker da faixa escreve.
+    private readonly long[] _intervalMax = new long[lanes];
+
     // Primeiro e ultimo evento MEDIDO de cada faixa, para calcular a vazao
     // sobre a janela de medicao -- sem o aquecimento e sem a espera ociosa
     // que encerra a rodada.
@@ -69,6 +73,11 @@ public sealed class LatencyRecorder(int lanes, TimeSpan warmup)
 
         _histograms[lane].RecordValue(micros);
 
+        if (micros > Volatile.Read(ref _intervalMax[lane]))
+        {
+            Volatile.Write(ref _intervalMax[lane], micros);
+        }
+
         if (_counts[lane] == 0)
         {
             _firstTicks[lane] = now;
@@ -77,6 +86,21 @@ public sealed class LatencyRecorder(int lanes, TimeSpan warmup)
         _lastTicks[lane] = now;
         _counts[lane]++;
     }
+
+    /// <summary>Maior latencia desde a ultima chamada, em microssegundos; zera a cada leitura.</summary>
+    public long TakeIntervalMaxMicros()
+    {
+        long max = 0;
+        for (var i = 0; i < _intervalMax.Length; i++)
+        {
+            max = Math.Max(max, Interlocked.Exchange(ref _intervalMax[i], 0));
+        }
+
+        return max;
+    }
+
+    /// <summary>Eventos registrados ate agora, com o aquecimento. Leitura aproximada, para a linha do tempo.</summary>
+    public long RecordedSoFar => _counts.Sum() + _warmupCounts.Sum();
 
     /// <summary>Eventos na janela de medicao, depois do aquecimento.</summary>
     public long TotalCount => _counts.Sum();

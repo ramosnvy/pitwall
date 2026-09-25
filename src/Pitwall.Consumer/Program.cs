@@ -153,10 +153,23 @@ Console.WriteLine();
 
 await using var resources = new ResourceSampler();
 
+// Linha do tempo da rodada (fase 4): a cada 100 ms, eventos processados e a
+// maior latencia do intervalo, com as pausas de coleta de lixo e o pool de
+// threads que o RunTracer registra por conta propria.
+RunTracer? tracer = null;
+if (GetArg("--trace") is { } tracePath)
+{
+    tracer = new RunTracer(tracePath, TimeSpan.FromMilliseconds(100))
+        .Counter("processed", () => latency.RecordedSoFar)
+        .Gauge("latency_max_us", latency.TakeIntervalMaxMicros);
+    tracer.Start();
+}
+
 var watch = Stopwatch.StartNew();
 var received = await source.ConsumeAsync(pipeline, cts.Token);
 await pipeline.CompleteAsync();
 watch.Stop();
+tracer?.Dispose();
 
 if (writer is not null)
 {

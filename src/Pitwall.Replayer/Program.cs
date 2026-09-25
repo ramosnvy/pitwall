@@ -139,6 +139,30 @@ var replayOptions = new ReplayOptions
     TargetRate = rate, Duration = duration, Warmup = warmup, FleetFactor = fleet, MaxEvents = exactEvents,
     SamplePeriodMs = samplePeriodMs
 };
+
+// Linha do tempo da rodada (fase 4): a cada 100 ms, eventos emitidos, maior
+// atraso de emissao e confirmacoes do broker. Confirmacoes paradas enquanto
+// a emissao continua mostram o broker sem responder.
+RunTracer? tracer = null;
+if (GetArg("--trace") is { } tracePath)
+{
+    tracer = new RunTracer(tracePath, TimeSpan.FromMilliseconds(100))
+        .Counter("emitted", () => replayer.EmittedSoFar)
+        .Gauge("lateness_max_us", replayer.TakeIntervalMaxLatenessMicros);
+
+    switch (sink)
+    {
+        case KafkaSink k:
+            tracer.Counter("confirmed", () => k.Delivered).Counter("queue_full", () => k.QueueFullWaits);
+            break;
+        case RabbitMqSink r:
+            tracer.Counter("confirmed", () => r.Published);
+            break;
+    }
+
+    tracer.Start();
+}
+
 var result = await Task.Factory.StartNew(
         () => replayer.RunAsync(replayOptions, cts.Token),
         CancellationToken.None,
@@ -146,6 +170,7 @@ var result = await Task.Factory.StartNew(
         TaskScheduler.Default)
     .Unwrap();
 
+tracer?.Dispose();
 await sink.DisposeAsync();
 
 

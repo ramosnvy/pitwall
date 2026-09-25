@@ -20,6 +20,18 @@ namespace Pitwall.Workload;
 /// </summary>
 public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
 {
+    // Leitura concorrente pela linha do tempo da rodada (RunTracer, fase 4):
+    // eventos emitidos ate agora e maior atraso de emissao desde a ultima
+    // leitura, em ticks. So o laco de ritmo escreve.
+    private long _emittedShared;
+    private long _intervalMaxLatenessTicks;
+
+    public long EmittedSoFar => Volatile.Read(ref _emittedShared);
+
+    /// <summary>Maior atraso de emissao desde a ultima chamada, em microssegundos; zera a cada leitura.</summary>
+    public long TakeIntervalMaxLatenessMicros() =>
+        Interlocked.Exchange(ref _intervalMaxLatenessTicks, 0) * 1_000_000 / Stopwatch.Frequency;
+
     public async Task<ReplayResult> RunAsync(ReplayOptions options, CancellationToken ct)
     {
         var events = dataset.Events;
@@ -61,6 +73,11 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
             }
 
             var lateness = now - deadline;
+            if (lateness > Volatile.Read(ref _intervalMaxLatenessTicks))
+            {
+                Volatile.Write(ref _intervalMaxLatenessTicks, lateness);
+            }
+
             if (elapsed >= warmupTicks && lateness > maxLatenessTicks)
             {
                 maxLatenessTicks = lateness;
@@ -77,6 +94,7 @@ public sealed class OpenLoopReplayer(TelemetryDataset dataset, IEventSink sink)
 
             await sink.PublishAsync(evt, ct);
             emitted++;
+            Volatile.Write(ref _emittedShared, emitted);
 
             if (elapsed >= warmupTicks)
             {
