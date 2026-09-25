@@ -73,9 +73,9 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | --- | --- | --- |
 | 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | **concluída** (24/09); fumaça com 4 de 4 rodadas válidas |
 | 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **concluída** (25/09; IMPLEMENTACAO §8): 42 rodadas, 36 válidas |
-| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **próxima** |
-| 4 | Instabilidade do Kafka com Channels | depende da 3 |
-| 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | em paralelo; ANALISE.md escrito, falta implementar nos scripts |
+| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | depende da 4 (ordem trocada em 25/09) |
+| 4 | Instabilidade do Kafka com Channels | **próxima**; pelo critério registrado, ela define a saturação do Kafka com Channels (50 mil ev/s na varredura) |
+| 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | **concluída** (25/09): `analysis/analise.ps1`, testado na fase 2 e na varredura a 100 Hz |
 | 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
 | 7 | Cenário ajustado | depende da 6 |
 | 8 | Parte .NET: memória e coleta de lixo | depende da 6 |

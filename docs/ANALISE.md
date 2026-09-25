@@ -2,6 +2,8 @@
 
 25/09/2026. Como os resultados da matriz v3 serão calculados, escrito antes de ver os dados dela (DESENVOLVIMENTO, fase 5). Mudar uma regra depois de ver os dados exige registrar aqui a mudança, a data e o motivo.
 
+**Implementação:** `analysis/analise.ps1`, que escreve quatro CSVs (rodadas, resumo, saturação e comparação entre modos). As contas do teste foram conferidas contra valores de tabela: p = 0,05 no qui-quadrado com 1, 2 e 4 graus de liberdade, e H = 12,5 no Kruskal-Wallis de três grupos separados. Os quartis são iguais aos do R.
+
 ## 1. Unidades
 
 - **Rodada:** uma execução de 10 s de aquecimento e 90 s de medição, com uma linha no CSV consolidado.

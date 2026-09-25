@@ -2,15 +2,15 @@
 
 24/09/2026. Sequência de trabalho daqui até o texto final, em ordem de dependência e sem datas. Substitui a sequência A–I do PLANO §5, concluída na primeira matriz. O estado de cada item fica no [ESTADO.md](ESTADO.md).
 
-**Onde estamos:** fases 1 e 2 concluídas (24 e 25/09/2026; AUDITORIA-CONFIG e IMPLEMENTACAO §8). ANALISE.md, da fase 5, escrito. Próxima: a fase 3. Cada fase termina num commit e, quando mede algo, num registro em [IMPLEMENTACAO.md](IMPLEMENTACAO.md).
+**Onde estamos:** fases 1, 2 e 5 concluídas (24 e 25/09/2026). A ordem das fases 3 e 4 foi trocada em 25/09: a investigação da fase 4 pode mudar código ou a fila do produtor Kafka, e congelar antes obrigaria a congelar de novo. Próxima: a fase 4.
 
 ```mermaid
 flowchart LR
     F1[1. Correções] --> F2[2. Medições de decisão]
-    F2 --> F3[3. Cenário padrão congelado]
-    F3 --> F4[4. Instabilidade do Kafka com Channels]
+    F2 --> F4[4. Instabilidade do Kafka com Channels]
+    F4 --> F3[3. Cenário padrão congelado]
     F5[5. Análise pré-registrada] --> F6
-    F4 --> F6[6. Matriz v3, cenário padrão]
+    F3 --> F6[6. Matriz v3, cenário padrão]
     F6 --> F7[7. Cenário ajustado]
     F6 --> F8[8. Parte .NET: memória e coleta de lixo]
     P[Proposta do 2º cenário ao orientador] -.aval.-> F9A[9A. Republicação]

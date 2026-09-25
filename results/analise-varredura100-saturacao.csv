@@ -1,0 +1,7 @@
+﻿"perfil","hz","decisao","lado","broker","modo","ponto_saturacao","irregular","cargas"
+"anterior","100",,,"kafka","channels","50000","False","50000:ok 100000:p99 200000:p99 300000:maioria_invalida"
+"anterior","100",,,"kafka","direct","200000","False","50000:ok 100000:ok 200000:ok 300000:maioria_invalida"
+"anterior","100",,,"kafka","pipelines","300000","False","50000:ok 100000:ok 200000:ok 300000:ok 400000:maioria_invalida"
+"anterior","100",,,"rabbitmq","channels","60000","False","20000:ok 30000:ok 40000:ok 50000:ok 60000:ok 80000:p99"
+"anterior","100",,,"rabbitmq","direct","60000","False","20000:ok 30000:ok 40000:ok 50000:ok 60000:ok 80000:maioria_invalida"
+"anterior","100",,,"rabbitmq","pipelines","50000","False","20000:ok 30000:ok 40000:ok 50000:ok 60000:maioria_invalida"
