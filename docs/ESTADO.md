@@ -1,12 +1,10 @@
 # Estado do projeto
 
-Retrato em `e36b3f8`, 24/09/2026. Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
+Retrato de 13/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
 
 ## 1. Em que momento estamos
 
-**Calibração do protocolo, antes da matriz oficial (v3).** A carga atual está implementada e já foi medida três vezes: a primeira matriz, o experimento 2×2 e a varredura de saturação a 100 Hz. O orientador respondeu às perguntas em 24/09 (PLANO §1g), e a auditoria das configurações encontrou dois defeitos e três assimetrias.
-
-As correções da auditoria estão feitas (fase 1). Antes da matriz, falta medir o que ainda está em dúvida (fase 2) e congelar o **cenário padrão**.
+**Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG). Falta rodar a matriz: uma noite por broker.
 
 ## 2. Ambiente
 
@@ -74,10 +72,10 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | --- | --- | --- |
 | 1 | Correções da auditoria, espera síncrona e registro incompleto no Pipe, perfis de configuração, configuração efetiva por rodada | **concluída** (24/09); fumaça com 4 de 4 rodadas válidas |
 | 2 | Medições de decisão: Nagle, mensagem persistente, `prefetch`, janelas do produtor | **concluída** (25/09; IMPLEMENTACAO §8): 42 rodadas, 36 válidas |
-| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **próxima** |
+| 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **concluída** (13/10): sem ajuste de disco da VM |
 | 4 | Instabilidade do Kafka com Channels | **concluída** (25/09; IMPLEMENTACAO §9): não é do Channels; é a gravação periódica do disco virtual da VM. Log do Kafka passou para o volume (defeito 3) |
 | 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | **concluída** (25/09): `analysis/analise.ps1`, testado na fase 2 e na varredura a 100 Hz |
-| 6 | Matriz v3 no cenário padrão, em duas noites | depende da 3, 4 e 5 |
+| 6 | Matriz v3 no cenário padrão, em duas noites (`experiments/matriz-v3.ps1`) | **próxima** |
 | 7 | Cenário ajustado | depende da 6 |
 | 8 | Parte .NET: memória e coleta de lixo | depende da 6 |
 | 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | depende do aval do orientador e da 6 |

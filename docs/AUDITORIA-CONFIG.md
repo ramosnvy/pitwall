@@ -10,6 +10,44 @@ Os valores de fábrica foram lidos na fonte, não de memória:
 - RabbitMQ 4.3.6: um container descartável da mesma imagem, sem o nosso `rabbitmq.conf`, consultado com `rabbitmqctl eval`;
 - RabbitMQ.Client 7.2.2: `ConnectionFactory.DefaultSocketFactory` inspecionado em execução.
 
+## Cenário padrão congelado (fase 3, 13/10/2026)
+
+Tag `cenario-padrao-v1`. A matriz v3 (`experiments/matriz-v3.ps1`) recusa rodar se `src`, `infra` ou `experiments` mudaram desde a tag. Esta é a tabela de configuração do texto: tudo o que não aparece aqui está no valor de fábrica.
+
+| Parte | Parâmetro | Valor | Motivo |
+| --- | --- | --- | --- |
+| **Ambos** | Mensagem | binária, 46 bytes, sem compressão | PLANO §1a |
+| | Entrega | at-least-once: confirmação do broker ao produtor; confirmação ao broker só depois de entregar ao processamento | equivalência de garantia |
+| | Divisão | 4 partições / 4 filas, carro → faixa por CRC32 | decidido com o orientador |
+| | Janela do produtor | 100 mil mensagens no total | assimetria B; fases 2 e 4 |
+| | Memória do container | 3 GB por broker | igual nos dois |
+| | Núcleos | gerador 0–3, broker 4–7, consumidor 8–10, banco e métricas 11 | PLANO §1a |
+| **Kafka, produtor** | `acks` | all | at-least-once |
+| | `enable.idempotence`, `compression.type` | false, none | equivalência com o RabbitMQ |
+| | `linger.ms`, `batch.size`, `queue.buffering.max.messages`, Nagle | fábrica: 5 ms, 1.000.000, 100.000, desligado | defeito 1 corrigido; fase 4 |
+| **Kafka, consumidor** | `enable.auto.offset.store` | false | guarda o offset só depois de entregar ao processamento |
+| | `fetch.min.bytes`, `fetch.wait.max.ms`, `auto.commit.interval.ms` | fábrica: 1, 500, 5.000 | — |
+| | Consumidores | 1 por partição | igual às 4 faixas do RabbitMQ |
+| **Kafka, broker 4.1.0** | Nós e replicação | 1 nó, fator 1 | máquina única (ameaça declarada) |
+| | `log.dirs` | volume `kafka-data` | defeito 3 |
+| | `log.retention` | 15 min | só espaço em disco |
+| | `auto.create.topics.enable` | false | garante as 4 partições |
+| | Tópico | recriado a cada rodada; arquivos do anterior apagados antes de começar | fase 4 |
+| | Heap, `compression.type`, `log.flush.*` | fábrica: 1 GB, producer, sem flush forçado | assimetria A declarada |
+| **RabbitMQ, produtor** | Confirmação | ligada, lotes de 12.500, 2 em voo por faixa | equivalente ao `acks=all`; janela de 100 mil |
+| | Mensagem | persistente | assimetria A: custa 48% no P99 (fase 2) |
+| | Conexões | 4, uma por faixa | recomendação para alta vazão (PILOTO) |
+| **RabbitMQ, consumidor** | `prefetch` | sem limite (fábrica) | fase 2 |
+| | Confirmação | em lote de 100, `multiple=true` | recomendação da documentação |
+| **RabbitMQ, servidor 4.3.6** | Fila | clássica, durável | fábrica |
+| | Memória considerada | 3 GB (`total_memory_available_override_value`), freio em 60% | defeito 2 |
+| **.NET** | Channels | 10.000 eventos por faixa | igual à pausa do Pipelines |
+| | Pipelines | pausa em 460.000 bytes por faixa, retomada na metade | 10.000 × 46 bytes |
+| | GC e variáveis `DOTNET_*` | padrão; gravadas por rodada | — |
+| **Sistema** | Gravação de páginas sujas da VM (`vm.dirty_*`) | padrão do kernel do WSL2 | não ajustado: os picos do Kafka ficam declarados como ameaça (IMPLEMENTACAO §9) |
+
+**Protocolo da rodada:** 100 Hz por carro, trecho a partir de 600 s da corrida, 10 s de aquecimento e 90 s de medição, um broker no ar, painéis desligados, máquina sem uso. Validade e análise em ANALISE.md.
+
 ## Situação depois da fase 1 (24/09/2026)
 
 Os dois defeitos e os valores sem justificativa foram corrigidos. A fase 2 (IMPLEMENTACAO §8) decidiu o `prefetch` e a janela do RabbitMQ, mediu o custo da mensagem persistente (48% no P99 a 40 mil ev/s) e deixou a fila do produtor Kafka provisória até a fase 4.
@@ -195,7 +233,7 @@ Situação: **padrão** = igual ao de fábrica; **justificado** = diferente por 
 
 ## Medições antes de congelar
 
-Pequenas, 2 a 3 rodadas por lado, só para decidir:
+Feitas na fase 2 (IMPLEMENTACAO §8) e, para a janela do Kafka, na fase 4 (§9). Pequenas, 2 a 3 rodadas por lado, só para decidir:
 
 1. Kafka com e sem Nagle, a 20 mil e a 100 mil ev/s, com o modo Direct.
 2. RabbitMQ com mensagem persistente e transitória, a 40 mil ev/s.

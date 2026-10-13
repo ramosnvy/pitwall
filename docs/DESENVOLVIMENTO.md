@@ -2,7 +2,7 @@
 
 24/09/2026. Sequência de trabalho daqui até o texto final, em ordem de dependência e sem datas. Substitui a sequência A–I do PLANO §5, concluída na primeira matriz. O estado de cada item fica no [ESTADO.md](ESTADO.md).
 
-**Onde estamos:** fases 1, 2, 4 e 5 concluídas (24 e 25/09/2026). A fase 4 achou a origem dos picos do Kafka (o disco virtual da VM, IMPLEMENTACAO §9) e um terceiro defeito de configuração. Próxima: a fase 3, congelar o cenário padrão.
+**Onde estamos:** fases 1 a 5 concluídas. A fase 4 achou a origem dos picos do Kafka (o disco virtual da VM, IMPLEMENTACAO §9) e um terceiro defeito de configuração. O cenário padrão foi congelado em 13/10/2026 (tag `cenario-padrao-v1`), sem ajustar a gravação de disco da VM. Próxima: a fase 6, a matriz v3.
 
 ```mermaid
 flowchart LR
@@ -69,8 +69,10 @@ Pequenas, com 3 rodadas por lado, intercaladas e com o modo Direct. A regra de d
 
 ## Fase 3. Cenário padrão congelado
 
+**Concluída em 13/10/2026.**
 - Tabela final do perfil padrão em AUDITORIA-CONFIG.
-- Tag `cenario-padrao-v1` no commit. A matriz só roda com código dessa tag.
+- Tag `cenario-padrao-v1` no commit. A matriz só roda com código dessa tag: `experiments/matriz-v3.ps1` confere antes da primeira rodada.
+- A gravação de páginas sujas da VM fica no padrão do kernel. Ajustá-la mexeria no sistema da máquina e mudaria o ambiente dos dois brokers; os picos do Kafka ficam declarados como ameaça.
 
 ## Fase 4. Instabilidade do Kafka com Channels
 
@@ -95,10 +97,12 @@ Em paralelo às fases 1 a 4.
 
 | Noite | Broker | Rodadas |
 | --- | --- | --- |
-| 1 | RabbitMQ | 4 cargas × 3 modos × 10 = 120, mais 20 a 3,7 Hz (Direct, 20 mil e 60 mil) |
-| 2 | Kafka | 7 cargas × 3 modos × 10 = 210, mais 20 a 3,7 Hz |
+| 1 | RabbitMQ | 20, 40, 60 e 80 mil ev/s × 3 modos × 10 = 120, mais 20 a 3,7 Hz (Direct, 20 mil e 60 mil). Cerca de 5 h |
+| 2 | Kafka | 20, 50, 100, 150, 200, 300 e 400 mil ev/s × 3 modos × 10 = 210, mais 20 a 3,7 Hz (Direct, 20 mil e 200 mil). Cerca de 8 h 20 min |
 
-Antes de cada noite: tag conferida, painéis desligados, só o broker medido no ar e máquina sem uso.
+As cargas cobrem o trecho estável e pelo menos uma acima da saturação da varredura a 100 Hz. Comando: `./experiments/matriz-v3.ps1 -Noite 1` (e `-Noite 2`).
+
+Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o broker medido no ar e máquina sem uso.
 
 ## Fase 7. Cenário ajustado
 
