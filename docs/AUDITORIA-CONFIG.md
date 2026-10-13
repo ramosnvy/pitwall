@@ -12,7 +12,7 @@ Os valores de fábrica foram lidos na fonte, não de memória:
 
 ## Cenário padrão congelado (fase 3, 13/10/2026)
 
-Tag `cenario-padrao-v1`; a `cenario-padrao-v1.1` tem a mesma configuração e só corrige o roteiro da matriz (o ensaio curto falhou por ele). A matriz v3 (`experiments/matriz-v3.ps1`) recusa rodar se `src`, `infra` ou `experiments` mudaram desde a v1.1. Esta é a tabela de configuração do texto: tudo o que não aparece aqui está no valor de fábrica.
+Tag `cenario-padrao-v1`. A `v1.1` corrige o roteiro da matriz (o primeiro ensaio curto falhou por ele) e a `v1.2` fixa as cargas; a configuração é a mesma nas três. A matriz v3 (`experiments/matriz-v3.ps1`) recusa rodar se `src`, `infra` ou `experiments` mudaram desde a v1.2. Esta é a tabela de configuração do texto: tudo o que não aparece aqui está no valor de fábrica.
 
 | Parte | Parâmetro | Valor | Motivo |
 | --- | --- | --- | --- |

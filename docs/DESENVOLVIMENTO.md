@@ -31,7 +31,7 @@ A fase 5 e a proposta ao orientador não dependem de nada e andam em paralelo à
 | Ponto de saturação | A maior carga em que a combinação entrega pelo menos 99% das mensagens oferecidas e o P99 fica abaixo de 50 ms |
 | Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação de broker, modo e carga: fora de [Q1 − 1,5·IQR, Q3 + 1,5·IQR] sai. Aplicada depois dos critérios de validade (atraso de envio e conferência). Descartes publicados por combinação |
 | Repetições | 10 por combinação, em ordem sorteada dentro de cada broker |
-| Cargas | Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil |
+| Cargas | Kafka em 10, 20, 40, 60, 100, 200 e 300 mil ev/s; RabbitMQ em 10, 20, 40 e 60 mil. Em 13/10, mais uma carga acima da saturação em cada um: 400 mil no Kafka e 80 mil no RabbitMQ (fase 6) |
 | Segundo cenário | Proposto ao orientador agora; construído só depois do aval, em dois passos: republicação sobre a carga atual e, depois, vários fluxos com processamento em etapas |
 | Republicação | No mesmo tipo de broker (Kafka para Kafka, RabbitMQ para RabbitMQ), com at-least-once de ponta a ponta: a entrada só é confirmada depois da saída. Sem transações do Kafka |
 
@@ -71,7 +71,7 @@ Pequenas, com 3 rodadas por lado, intercaladas e com o modo Direct. A regra de d
 
 **Concluída em 13/10/2026.**
 - Tabela final do perfil padrão em AUDITORIA-CONFIG.
-- Tag `cenario-padrao-v1` no commit. A `cenario-padrao-v1.1` corrige só o roteiro da matriz, depois do ensaio curto. A matriz só roda com código da v1.1: `experiments/matriz-v3.ps1` confere antes da primeira rodada.
+- Tag `cenario-padrao-v1` no commit. A `cenario-padrao-v1.1` corrige só o roteiro da matriz, depois do ensaio curto, e a `cenario-padrao-v1.2` fixa as cargas. A configuração é a mesma nas três. A matriz só roda com código da v1.2: `experiments/matriz-v3.ps1` confere antes da primeira rodada.
 - A gravação de páginas sujas da VM fica no padrão do kernel. Ajustá-la mexeria no sistema da máquina e mudaria o ambiente dos dois brokers; os picos do Kafka ficam declarados como ameaça.
 
 ## Fase 4. Instabilidade do Kafka com Channels
@@ -97,10 +97,10 @@ Em paralelo às fases 1 a 4.
 
 | Noite | Broker | Rodadas |
 | --- | --- | --- |
-| 1 | RabbitMQ | 20, 40, 60 e 80 mil ev/s × 3 modos × 10 = 120, mais 20 a 3,7 Hz (Direct, 20 mil e 60 mil). Cerca de 5 h |
-| 2 | Kafka | 20, 50, 100, 150, 200, 300 e 400 mil ev/s × 3 modos × 10 = 210, mais 20 a 3,7 Hz (Direct, 20 mil e 200 mil). Cerca de 8 h 20 min |
+| 1 | RabbitMQ | 10, 20, 40, 60 e 80 mil ev/s × 3 modos × 10 = 150, mais 20 a 3,7 Hz (Direct, 20 mil e 60 mil). Cerca de 5 h 30 min |
+| 2 | Kafka | 10, 20, 40, 60, 100, 200, 300 e 400 mil ev/s × 3 modos × 10 = 240, mais 20 a 3,7 Hz (Direct, 20 mil e 200 mil). Cerca de 8 h 20 min |
 
-As cargas cobrem o trecho estável e pelo menos uma acima da saturação da varredura a 100 Hz. Comando: `./experiments/matriz-v3.ps1 -Noite 1` (e `-Noite 2`).
+As cargas de 24/09 mais uma acima da saturação em cada broker. No ensaio curto (13/10, `results/ensaio-matriz-v3-*`, 14 rodadas válidas, cerca de 45 s por rodada de 20 s) o RabbitMQ ficou abaixo de 50 ms a 60 mil e acima a 80 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Comando: `./experiments/matriz-v3.ps1 -Noite 1` (e `-Noite 2`).
 
 Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o broker medido no ar e máquina sem uso.
 

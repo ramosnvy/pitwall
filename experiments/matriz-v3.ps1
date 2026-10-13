@@ -4,18 +4,19 @@ Matriz v3 no cenario padrao (fase 6 de docs/DESENVOLVIMENTO.md): uma noite
 por broker.
 
 .DESCRIPTION
-So roda com o codigo da tag cenario-padrao-v1.1 (a v1 com este roteiro
-corrigido; a configuracao e a mesma): se src, infra ou experiments
-mudaram desde a tag, o roteiro para antes da primeira rodada.
+So roda com o codigo da tag cenario-padrao-v1.2 (a configuracao da v1; a
+v1.1 corrigiu este roteiro e a v1.2 fixou as cargas): se src, infra ou
+experiments mudaram desde a tag, o roteiro para antes da primeira rodada.
 
-  Noite 1, RabbitMQ: 20, 40, 60 e 80 mil ev/s x 3 modos x 10 = 120 rodadas,
-           mais 20 a 3,7 Hz (Direct, 20 e 60 mil).
-  Noite 2, Kafka:    20, 50, 100, 150, 200, 300 e 400 mil x 3 modos x 10 =
-           210 rodadas, mais 20 a 3,7 Hz (Direct, 20 e 200 mil).
+  Noite 1, RabbitMQ: 10, 20, 40, 60 e 80 mil ev/s x 3 modos x 10 = 150
+           rodadas, mais 20 a 3,7 Hz (Direct, 20 e 60 mil).
+  Noite 2, Kafka:    10, 20, 40, 60, 100, 200, 300 e 400 mil x 3 modos x 10
+           = 240 rodadas, mais 20 a 3,7 Hz (Direct, 20 e 200 mil).
 
-As cargas cobrem o trecho estavel e pelo menos uma carga acima do ponto de
-saturacao medido na varredura a 100 Hz (RabbitMQ entre 60 e 80 mil; Kafka
-entre 200 e 300 mil), como pede PLANO.md (secao 2).
+As cargas sao as fixadas em 24/09 (DESENVOLVIMENTO), mais uma acima do ponto
+de saturacao em cada broker: no ensaio curto o RabbitMQ ainda ficou abaixo de
+50 ms a 60 mil, e na varredura a 100 Hz o Kafka com Pipelines aguentou 300
+mil. Sem essa carga, a saturacao ficaria so como "acima do maior ponto".
 
 A bateria a 3,7 Hz grava em arquivos proprios: na mesma carga, a entrada e
 diferente da de 100 Hz, e a verificacao cruzada do digest compara so rodadas
@@ -31,7 +32,7 @@ param(
     [int]$Reps = 10,
     [int]$Seconds = 90,
     [int]$WarmupSeconds = 10,
-    [string]$Tag = 'cenario-padrao-v1.1'
+    [string]$Tag = 'cenario-padrao-v1.2'
 )
 
 # Sem $ErrorActionPreference = 'Stop': ele passa para o run-matrix, e no
@@ -57,12 +58,12 @@ $common = @{
 
 if ($Noite -eq 1) {
     $broker = 'rabbit'
-    $rates = @(20000, 40000, 60000, 80000)
+    $rates = @(10000, 20000, 40000, 60000, 80000)
     $sensitivity = @(20000, 60000)
 }
 else {
     $broker = 'kafka'
-    $rates = @(20000, 50000, 100000, 150000, 200000, 300000, 400000)
+    $rates = @(10000, 20000, 40000, 60000, 100000, 200000, 300000, 400000)
     $sensitivity = @(20000, 200000)
 }
 

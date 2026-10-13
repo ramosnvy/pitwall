@@ -4,7 +4,7 @@ Retrato de 13/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1`). 
 
 ## 1. Em que momento estamos
 
-**Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG). Falta rodar a matriz: uma noite por broker.
+**Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG; tag `cenario-padrao-v1.2`). O ensaio curto da noite 1 deu 14 rodadas válidas. Falta rodar a matriz: uma noite por broker.
 
 ## 2. Ambiente
 
@@ -30,7 +30,7 @@ Retrato de 13/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1`). 
 | Ambiente de medição | Núcleos exclusivos (gerador 0–3, broker 4–7, consumidor 8–10, banco e métricas 11), painéis desligados, máquina sem uso | PLANO §1a; IMPLEMENTACAO §7 |
 | Rodada | 10 s de aquecimento e 90 s de medição | PLANO §2 |
 | Validade | Atraso de envio até 50 ms e resultado idêntico entre as seis combinações; descartes registrados | AMEACAS-VALIDADE |
-| Faixas de carga | Kafka de 10 mil a 300 mil ev/s; RabbitMQ de 10 mil a 60 mil | proposta sem objeção do orientador |
+| Faixas de carga | Kafka de 10 mil a 300 mil ev/s; RabbitMQ de 10 mil a 60 mil, mais uma carga acima da saturação (400 mil e 80 mil) para localizar o ponto | proposta sem objeção do orientador; carga a mais em 13/10 (DESENVOLVIMENTO, fase 6) |
 | Estatística | Descritiva: 10 repetições, mediana e desvio padrão; Kruskal-Wallis como apoio; sem ANOVA | PLANO §1g |
 | Descarte de discrepantes | Regra de Tukey sobre o P99, dentro de cada combinação, depois dos critérios de validade | DESENVOLVIMENTO |
 | Ponto de saturação | Maior carga com pelo menos 99% das mensagens entregues e P99 abaixo de 50 ms | DESENVOLVIMENTO |
