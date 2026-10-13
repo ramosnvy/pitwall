@@ -4,7 +4,8 @@ Matriz v3 no cenario padrao (fase 6 de docs/DESENVOLVIMENTO.md): uma noite
 por broker.
 
 .DESCRIPTION
-So roda com o codigo da tag cenario-padrao-v1: se src, infra ou experiments
+So roda com o codigo da tag cenario-padrao-v1.1 (a v1 com este roteiro
+corrigido; a configuracao e a mesma): se src, infra ou experiments
 mudaram desde a tag, o roteiro para antes da primeira rodada.
 
   Noite 1, RabbitMQ: 20, 40, 60 e 80 mil ev/s x 3 modos x 10 = 120 rodadas,
@@ -30,10 +31,12 @@ param(
     [int]$Reps = 10,
     [int]$Seconds = 90,
     [int]$WarmupSeconds = 10,
-    [string]$Tag = 'cenario-padrao-v1'
+    [string]$Tag = 'cenario-padrao-v1.1'
 )
 
-$ErrorActionPreference = 'Stop'
+# Sem $ErrorActionPreference = 'Stop': ele passa para o run-matrix, e no
+# PowerShell 5.1 o aviso que o consumidor escreve no stderr (libgssapi_krb5,
+# inofensivo) viraria erro fatal na rodada.
 $root = Split-Path $PSScriptRoot -Parent
 $git = "$env:ProgramFiles\Git\cmd\git.exe"
 

@@ -71,7 +71,7 @@ Pequenas, com 3 rodadas por lado, intercaladas e com o modo Direct. A regra de d
 
 **Concluída em 13/10/2026.**
 - Tabela final do perfil padrão em AUDITORIA-CONFIG.
-- Tag `cenario-padrao-v1` no commit. A matriz só roda com código dessa tag: `experiments/matriz-v3.ps1` confere antes da primeira rodada.
+- Tag `cenario-padrao-v1` no commit. A `cenario-padrao-v1.1` corrige só o roteiro da matriz, depois do ensaio curto. A matriz só roda com código da v1.1: `experiments/matriz-v3.ps1` confere antes da primeira rodada.
 - A gravação de páginas sujas da VM fica no padrão do kernel. Ajustá-la mexeria no sistema da máquina e mudaria o ambiente dos dois brokers; os picos do Kafka ficam declarados como ameaça.
 
 ## Fase 4. Instabilidade do Kafka com Channels
