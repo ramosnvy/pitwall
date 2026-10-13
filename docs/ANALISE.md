@@ -60,7 +60,7 @@ Para cada combinação e carga também sai a fração de rodadas que cumprem as 
 ## 6. Comparações
 
 - **Efeito do mecanismo interno:** diferença entre a mediana de Channels ou Pipelines e a mediana do Direct, no mesmo broker e carga. É o efeito principal do trabalho.
-- **Efeito do broker:** diferença entre Kafka e RabbitMQ no mesmo modo, nas cargas comuns aos dois (até 60 mil ev/s), e pelos pontos de saturação acima disso.
+- **Efeito do broker:** diferença entre Kafka e RabbitMQ no mesmo modo, nas cargas comuns aos dois (10, 20, 40 e 60 mil ev/s; 80 mil só existe no RabbitMQ), e pelos pontos de saturação.
 - **Tamanho de efeito relevante, fixado antes:** 10% na vazão ou 20% no P99. Uma diferença menor é reportada como "sem diferença relevante", mesmo que o teste a aponte.
 - **Teste de apoio:** Kruskal-Wallis entre os três modos de cada broker e carga, com nível de 5%. Sozinho, não sustenta conclusão; só acompanha uma diferença acima do tamanho relevante. Sem ANOVA, conforme o orientador.
 
@@ -77,3 +77,9 @@ Para cada combinação e carga também sai a fração de rodadas que cumprem as 
 - Nenhuma rodada sai da análise por outro critério que não os das seções 2 e 3.
 - Nenhuma carga ou combinação entra ou sai depois de ver os dados.
 - Médias não substituem medianas nos resumos; a média da latência aparece só na tabela completa.
+
+## 9. Mudanças registradas
+
+| Data | Mudança | Motivo |
+| --- | --- | --- |
+| 13/10/2026 | Uma carga acima da saturação em cada broker: 80 mil no RabbitMQ e 400 mil no Kafka, além das fixadas em 24/09 | No ensaio curto, o RabbitMQ ficou abaixo de 50 ms a 60 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Decidido antes de qualquer rodada da matriz v3 |
