@@ -10,6 +10,7 @@
 \usepackage{ragged2e}
 \usepackage{multirow}
 \usepackage{xcolor}
+\usepackage{rotating}
 \usepackage{hyperref}
 
 \usepackage{tocloft}
@@ -483,14 +484,17 @@ composição exige medir também a arquitetura sem a composição.
 
 \subsection{Arquitetura Geral}
 
-\begin{figure}[ht]
+% Página deitada: na largura normal o texto da figura ficaria com cerca de 3 pt.
+% Fonte da figura: arquitetura_geral.html (layout C do mapa da arquitetura);
+% o PDF vetorial e o PNG saem dele pelo navegador.
+\begin{sidewaysfigure}
 \centering
-\includegraphics[width=\textwidth]{arquitetura_geral.png}
-\caption{Arquitetura da bancada experimental: do conjunto de dados da OpenF1 ao
-consumidor e à persistência, com a coleta de métricas em todas as etapas.}
+\includegraphics[width=\textheight]{arquitetura_geral.pdf}
+\caption{Arquitetura da bancada experimental, no formato da Figura~1 do TCC1: as cinco
+etapas, os núcleos de processador exclusivos de cada uma e, dentro de cada etapa, os
+passos de cima para baixo. Nas setas entre as etapas, o que passa de uma para a outra.}
 \label{fig:arquitetura_geral}
-\end{figure}
-% TODO: exportar a Figura 1 a partir do mapa da arquitetura (layout C).
+\end{sidewaysfigure}
 
 O sistema é composto pelos seguintes módulos, conforme ilustrado na
 Figura~\ref{fig:arquitetura_geral}:
