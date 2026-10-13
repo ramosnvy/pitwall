@@ -4,6 +4,7 @@
 \usepackage{graphicx}
 \usepackage[hyphens]{url}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{geometry}
@@ -322,13 +323,13 @@ atrasados, problema conhecido como \textit{coordinated omission} \cite{tene:2015
 gerador em malha aberta emite cada evento no instante previsto, independentemente do
 estado do destino, e evita esse viés.
 
-O \textbf{ponto de saturação} é a maior carga que o sistema sustenta: acima dele, a
-vazão deixa de acompanhar a carga oferecida, e as filas e a latência crescem sem limite
+O \textbf{ponto de saturação} é a maior carga que o sistema sustenta: acima dele, o
+throughput deixa de acompanhar a carga oferecida, e as filas e a latência crescem sem limite
 \cite{jain:1991}. Benchmarks de processamento de fluxos, como o Linear Road
 \cite{arasu:2004}, o DEBS 2013 Grand Challenge \cite{mutschler:2013} e o RIoTBench
 \cite{shukla:2017}, convergem para um conjunto pequeno de operações de referência, como
 agregação em janela agrupada por chave e detecção de padrões sobre eventos consecutivos,
-e avaliam as soluções por vazão, latência e correção do resultado.
+e avaliam as soluções por throughput, latência e correção do resultado.
 
 \subsection{Sistemas de Mensageria Distribuída}
 
@@ -355,8 +356,9 @@ perde, mas uma mensagem pode chegar mais de uma vez. Ela exige confirmação nos
 lados: o broker confirma ao produtor que recebeu a mensagem (\texttt{acks=all} no Kafka,
 \textit{publisher confirms} no RabbitMQ), e o consumidor confirma ao broker só depois de
 tratá-la (\textit{commit} de offset no Kafka, \textit{ack} no RabbitMQ)
-\cite{kafka:docs,rabbitmq:docs}. Comparar brokers com garantias diferentes mede a
-configuração, e não a arquitetura \cite{fu:2021}.
+\cite{kafka:docs,rabbitmq:docs}. Por isso, uma comparação justa entre brokers exige a
+mesma garantia nos dois: com garantias diferentes, mede-se a configuração, e não a
+arquitetura.
 
 \subsection{Mecanismos de Processamento Concorrente no .NET}
 
@@ -463,8 +465,8 @@ de controle sem ele. Essa lacuna reforça a originalidade e a relevância deste 
 Esta seção descreve a bancada experimental construída: os modos avaliados, os módulos do
 sistema e as decisões de implementação que afetam a medição. Todo o código, os scripts
 de execução e de análise e os resultados brutos estão disponíveis no repositório do
-projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. Os experimentos foram
-executados com a versão marcada como \texttt{cenario-padrao-v1.2}.
+projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. O cenário padrão é medido
+com a versão marcada como \texttt{cenario-padrao-v1.2}.
 
 \subsection{Combinações Avaliadas}
 
@@ -472,12 +474,13 @@ O trabalho avalia dois brokers (RabbitMQ e Kafka) em três modos de processament
 totalizando seis combinações:
 
 \begin{itemize}
-  \item \textbf{Direto}: o evento é processado no próprio retorno de chamada do
+  \item \textbf{Direto} (\textit{Direct}): o evento é processado no próprio retorno de chamada do
         consumidor do broker, sem mecanismo interno;
   \item \textbf{Channels}: o consumidor converte a mensagem em objeto e a escreve num
         canal limitado; uma thread de trabalho por faixa lê e processa;
   \item \textbf{Pipelines}: o consumidor escreve os bytes recebidos num \texttt{Pipe};
-        a thread de trabalho lê o fluxo e interpreta os registros sem cópia.
+        a thread de trabalho lê o fluxo e interpreta os registros direto do buffer, sem
+        criar um objeto por evento.
 \end{itemize}
 
 O modo direto não estava previsto na proposta do TCC1. Ele foi incluído como grupo de
@@ -502,17 +505,20 @@ passos na ordem do fluxo.}
 O sistema é composto pelos seguintes módulos, conforme ilustrado na
 Figura~\ref{fig:arquitetura_geral}:
 
-\begin{itemize}
-  \item \textbf{Ingestão}: baixa os dados históricos da OpenF1 uma única vez e os
-        reproduz como carga, publicando no broker (Seção~\ref{sec:workload});
+\begin{enumerate}
+  \item \textbf{Dados}: a telemetria da OpenF1, baixada uma única vez para disco;
+  \item \textbf{Ingestão}: reproduz os dados como carga e publica no broker
+        (Seção~\ref{sec:workload});
   \item \textbf{Mensageria}: RabbitMQ 4.3.6 ou Kafka 4.1.0, com quatro filas ou
         partições (Seção~\ref{sec:mensageria});
   \item \textbf{Processamento}: consumidor nos três modos, sobre a mesma biblioteca de
         processamento (Seção~\ref{sec:processamento});
-  \item \textbf{Persistência}: grava em lote, num PostgreSQL 17, os resultados agregados;
-  \item \textbf{Coleta de métricas}: latência por evento no consumidor, recursos de cada
-        container e indicadores de validade da rodada (Seção~\ref{sec:coleta}).
-\end{itemize}
+  \item \textbf{Persistência}: grava em lote, num PostgreSQL 17, os resultados
+        agregados, e guarda as métricas dos containers.
+\end{enumerate}
+
+A coleta de métricas atravessa as etapas 2 a 5: latência por evento no consumidor,
+recursos de cada container e indicadores de validade da rodada (Seção~\ref{sec:coleta}).
 
 Toda a infraestrutura é containerizada com Docker, e os containers de cada rodada são
 criados e removidos por scripts, o que garante reprodutibilidade e padronização dos
@@ -534,7 +540,8 @@ carro próprio e um deslocamento de fase, para que a frota não publique em raja
 sincronizadas.
 
 \textbf{Frequência de 100~Hz.} No cenário principal, cada carro é reamostrado de 3,7 para
-100~Hz por interpolação, sobre um trecho da corrida que começa no décimo minuto.
+100~Hz por interpolação. Os experimentos usam a corrida do Bahrein de 2024, num trecho
+de 130~s que começa no décimo minuto: o aquecimento, a medição e uma margem.
 Velocidade, rotação e acelerador são interpolados em linha reta; marcha, freio e DRS
 permanecem em degrau, de modo que as frenagens e trocas de marcha detectadas são as mesmas
 da corrida original, o que é verificado em teste. A 100 mil eventos por segundo, a carga
@@ -640,7 +647,8 @@ em containers, e cada um tem núcleos exclusivos: gerador nos núcleos 0 a 3, br
 núcleos 4 a 7, consumidor nos núcleos 8 a 10, e banco de dados e coleta de métricas no
 núcleo 11. Os brokers têm o mesmo limite de 3~GB de memória. Durante as medições, só o
 broker medido fica em execução, os painéis de visualização ficam desligados e o computador
-não é usado.
+não é usado. O software usado é .NET~10, Confluent.Kafka~2.15.1 (librdkafka~2.15.1),
+RabbitMQ.Client~7.2.2, Npgsql~10.0.3, HdrHistogram~2.5.0 e Docker Desktop~4.91.
 
 \subsection{Configuração dos Brokers}
 \label{sec:configuracao}
@@ -648,7 +656,7 @@ não é usado.
 A comparação usa dois cenários de configuração. O \textbf{cenário padrão} usa os valores
 de fábrica dos brokers e das bibliotecas cliente, exceto onde eles impedem a equivalência
 entre os brokers; é a linha de base. O \textbf{cenário ajustado} aplica a recomendação de
-cada fornecedor para vazão e latência \pendente{definir o perfil ajustado depois da
+cada fornecedor para throughput e latência \pendente{definir o perfil ajustado depois da
 matriz do cenário padrão}. Os valores de fábrica foram conferidos na fonte de cada
 versão, e não na documentação genérica. A Tabela~\ref{tab:configuracao} lista o que difere
 do valor de fábrica no cenário padrão.
@@ -670,13 +678,13 @@ Ambos & até 100 mil mensagens sem confirmação no produtor & limites equivalen
 \hline
 Kafka, produtor & \texttt{acks=all}, sem idempotência & \textit{at-least-once}, como no RabbitMQ \\
 \hline
-Kafka, consumidor & offset guardado só depois do processamento & \textit{at-least-once} \\
+Kafka, consumidor & offset guardado só depois de entregar ao processamento & \textit{at-least-once} \\
 \hline
 Kafka, broker & 1 nó, replicação 1; retenção de 15 min & máquina única; só espaço em disco \\
 \hline
 RabbitMQ, produtor & \textit{publisher confirms} em lotes de 12.500, dois em voo por faixa; mensagem persistente & equivalente ao \texttt{acks=all}; mesmo total do Kafka \\
 \hline
-RabbitMQ, produtor & uma conexão por faixa & recomendação do fornecedor para alta vazão \\
+RabbitMQ, produtor & uma conexão por faixa & recomendação do fornecedor para alto throughput \\
 \hline
 RabbitMQ, consumidor & confirmação em lotes de 100 & recomendação do fornecedor \\
 \hline
@@ -735,7 +743,9 @@ depois de ver os dados.
 \textbf{Validade.} Uma rodada é inválida se o atraso máximo de envio do gerador passar de
 50~ms, se o seu digest divergir do digest de referência da carga, se houver registro
 incompleto no \texttt{Pipe} ou se a persistência descartar janelas. Rodadas inválidas
-não são repetidas: contam como resultado no ponto de saturação.
+não são repetidas: contam como resultado no ponto de saturação. Só uma falha técnica,
+como um container que não sobe, é repetida no fim da mesma noite, e a repetição é
+registrada.
 
 \textbf{Descarte de discrepantes.} Dentro de cada combinação, sai a rodada cujo P99 fica
 fora do intervalo $[Q_1 - 1{,}5\,\mathrm{IQR};\; Q_3 + 1{,}5\,\mathrm{IQR}]$, a regra de
@@ -769,7 +779,7 @@ efeitos do ambiente que teriam sido atribuídos às arquiteturas:
         arranjo do protocolo.
   \item \textbf{Cota de CPU.} Com limites de CPU por cota, o broker RabbitMQ era
         estrangulado em 4 a 8\% dos períodos de escalonamento. Com núcleos exclusivos, o
-        P99 do RabbitMQ caiu de 40\% a 64\%.
+        P99 do RabbitMQ caiu de 40\% a 64\% em três das quatro combinações testadas.
   \item \textbf{Auditoria da configuração.} A comparação com os valores de fábrica
         encontrou três defeitos de configuração (o algoritmo de Nagle ligado só no Kafka,
         o limite de memória do RabbitMQ calculado sobre a máquina virtual e o log do Kafka
@@ -895,6 +905,14 @@ brokers, o RabbitMQ usa uma fila por faixa, em vez de uma fila com consumidores
 concorrentes. Com isso, ele fica exposto ao bloqueio na cabeça da fila, como o Kafka por
 partição.
 
+\textbf{Persistência como gargalo.} Se o banco saturasse, as combinações pareceriam
+iguais. A gravação em lote, as tabelas sem registro de transação, a latência medida antes
+da gravação e a invalidação de rodadas com janelas descartadas cobrem esse risco.
+
+\textbf{Grau de paralelismo.} Cada broker tem o seu mecanismo de paralelismo, partições
+no Kafka e filas no RabbitMQ. Os dois foram configurados para o mesmo grau: quatro
+faixas e um consumidor por faixa.
+
 \textbf{Omissão coordenada.} Um gerador que desacelera sob saturação deixaria de
 registrar as latências altas. O gerador em malha aberta e o critério de atraso máximo de
 envio cobrem esse risco.
@@ -918,13 +936,15 @@ em produção, o Kafka costuma usar compressão.
 
 \textbf{Mensagem pequena e processamento leve.} Com eventos de 46 bytes e processamento de
 cerca de 0,12~µs por evento, o experimento é dominado pelo transporte. Os resultados sobre
-o mecanismo interno valem para esse uso; mensagens maiores ou processamento mais pesado
-podem favorecer o Channels ou o Pipelines.
+o mecanismo interno valem para esse uso, e para o uso padrão das ferramentas: um evento
+por vez, sem lote. Mensagens maiores, processamento mais pesado ou leitura em lote podem
+favorecer o Channels ou o Pipelines.
 
 \subsection{Validade de Conclusão}
 
-\textbf{Variância entre execuções.} Na calibração, a mesma configuração chegou a variar
-três ordens de grandeza no P99 entre rodadas sucessivas. Uma rodada isolada não sustenta
+\textbf{Variância entre execuções.} Nas primeiras medições, ainda com os clientes fora
+dos containers, a mesma configuração chegou a variar três ordens de grandeza no P99 entre
+rodadas sucessivas. Uma rodada isolada não sustenta
 conclusão neste ambiente; por isso as dez repetições, a regra de descarte fixada antes
 da coleta e a análise por mediana.
 
@@ -958,7 +978,8 @@ configurações auditadas contra os valores de fábrica, repetições e critéri
 registrados antes da coleta.
 
 Como trabalhos futuros, ficam: a avaliação em vários nós, com replicação; as filas de
-quórum e os \textit{streams} do RabbitMQ; mensagens maiores e compressão; e um cenário
+quórum e os \textit{streams} do RabbitMQ; mensagens maiores e compressão; o uso de
+Channels e Pipelines em lote; e um cenário
 em que o consumidor republica o resultado em outro tópico, com garantia de ponta a ponta,
 no qual o mecanismo interno tem espera de broker a esconder \pendente{remover se o segundo
 cenário for incluído no trabalho}.

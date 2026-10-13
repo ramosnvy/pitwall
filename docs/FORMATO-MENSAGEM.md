@@ -1,6 +1,6 @@
 # Formato da mensagem
 
-A mensagem que trafega pelos brokers é um registro binário de tamanho fixo de **44 bytes**, idêntico nas seis variantes da matriz.
+A mensagem que trafega pelos brokers é um registro binário de tamanho fixo de **46 bytes**, idêntico nas seis variantes da matriz.
 
 ## Por que binário e não JSON
 
@@ -18,35 +18,37 @@ Little-endian, campos em posição fixa, sem cabeçalho e sem delimitador.
 | --- | --- | --- | --- |
 | 0 | 8 | `Sequence` | Sequencial do replayer, identifica o evento de ponta a ponta |
 | 8 | 4 | `SessionKey` | Sessão da OpenF1 de origem |
-| 12 | 2 | `DriverNumber` | Número do carro; também é a chave de particionamento |
-| 14 | 8 | `EventTime` | Instante original da amostra, em ticks UTC |
-| 22 | 8 | `PublishedTicks` | Instante da publicação, em ticks de `Stopwatch` |
-| 30 | 2 | `Speed` | km/h |
-| 32 | 4 | `Rpm` | |
-| 36 | 2 | `Gear` | |
-| 38 | 2 | `Throttle` | 0 a 100 |
-| 40 | 2 | `Brake` | 0 ou 100 na OpenF1 |
-| 42 | 2 | `Drs` | |
+| 12 | 4 | `DriverNumber` | Número do carro; também é a chave de particionamento. 4 bytes porque cada réplica soma 100 ao número: com 2 bytes (`short`), um fator de frota acima de 327 estouraria (commit `175c7c2`) |
+| 16 | 8 | `EventTime` | Instante original da amostra, em ticks UTC |
+| 24 | 8 | `PublishedTicks` | Instante da publicação, em ticks de `Stopwatch` |
+| 32 | 2 | `Speed` | km/h |
+| 34 | 4 | `Rpm` | |
+| 38 | 2 | `Gear` | |
+| 40 | 2 | `Throttle` | 0 a 100 |
+| 42 | 2 | `Brake` | 0 ou 100 na OpenF1 |
+| 44 | 2 | `Drs` | |
 
-Total: 44 bytes. Verificado em execução real — a fila do RabbitMQ registrou 15.840.000 bytes para 360.000 mensagens, exatamente 44 por mensagem.
+Total: 46 bytes (`TelemetryCodec.Size`). A primeira versão tinha 44, com o número do carro em 2 bytes; a conferência em execução real foi feita nela (15.840.000 bytes para 360.000 mensagens na fila do RabbitMQ, 44 por mensagem).
 
 ## Duas decisões embutidas no layout
 
 **`PublishedTicks` viaja dentro da mensagem.** É o que permite medir latência sem sincronizar relógios: o consumidor compara o valor recebido com seu próprio `Stopwatch.GetTimestamp()`. Só funciona porque produtor e consumidor rodam na mesma máquina e compartilham o mesmo contador monotônico — o que é, ao mesmo tempo, a razão de a medição ser válida e o motivo de o experimento ser de nó único (ver [AMEACAS-VALIDADE.md](AMEACAS-VALIDADE.md)).
 
-**Tamanho fixo dispensa enquadramento por prefixo na variante Pipelines.** Como todo registro tem 44 bytes, o `PipeReader` sabe quando há um evento completo apenas pelo tamanho do buffer. Isso mantém a variante Pipelines no seu terreno natural — fluxo de bytes, sem alocação por mensagem — sem introduzir um cabeçalho que o Channels não pagaria.
+**Tamanho fixo dispensa enquadramento por prefixo na variante Pipelines.** Como todo registro tem 46 bytes, o `PipeReader` sabe quando há um evento completo apenas pelo tamanho do buffer. Isso mantém a variante Pipelines no seu terreno natural — fluxo de bytes, sem alocação por mensagem — sem introduzir um cabeçalho que o Channels não pagaria.
 
 ## Implementação
 
 `TelemetryCodec` em `src/Pitwall.Contracts`:
 
-- `Write(Span<byte>, in TelemetryEvent)` — escreve os 44 bytes.
+- `Write(Span<byte>, in TelemetryEvent)` — escreve os 46 bytes.
 - `Read(ReadOnlySpan<byte>)` — lê de um buffer contíguo.
 - `TryRead(ref ReadOnlySequence<byte>, out TelemetryEvent)` — lê de uma sequência possivelmente fragmentada, como a que o `PipeReader` entrega, copiando para a pilha apenas quando o registro cruza a fronteira de dois segmentos.
 
 O evento é um `readonly record struct`, não uma classe: a taxas de dezenas de milhares de eventos por segundo, uma alocação por evento apareceria como pressão de coletor de lixo dentro das medições.
 
 ## O nível "mensagem grande"
+
+**Fora do escopo desde 24/09/2026** (ESTADO, "Fora do escopo"): a matriz usa só a mensagem de 46 bytes, e o tamanho da mensagem fica como trabalho futuro no texto. A ideia original, registrada abaixo, era tratá-lo como fator do experimento.
 
 O tamanho da mensagem é um fator do experimento com dois níveis. O segundo nível é um **envelope enriquecido de aproximadamente 1 KB** — o evento acrescido de contexto de volta, setor, condições e identificação, no formato em que um sistema de integração realmente o transportaria.
 
