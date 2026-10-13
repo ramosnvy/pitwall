@@ -40,6 +40,10 @@
 % Antes da entrega: procurar por \pendente e não deixar nenhum.
 \newcommand{\pendente}[1]{\textcolor{red}{[#1]}}
 
+% O template SBC usa os nomes em inglês ("Figure", "Table").
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabela}
+
 % ===================================================================
 % INFORMAÇÕES CENTRALIZADAS DO TRABALHO
 % ===================================================================
@@ -819,10 +823,22 @@ carga oferecida.}
 P95 e P99 nas cargas comuns aos dois brokers.}
 
 % Pontos a explicar:
-% - comparação dos brokers nas cargas comuns (10 a 80 mil);
+% - comparação dos brokers nas cargas comuns (10 a 60 mil);
 % - dispersão maior do Kafka a partir de 100 mil, pelos episódios de
 %   gravação do disco virtual (Seção de calibração e ameaças);
 % - sensibilidade: 3,7 Hz contra 100 Hz.
+
+% Pergunta do orientador: o resultado tem a ver com a carga de trabalho?
+% Responder em cada subseção, com as características da carga:
+% - mensagem pequena (46 bytes) e de tamanho fixo: favorece quem agrupa em
+%   lote (Kafka) e reduz o peso de copiar bytes (o terreno do Pipelines);
+% - carga uniforme, sem rajadas, e processamento de cerca de 0,12 µs por
+%   evento: não há fila a esconder, então o mecanismo interno só acrescenta
+%   custo;
+% - nó único, sem replicação: tira do Kafka a vantagem de durabilidade por
+%   réplica e deixa a gravação em disco só no RabbitMQ;
+% - 100 Hz contra 3,7 Hz (sensibilidade): mesma vazão com menos carros e
+%   mais eventos por carro.
 
 \subsection{Efeito do Mecanismo Interno}
 
