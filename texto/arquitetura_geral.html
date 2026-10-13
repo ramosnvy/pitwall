@@ -2,8 +2,9 @@
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Figura 1</title>
 <!-- Figura 1 do TCC2: layout C do mapa da arquitetura, so com o nome de cada
-     passo. A explicacao de cada um esta no texto (secao 4). O PDF e o PNG
-     saem desta pagina pelo navegador. -->
+     passo, para caber na largura da pagina (16 cm, texto com cerca de 8 pt).
+     A explicacao de cada passo esta no texto (secao 4). O PDF e o PNG saem
+     desta pagina pelo navegador. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=block">
 <style>
 :root {
@@ -15,23 +16,23 @@
   --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;
 }
-@page { size: 1116px 480px; margin: 0; }
+@page { size: 720px 324px; margin: 0; }
 html, body { margin: 0; padding: 0; background: var(--white); }
-svg { display: block; width: 1116px; height: 480px; }
-.env { fill: none; stroke: var(--ink-2); stroke-width: 1.3; stroke-dasharray: 6 4; }
-.env-t { font: 500 11px var(--mono); letter-spacing: .06em; fill: var(--ink-2); }
-.strip { fill: none; stroke-width: 1.3; }
-.hd-t { font: 700 17px var(--display); letter-spacing: .05em; text-transform: uppercase; fill: var(--white); }
-.hd-c { font: 500 11px var(--mono); fill: var(--white); }
+svg { display: block; width: 720px; height: 324px; }
+.env { fill: none; stroke: var(--ink-2); stroke-width: 1.1; stroke-dasharray: 5 3; }
+.env-t { font: 500 10px var(--mono); letter-spacing: .05em; fill: var(--ink-2); }
+.strip { fill: none; stroke-width: 1.2; }
+.hd-t { font: 700 15px var(--display); letter-spacing: .03em; text-transform: uppercase; fill: var(--white); }
+.hd-c { font: 500 10px var(--mono); fill: var(--white); }
 .nb { fill: var(--white); }
-.nb-t { font: 600 12px var(--sans); fill: var(--ink); text-anchor: middle; }
-.bx { stroke-width: 1.3; }
-.t { font: 600 14px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.s { font: 11px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
-.grp { fill: none; stroke: var(--cons); stroke-width: 1.2; stroke-dasharray: 3 3; }
-.grp-t { font: 500 11px var(--mono); fill: var(--ink-2); }
-.ou { font: italic 13px var(--sans); fill: var(--muted); text-anchor: middle; }
-.ln { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+.nb-t { font: 600 11px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.bx { stroke-width: 1.2; }
+.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.s { font: 10px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.grp { fill: none; stroke: var(--cons); stroke-width: 1.1; stroke-dasharray: 3 3; }
+.grp-t { font: 500 10px var(--mono); fill: var(--ink-2); text-anchor: middle; }
+.ou { font: italic 12px var(--sans); fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .ah { fill: var(--muted); }
 .data { fill: var(--white); stroke: var(--data); stroke-dasharray: 4 3; }
 .prod { fill: var(--prod-bg); stroke: var(--prod); }
@@ -39,89 +40,76 @@ svg { display: block; width: 1116px; height: 480px; }
 .cons { fill: var(--cons-bg); stroke: var(--cons); }
 .infra { fill: var(--infra-bg); stroke: var(--infra); }
 </style></head><body>
-<svg viewBox="0 0 1116 480" role="img" aria-label="Figura 1: as cinco etapas da bancada experimental, de Dados a Persistência, com os núcleos exclusivos de cada uma e os passos de cada etapa de cima para baixo.">
-<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+<svg viewBox="0 0 720 324" role="img" aria-label="Figura 1: as cinco etapas da bancada experimental, de Dados a Persistência, com os núcleos exclusivos de cada uma e os passos de cada etapa de cima para baixo.">
+<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
 
-<rect class="env" x="160" y="8" width="950" height="462" rx="10"/>
-<text class="env-t" x="176" y="27">DOCKER · NÚCLEOS EXCLUSIVOS</text>
+<rect class="env" x="139" y="6" width="578" height="312" rx="8"/>
+<text class="env-t" x="150" y="21">DOCKER · NÚCLEOS EXCLUSIVOS</text>
 
 <!-- 1 Dados -->
-<rect class="strip" style="stroke:var(--data)" x="10" y="40" width="140" height="410" rx="7"/>
-<path style="fill:var(--data)" d="M10 84 V47 Q10 40 17 40 H143 Q150 40 150 47 V84 Z"/>
-<circle class="nb" cx="28" cy="62" r="10"/><text class="nb-t" x="28" y="66">1</text>
-<text class="hd-t" x="44" y="68">Dados</text>
-<rect class="bx data" x="18" y="100" width="124" height="36" rx="5"/><text class="t" x="80" y="118">API OpenF1</text>
-<path class="ln" d="M80 136 V156" marker-end="url(#ah)"/>
-<rect class="bx data" x="18" y="158" width="124" height="36" rx="5"/><text class="t" x="80" y="176">Baixador</text>
-<path class="ln" d="M80 194 V214" marker-end="url(#ah)"/>
-<rect class="bx data" x="18" y="216" width="124" height="36" rx="5"/><text class="t" x="80" y="234">Arquivos JSONL</text>
+<rect class="strip" style="stroke:var(--data)" x="8" y="30" width="118" height="280" rx="6"/>
+<path style="fill:var(--data)" d="M8 70 V36 Q8 30 14 30 H120 Q126 30 126 36 V70 Z"/>
+<circle class="nb" cx="24" cy="50" r="9"/><text class="nb-t" x="24" y="50">1</text>
+<text class="hd-t" x="38" y="56">Dados</text>
+<rect class="bx data" x="14" y="84" width="106" height="32" rx="4"/><text class="t" x="67" y="100">API OpenF1</text>
+<path class="ln" d="M67 116 V128" marker-end="url(#ah)"/>
+<rect class="bx data" x="14" y="130" width="106" height="32" rx="4"/><text class="t" x="67" y="146">Cópia local</text>
 
 <!-- 2 Ingestão -->
-<rect class="strip" style="stroke:var(--prod)" x="180" y="40" width="200" height="410" rx="7"/>
-<path style="fill:var(--prod)" d="M180 84 V47 Q180 40 187 40 H373 Q380 40 380 47 V84 Z"/>
-<circle class="nb" cx="198" cy="62" r="10"/><text class="nb-t" x="198" y="66">2</text>
-<text class="hd-t" x="214" y="60">Ingestão</text>
-<text class="hd-c" x="214" y="77">núcleos 0–3</text>
-<rect class="bx prod" x="188" y="100" width="184" height="36" rx="5"/><text class="t" x="280" y="118">Recorte da corrida</text>
-<path class="ln" d="M280 136 V156" marker-end="url(#ah)"/>
-<rect class="bx prod" x="188" y="158" width="184" height="36" rx="5"/><text class="t" x="280" y="176">Interpolação a 100 Hz</text>
-<path class="ln" d="M280 194 V214" marker-end="url(#ah)"/>
-<rect class="bx prod" x="188" y="216" width="184" height="36" rx="5"/><text class="t" x="280" y="234">Multiplicação da frota</text>
-<path class="ln" d="M280 252 V272" marker-end="url(#ah)"/>
-<rect class="bx prod" x="188" y="274" width="184" height="36" rx="5"/><text class="t" x="280" y="292">Envio em malha aberta</text>
-<path class="ln" d="M280 310 V330" marker-end="url(#ah)"/>
-<rect class="bx prod" x="188" y="332" width="184" height="36" rx="5"/><text class="t" x="280" y="350">Codificação em 46 B</text>
-<path class="ln" d="M280 368 V388" marker-end="url(#ah)"/>
-<rect class="bx prod" x="188" y="390" width="184" height="36" rx="5"/><text class="t" x="280" y="408">Publicação no broker</text>
+<rect class="strip" style="stroke:var(--prod)" x="148" y="30" width="116" height="280" rx="6"/>
+<path style="fill:var(--prod)" d="M148 70 V36 Q148 30 154 30 H258 Q264 30 264 36 V70 Z"/>
+<circle class="nb" cx="164" cy="50" r="9"/><text class="nb-t" x="164" y="50">2</text>
+<text class="hd-t" x="178" y="48">Ingestão</text>
+<text class="hd-c" x="178" y="63">núcleos 0–3</text>
+<rect class="bx prod" x="154" y="84" width="104" height="32" rx="4"/><text class="t" x="206" y="100">Recorte</text>
+<path class="ln" d="M206 116 V128" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="130" width="104" height="32" rx="4"/><text class="t" x="206" y="146">Interpolação</text>
+<path class="ln" d="M206 162 V174" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="176" width="104" height="32" rx="4"/><text class="t" x="206" y="192">Multiplicação</text>
+<path class="ln" d="M206 208 V220" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="222" width="104" height="32" rx="4"/><text class="t" x="206" y="238">Publicação</text>
 
 <!-- 3 Mensageria -->
-<rect class="strip" style="stroke:var(--brk)" x="410" y="40" width="150" height="410" rx="7"/>
-<path style="fill:var(--brk)" d="M410 84 V47 Q410 40 417 40 H553 Q560 40 560 47 V84 Z"/>
-<circle class="nb" cx="428" cy="62" r="10"/><text class="nb-t" x="428" y="66">3</text>
-<text class="hd-t" x="444" y="60">Mensageria</text>
-<text class="hd-c" x="444" y="77">núcleos 4–7</text>
-<rect class="bx brk" x="418" y="100" width="134" height="56" rx="5"/><text class="t" x="485" y="119">Kafka 4.1</text><text class="s" x="485" y="139">4 partições</text>
-<text class="ou" x="485" y="187">ou</text>
-<rect class="bx brk" x="418" y="210" width="134" height="56" rx="5"/><text class="t" x="485" y="229">RabbitMQ 4.3.6</text><text class="s" x="485" y="249">4 filas</text>
+<rect class="strip" style="stroke:var(--brk)" x="286" y="30" width="112" height="280" rx="6"/>
+<path style="fill:var(--brk)" d="M286 70 V36 Q286 30 292 30 H392 Q398 30 398 36 V70 Z"/>
+<circle class="nb" cx="302" cy="50" r="9"/><text class="nb-t" x="302" y="50">3</text>
+<text class="hd-t" x="316" y="48">Mensageria</text>
+<text class="hd-c" x="316" y="63">núcleos 4–7</text>
+<rect class="bx brk" x="292" y="84" width="100" height="44" rx="4"/><text class="t" x="342" y="99">Kafka</text><text class="s" x="342" y="116">4 partições</text>
+<text class="ou" x="342" y="145">ou</text>
+<rect class="bx brk" x="292" y="162" width="100" height="44" rx="4"/><text class="t" x="342" y="177">RabbitMQ</text><text class="s" x="342" y="194">4 filas</text>
 
 <!-- 4 Processamento -->
-<rect class="strip" style="stroke:var(--cons)" x="590" y="40" width="302" height="410" rx="7"/>
-<path style="fill:var(--cons)" d="M590 84 V47 Q590 40 597 40 H885 Q892 40 892 47 V84 Z"/>
-<circle class="nb" cx="608" cy="62" r="10"/><text class="nb-t" x="608" y="66">4</text>
-<text class="hd-t" x="624" y="60">Processamento</text>
-<text class="hd-c" x="624" y="77">núcleos 8–10</text>
-<rect class="bx cons" x="598" y="100" width="286" height="36" rx="5"/><text class="t" x="741" y="118">Consumidor do broker</text>
-<path class="ln" d="M741 136 V150" marker-end="url(#ah)"/>
-<rect class="grp" x="598" y="152" width="286" height="78" rx="6"/>
-<text class="grp-t" x="606" y="168">um modo por rodada</text>
-<rect class="bx cons" x="606" y="178" width="86" height="42" rx="5"/><text class="t" x="649" y="199">Direct</text>
-<rect class="bx cons" x="698" y="178" width="86" height="42" rx="5"/><text class="t" x="741" y="199">Channels</text>
-<rect class="bx cons" x="790" y="178" width="86" height="42" rx="5"/><text class="t" x="833" y="199">Pipelines</text>
-<path class="ln" d="M741 230 V244" marker-end="url(#ah)"/>
-<rect class="bx cons" x="598" y="246" width="286" height="36" rx="5"/><text class="t" x="741" y="264">Janelas e detecção</text>
-<path class="ln" d="M741 282 V298 M644 298 H838"/>
-<path class="ln" d="M644 298 V312" marker-end="url(#ah)"/>
-<path class="ln" d="M741 298 V312" marker-end="url(#ah)"/>
-<path class="ln" d="M838 298 V312" marker-end="url(#ah)"/>
-<rect class="bx cons" x="598" y="314" width="92" height="40" rx="5"/><text class="t" x="644" y="334">Latência</text>
-<rect class="bx cons" x="695" y="314" width="92" height="40" rx="5"/><text class="t" x="741" y="334">Conferência</text>
-<rect class="bx cons" x="792" y="314" width="92" height="40" rx="5"/><text class="t" x="838" y="334">Gravação</text>
+<rect class="strip" style="stroke:var(--cons)" x="420" y="30" width="152" height="280" rx="6"/>
+<path style="fill:var(--cons)" d="M420 70 V36 Q420 30 426 30 H566 Q572 30 572 36 V70 Z"/>
+<circle class="nb" cx="436" cy="50" r="9"/><text class="nb-t" x="436" y="50">4</text>
+<text class="hd-t" x="450" y="48">Processamento</text>
+<text class="hd-c" x="450" y="63">núcleos 8–10</text>
+<rect class="bx cons" x="426" y="84" width="140" height="32" rx="4"/><text class="t" x="496" y="100">Consumidor</text>
+<path class="ln" d="M496 116 V128" marker-end="url(#ah)"/>
+<rect class="grp" x="426" y="130" width="140" height="120" rx="5"/>
+<text class="grp-t" x="496" y="145">um modo por rodada</text>
+<rect class="bx cons" x="434" y="152" width="124" height="26" rx="4"/><text class="t" x="496" y="165">Direct</text>
+<rect class="bx cons" x="434" y="184" width="124" height="26" rx="4"/><text class="t" x="496" y="197">Channels</text>
+<rect class="bx cons" x="434" y="216" width="124" height="26" rx="4"/><text class="t" x="496" y="229">Pipelines</text>
+<path class="ln" d="M496 250 V262" marker-end="url(#ah)"/>
+<rect class="bx cons" x="426" y="264" width="140" height="32" rx="4"/><text class="t" x="496" y="280">Janelas e detecção</text>
 
 <!-- 5 Persistência -->
-<rect class="strip" style="stroke:var(--infra)" x="922" y="40" width="180" height="410" rx="7"/>
-<path style="fill:var(--infra)" d="M922 84 V47 Q922 40 929 40 H1095 Q1102 40 1102 47 V84 Z"/>
-<circle class="nb" cx="940" cy="62" r="10"/><text class="nb-t" x="940" y="66">5</text>
-<text class="hd-t" x="956" y="60">Persistência</text>
-<text class="hd-c" x="956" y="77">núcleo 11</text>
-<rect class="bx infra" x="930" y="100" width="164" height="36" rx="5"/><text class="t" x="1012" y="118">PostgreSQL 17</text>
-<rect class="bx infra" x="930" y="170" width="164" height="56" rx="5"/><text class="t" x="1012" y="189">Métricas</text><text class="s" x="1012" y="209">Prometheus · cAdvisor</text>
+<rect class="strip" style="stroke:var(--infra)" x="594" y="30" width="118" height="280" rx="6"/>
+<path style="fill:var(--infra)" d="M594 70 V36 Q594 30 600 30 H706 Q712 30 712 36 V70 Z"/>
+<circle class="nb" cx="608" cy="50" r="9"/><text class="nb-t" x="608" y="50">5</text>
+<text class="hd-t" x="620" y="48">Persistência</text>
+<text class="hd-c" x="620" y="63">núcleo 11</text>
+<rect class="bx infra" x="600" y="84" width="106" height="32" rx="4"/><text class="t" x="653" y="100">PostgreSQL</text>
+<rect class="bx infra" x="600" y="130" width="106" height="58" rx="4"/><text class="t" x="653" y="146">Métricas</text><text class="s" x="653" y="163">Prometheus</text><text class="s" x="653" y="177">cAdvisor</text>
 
 <!-- Entre as etapas: do último passo de uma ao primeiro da seguinte -->
-<path class="ln" d="M142 234 H166 V118 H186" marker-end="url(#ah)"/>
-<path class="ln" d="M372 408 H395 V128 H416" marker-end="url(#ah)"/>
-<path class="ln" d="M395 238 H416" marker-end="url(#ah)"/>
-<path class="ln" d="M552 128 H575"/>
-<path class="ln" d="M552 238 H575 V118 H596" marker-end="url(#ah)"/>
-<path class="ln" d="M884 334 H907 V118 H928" marker-end="url(#ah)"/>
+<path class="ln" d="M120 146 H137 V100 H152" marker-end="url(#ah)"/>
+<path class="ln" d="M258 238 H275 V106 H290" marker-end="url(#ah)"/>
+<path class="ln" d="M275 184 H290" marker-end="url(#ah)"/>
+<path class="ln" d="M392 106 H409"/>
+<path class="ln" d="M392 184 H409 V100 H424" marker-end="url(#ah)"/>
+<path class="ln" d="M566 280 H583 V100 H598" marker-end="url(#ah)"/>
 </svg>
 </body></html>
