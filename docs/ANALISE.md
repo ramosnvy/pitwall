@@ -82,6 +82,7 @@ Para cada combinação e carga também sai a fração de rodadas que cumprem as 
 
 | Data | Mudança | Motivo |
 | --- | --- | --- |
+| 22/10/2026 | Perfil ajustado do Kafka com `linger.ms` 1, e não 0; H7a reescrita | O ensaio curto e o diagnóstico `experiments/diag-linger.ps1` (IMPLEMENTACAO §10) mostraram que `linger.ms` 0 degenera: P50 de cerca de 400 ms a 10 mil ev/s, isolado e repetido. Com 1, o P50 cai de 3 para 1 ms, e o P99 fica entre 3,6 e 12,5 ms. Decidido antes de qualquer rodada da matriz ajustada |
 | 13/10/2026 | Uma carga acima da saturação em cada broker: 80 mil no RabbitMQ e 400 mil no Kafka, além das fixadas em 24/09 | No ensaio curto, o RabbitMQ ficou abaixo de 50 ms a 60 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Decidido antes de qualquer rodada da matriz v3 |
 
 ## 10. Cenário ajustado (registrado em 22/10/2026, antes de medir)
@@ -100,7 +101,7 @@ Fase 7. Os perfis estão em AUDITORIA-CONFIG ("Cenário ajustado") e em `Get-Pro
 
 | # | Hipótese |
 | --- | --- |
-| H7a | Kafka ajustado: P50 e P99 caem de forma relevante em todas as cargas, e o P99 fica abaixo de 3 ms até 100 mil. Se cair, o piso de cerca de 5 ms do padrão vem da espera de formação de lotes |
+| H7a | Kafka ajustado: o P50 cai de forma relevante em todas as cargas até a saturação. O P99 pode não cair: no diagnóstico, com `linger.ms` 1, ficou entre 3,6 e 12,5 ms (alterada em 22/10, ver a tabela de mudanças) |
 | H7b | Kafka ajustado: a CPU do broker sobe, e a saturação pode cair para menos de 400 mil |
 | H7c | RabbitMQ ajustado: o P99 cai de forma relevante a partir de 40 mil, e a saturação sobe para 80 mil |
 | H7d | Channels e Pipelines continuam sem efeito relevante de latência contra o Direct, nos dois perfis |

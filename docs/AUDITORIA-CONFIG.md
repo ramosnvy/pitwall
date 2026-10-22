@@ -246,7 +246,7 @@ Recomendação de cada fornecedor, mantendo o at-least-once (`acks=all` e publis
 
 | Perfil | Broker | Parâmetro | Padrão | Ajustado | Motivo |
 | --- | --- | --- | --- | --- | --- |
-| ajustado | Kafka | `linger.ms` | 5 | 0 | recomendação para baixa latência; testa se o piso de cerca de 5 ms do padrão vem da espera de formação de lotes |
+| ajustado | Kafka | `linger.ms` | 5 | 1 | recomendação para baixa latência; testa se o piso de cerca de 5 ms do padrão vem da espera de formação de lotes. O valor 0 foi descartado no diagnóstico de 22/10 (IMPLEMENTACAO §10): degenera, com P50 de cerca de 400 ms já a 10 mil ev/s |
 | ajustado | RabbitMQ | mensagem | persistente | transitória | com um nó, confirma com a mensagem na memória, como o Kafka confirma com ela no cache do sistema: iguala a assimetria A em vez de afrouxar a garantia. Na fase 2, a persistência custou 48% no P99 |
 | ajustado | RabbitMQ | `prefetch` | sem limite | 300 | faixa de 100 a 300 da documentação; na fase 2, sem diferença relevante |
 | ajustado-vazao | Kafka | `linger.ms` | 5 | 20 | recomendação para throughput; o `batch.size` padrão da librdkafka já é 1 MB. Compressão continua desligada, pela mesma regra de equivalência |

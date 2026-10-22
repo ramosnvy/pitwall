@@ -251,6 +251,24 @@ Dados em `results/fase4*-{runs,episodios,rodadas}.csv`; análise em `analysis/in
 - **A fila do produtor Kafka fica no padrão, 100 mil**, e deixa de ser provisória.
 - **Uma possibilidade, fora do perfil padrão:** gravar em lotes menores e mais frequentes, ajustando `vm.dirty_background_bytes` e `vm.dirty_expire_centisecs` na VM. Isso mexe no kernel da máquina, então só entra se for decisão explícita, como teste de sensibilidade.
 
+## 10. `linger.ms` 0 degenera no Kafka (medido)
+
+22/10/2026, fase 7. O ensaio curto do perfil ajustado, com `linger.ms` 0, teve P99 de 0,7 a 2,1 s a 10 mil ev/s, contra 5,8 ms no padrão. Como cada rodada a 10 mil veio depois de uma a 400 mil, que desabou para cerca de 110 mil ev/s, o diagnóstico `experiments/diag-linger.ps1` repetiu o Kafka sozinho: modo Direct, 30 s, 2 repetições, `linger.ms` 0, 1 e 5 intercalados. Dados em `results/diag-linger-*.csv`.
+
+| `linger.ms` | Carga | P50 (ms) | P99 (ms) | CPU do broker (núcleos) |
+| --- | --- | --- | --- | --- |
+| 0 | 10 mil | 404; 409 | 686; 688 | 1,9 |
+| 1 | 10 mil | 1,08; 1,05 | 5,86; 3,60 | 0,8 |
+| 5 (padrão) | 10 mil | 3,03; 3,03 | 5,83; 5,83 | 0,4 |
+| 0 | 100 mil | 280; 1.135 | 755; 1.640 | 1,8 a 1,9 |
+| 1 | 100 mil | 0,96; 0,95 | 12,54; 7,23 | 1,0 |
+| 5 (padrão) | 100 mil | 3,04; 3,04 | 5,63; 5,58 | 0,4 |
+
+- **`linger.ms` 0 degenera com este cliente e esta carga.** Mesmo a 10 mil ev/s e sem rodada anterior, o P50 fica perto de 400 ms, e o broker usa cerca de 1,9 dos 4 núcleos. A explicação provável é que, sem espera, quase cada mensagem vira um pedido separado ao broker, que satura atendendo pedidos e forma fila. A causa exata não foi investigada.
+- **O piso de cerca de 5 ms do padrão vem da espera de formação de lotes, para a mediana:** com `linger.ms` 1, o P50 cai de 3 para 1 ms.
+- **A cauda não acompanha:** o P99 com `linger.ms` 1 não melhora a 10 mil e piora a 100 mil (7 a 12 ms), com o broker gastando o dobro de CPU. Lotes menores trocam mediana por cauda e CPU.
+- **Decisão:** o perfil ajustado usa `linger.ms` 1 (ANALISE, tabela de mudanças). O `linger.ms` 0 entra no texto como achado: a recomendação genérica "linger.ms 0 para baixa latência" não vale aqui.
+
 ## Fontes
 
 - librdkafka. [CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md) e [INTRODUCTION.md](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md).

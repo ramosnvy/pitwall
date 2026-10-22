@@ -109,7 +109,7 @@ Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o b
 ## Fase 7. Cenário ajustado
 
 **Definida em 22/10/2026.** Dois perfis (AUDITORIA-CONFIG, "Cenário ajustado"):
-- **ajustado:** baixa latência. Kafka com `linger.ms` 0; RabbitMQ com mensagem transitória e `prefetch` 300.
+- **ajustado:** baixa latência. Kafka com `linger.ms` 1 (o 0 degenera, IMPLEMENTACAO §10); RabbitMQ com mensagem transitória e `prefetch` 300.
 - **ajustado-vazao:** throughput, só no Kafka, com `linger.ms` 20.
 
 Hipóteses e regras de comparação registradas antes de medir (ANALISE §10). Roteiro: `experiments/matriz-ajustada.ps1 -Parte rabbit|kafka|vazao`.

@@ -410,8 +410,10 @@ function Get-ProfileArgs {
     compressao do broker e limite de memoria do RabbitMQ mudaram no compose.
 
     ajustado: fase 7, a recomendacao de cada fornecedor para baixa latencia,
-    mantendo o at-least-once. Kafka: linger.ms 0 (testa se o piso de ~5 ms do
-    padrao vem da espera de formacao de lotes). RabbitMQ: mensagem transitoria
+    mantendo o at-least-once. Kafka: linger.ms 1, a menor espera que nao
+    degenera (testa se o piso de ~5 ms do padrao vem da espera de formacao de
+    lotes). O linger.ms 0 foi descartado pelo diagnostico de 22/10/2026: P50
+    de ~400 ms ja a 10 mil ev/s (docs/IMPLEMENTACAO.md, secao 10). RabbitMQ: mensagem transitoria
     (com um no, confirma com a mensagem na memoria, como o Kafka confirma com
     ela no cache do sistema) e prefetch 300 (faixa de 100 a 300 da
     documentacao). O resto igual ao padrao.
@@ -444,7 +446,7 @@ function Get-ProfileArgs {
         }
         { $_ -in 'ajustado', 'ajustado-vazao' } {
             if ($kafka) {
-                $linger = if ($Profile -eq 'ajustado') { '0' } else { '20' }
+                $linger = if ($Profile -eq 'ajustado') { '1' } else { '20' }
                 return @{ Producer = @('--linger-ms', $linger); Consumer = @() }
             }
             return @{ Producer = @('--confirm-batch', '12500', '--transient'); Consumer = @('--prefetch', '300') }
