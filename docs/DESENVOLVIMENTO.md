@@ -102,7 +102,9 @@ Em paralelo às fases 1 a 4.
 
 As cargas de 24/09 mais uma acima da saturação em cada broker. No ensaio curto (13/10, `results/ensaio-matriz-v3-*`, 14 rodadas válidas, cerca de 45 s por rodada de 20 s) o RabbitMQ ficou abaixo de 50 ms a 60 mil e acima a 80 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Comando: `./experiments/matriz-v3.ps1 -Noite 1` (e `-Noite 2`).
 
-Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o broker medido no ar e máquina sem uso.
+Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o broker medido no ar, suspensão do Windows desativada e máquina sem uso.
+
+**Se o Docker Desktop não abrir** com "rename ... sailor-ingest.sock ... The file cannot be accessed by the system" (ou o mesmo erro em `docker-secrets-engine\engine.sock`): sobraram sockets de uma sessão anterior que o Windows não deixa apagar. Com o Docker fechado, renomear as pastas `%LOCALAPPDATA%\Docker\run` e `%LOCALAPPDATA%\docker-secrets-engine` (por exemplo, para `run.antiga`) e abrir de novo. Aconteceu em 13/10; as pastas antigas só têm esses arquivos vazios.
 
 ## Fase 7. Cenário ajustado
 
@@ -154,6 +156,9 @@ A mesma telemetria de hoje, com o consumidor publicando o resultado num segundo 
 | 9.18 | Matriz do cenário B: dimensionada pela varredura, com teto de duas noites | resultados em RESULTADOS |
 
 ## Fase 10. Texto e figuras
+
+**Em andamento desde 13/10/2026.** `texto/tcc2.tex` (com `texto/referencias-novas.bib` e a Figura 1 em `texto/arquitetura_geral.*`) já tem tudo o que não depende de resultado; os trechos que dependem estão marcados com `\pendente{...}`. Pendências em ESTADO §8.
+
 
 - Nova Figura 1 no formato do TCC1 (mapa da arquitetura, layout C) e objetivos específicos atualizados.
 - Tabela de configuração dos dois perfis, das ameaças à validade e dos descartes.

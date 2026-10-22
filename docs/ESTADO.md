@@ -1,10 +1,12 @@
 # Estado do projeto
 
-Retrato de 13/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
+Retrato de 22/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1.2`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
 
 ## 1. Em que momento estamos
 
 **Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG; tag `cenario-padrao-v1.2`). O ensaio curto da noite 1 deu 14 rodadas válidas. Falta rodar a matriz: uma noite por broker.
+
+**Texto em andamento** (fase 10): `texto/tcc2.tex` tem todas as seções que não dependem de medição (fundamentação, trabalhos relacionados, arquitetura e implementação, metodologia, calibração, ameaças à validade) e a Figura 1 nova. O que falta está marcado com `\pendente{...}` (seção 8 deste arquivo).
 
 ## 2. Ambiente
 
@@ -21,7 +23,7 @@ Retrato de 13/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1`). 
 | --- | --- | --- |
 | Combinações | 2 brokers × 3 modos (Direct, Channels, Pipelines); o Direct é o grupo de controle | PLANO §1c |
 | Cenários de configuração | **Padrão** como linha de base, depois **ajustado** com a recomendação de cada fornecedor | PLANO §1g, pedido do orientador |
-| Carga | Telemetria da OpenF1, frota multiplicada, **100 Hz com pontos interpolados**; 250 s da corrida a partir do minuto 10 | PLANO §1a; aprovado pelo orientador |
+| Carga | Telemetria da OpenF1, frota multiplicada, **100 Hz com pontos interpolados**; 130 s da corrida do Bahrein 2024 a partir do minuto 10 (aquecimento, medição e margem) | PLANO §1a; aprovado pelo orientador |
 | Sensibilidade | Bateria a 3,7 Hz, o dado sem interpolação | PLANO §1a |
 | No texto | O trabalho não analisa a corrida; a conferência do resultado mostra que o processamento está certo | PLANO §1g |
 | Mensagem | Binária de 46 bytes, sem compressão, entrega at-least-once nos dois brokers | PLANO §1a, §1f |
@@ -80,11 +82,30 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 8 | Parte .NET: memória e coleta de lixo | depende da 6 |
 | 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | depende do aval do orientador e da 6 |
 | 9B | Segundo cenário, passo B: vários fluxos, etapas e tempo do evento | depende do passo A mostrar efeito, ou de pedido do orientador |
-| 10 | Texto e figuras | depende da 7, 8 e 9A |
+| 10 | Texto e figuras | **em andamento** (13/10): estrutura completa, Figura 1 e tudo o que não depende de resultado; 10 trechos pendentes (seção 8) |
 
 ## 7. Pontos de atenção
 
 - **O disco virtual da VM dá picos ao Kafka a partir de 100 mil ev/s** (IMPLEMENTACAO §9). Com 10 repetições e mediana, um episódio isolado não decide a saturação, mas as curvas do Kafka terão mais dispersão que as do RabbitMQ.
 - **A parte de .NET é a mais frágil aos olhos do orientador.** Sob processamento leve, Channels e Pipelines não ganham latência e custam CPU. Sem o segundo cenário, a conclusão sobre eles fica estreita. A resposta proposta é a republicação (APROFUNDAMENTO §8): o mecanismo interno ganha papel quando há espera de broker para esconder.
-- **Tempo de máquina.** Com 10 repetições, a matriz fica perto de 370 rodadas contando a sensibilidade. Se apertar, cortar pontos de carga do Kafka, não repetições.
+- **Tempo de máquina.** Com 10 repetições, a matriz tem 430 rodadas: 390 no cenário padrão e 40 de sensibilidade. Se apertar, cortar pontos de carga do Kafka, não repetições.
 - **Sem resposta do orientador:** núcleos exclusivos (mantidos) e RabbitMQ Streams (trabalho futuro). O critério de saturação e a regra de descarte foram decididos por nós em 24/09 (DESENVOLVIMENTO), sem passar por ele.
+
+## 8. Pendências, por quem resolve
+
+| # | Pendência | Quem | Depende de |
+| --- | --- | --- | --- |
+| 1 | Noite 1 da matriz (RabbitMQ, 170 rodadas, cerca de 5 h 30 min) | Pedro inicia | nada |
+| 2 | Noite 2 da matriz (Kafka, 260 rodadas, cerca de 8 h 20 min) | Pedro inicia | nada |
+| 3 | Análise da matriz e os 8 trechos de resultado do texto | Claude | 1 e 2 |
+| 4 | Fase 7: perfil ajustado, definido e medido (1 ou 2 noites) | Claude define, Pedro roda | 3 |
+| 5 | Fase 8: CPU, memória e coleta de lixo por modo | Claude | 3 |
+| 6 | Segundo cenário: construir (fase 9A) ou deixar como trabalho futuro | orientador | proposta em REUNIAO-ORIENTADOR |
+| 7 | Nome completo do orientador e banca no `tcc2.tex` | Pedro | — |
+| 8 | Datas "Acesso em: maio 2025" no `sbc-template.bib` (só no Overleaf) | Pedro | — |
+| 9 | Conferir nas fontes os trabalhos relacionados vindos do TCC1 e as 8 referências novas (`texto/referencias-novas.bib`) | Pedro | — |
+| 10 | Compilar no Overleaf (o texto nunca foi compilado; o ponto mais provável de erro é o `fontenc` com o template SBC) | Pedro | — |
+| 11 | Data de aprovação | — | defesa |
+
+**Trechos `\pendente` no texto:** resumo, abstract, validade das rodadas, saturação, latência, efeito do mecanismo interno, custo no .NET e síntese final (matriz); perfil ajustado e cenário ajustado (fase 7); frase de trabalhos futuros (segundo cenário). Antes da entrega, nenhum pode sobrar.
+
