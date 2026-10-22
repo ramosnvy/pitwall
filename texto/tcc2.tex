@@ -39,6 +39,8 @@
 % Marca, em vermelho, o que depende da matriz v3 ou de decisão ainda aberta.
 % Antes da entrega: procurar por \pendente e não deixar nenhum.
 \newcommand{\pendente}[1]{\textcolor{red}{[#1]}}
+% Comentários do orientador.
+\newcommand{\todoe}[1]{\textcolor{blue}{[#1]}}
 
 % O template SBC usa os nomes em inglês ("Figure", "Table").
 \renewcommand{\figurename}{Figura}
@@ -259,14 +261,22 @@ Na prática, as duas camadas aparecem juntas: o consumidor recebe do broker e en
 um mecanismo interno, que distribui o trabalho entre threads. Essa composição é o objeto
 deste trabalho.
 
-Para avaliar as arquiteturas, este trabalho utiliza dados reais de telemetria
-provenientes da API pública OpenF1\footnote{\url{https://openf1.org}}. Embora o domínio
-seja esportivo, os padrões de consumo de dados em alta frequência replicam
-características de sistemas financeiros, de IoT e de monitoramento em tempo real. O
-trabalho não analisa as corridas: os dados servem apenas como carga, e a correção do
-processamento é verificada comparando o resultado entre as combinações avaliadas.
+Estudar essas composições importa por três razões. Primeiro, a escolha entre RabbitMQ e
+Kafka costuma se apoiar em comparações que avaliam os brokers isoladamente, muitas vezes
+em outras plataformas, como Java e Spring \cite{dobbelaere:2017,kaminski:2025}; numa
+aplicação .NET, porém, o desempenho percebido é o da cadeia inteira, do broker até o
+código que processa o evento. Segundo, Channels e Pipelines são apresentados pela
+Microsoft como as ferramentas da plataforma para comunicação produtor-consumidor e para
+entrada e saída de alto desempenho \cite{microsoft:channels,microsoft:pipelines}, mas
+acrescentam uma fila e uma troca de thread a cada evento; sem medição, não se sabe se esse
+desacoplamento reduz a latência, apenas desloca o trabalho ou custa mais recursos do que
+entrega. Terceiro, uma comparação entre sistemas de mensageria só é justa quando o
+ambiente e a carga são controlados \cite{fu:2021}: sem isso, a diferença medida pode ser
+da configuração ou da máquina, e não da arquitetura. Decisões tomadas sem essa evidência
+levam a superdimensionar a infraestrutura ou a descobrir os limites do sistema só em
+produção.
 
-O objetivo geral deste trabalho é avaliar experimentalmente o desempenho de arquiteturas
+Nesse sentido, o objetivo geral deste trabalho é avaliar experimentalmente o desempenho de arquiteturas
 compostas de processamento de eventos em alta frequência utilizando .NET, combinando
 sistemas de mensageria e estratégias de processamento concorrente interno. Os objetivos
 específicos são:
@@ -283,6 +293,13 @@ específicos são:
   \item Identificar os trade-offs entre as abordagens e as condições em que o mecanismo
         interno compensa o seu custo.
 \end{itemize}
+
+Para avaliar as arquiteturas, este trabalho utiliza dados reais de telemetria
+provenientes da API pública OpenF1\footnote{\url{https://openf1.org}}. Embora o domínio
+seja esportivo, os padrões de consumo de dados em alta frequência replicam
+características de sistemas financeiros, de IoT e de monitoramento em tempo real. O
+trabalho não analisa as corridas: os dados servem apenas como carga, e a correção do
+processamento é verificada comparando o resultado entre as combinações avaliadas.
 
 As contribuições do trabalho são: (i) uma comparação de seis combinações sob o mesmo
 protocolo, com grupo de controle; (ii) um protocolo de medição com critérios de validade
@@ -382,12 +399,27 @@ que o retoma. Ambas as abstrações são discutidas em
 \subsection{Fontes de Dados: OpenF1}
 
 A OpenF1\footnote{\url{https://openf1.org}} é uma API pública e gratuita que fornece dados
-de telemetria em tempo real e históricos da Fórmula 1 \cite{openf1:2024}. A telemetria de
-cada carro (\texttt{car\_data}) traz velocidade, rotação do motor, marcha, posição do
+em tempo real e históricos da Fórmula~1, a partir da temporada de 2023
+\cite{openf1:2024}. Os dados são servidos em JSON por uma interface REST, organizados por
+sessão (treino, classificação ou corrida) e filtráveis por carro e por intervalo de tempo.
+Entre os conjuntos disponíveis estão a telemetria dos carros (\texttt{car\_data}), a
+posição na pista (\texttt{location}), as voltas (\texttt{laps}), os intervalos entre os
+carros (\texttt{intervals}), as paradas nos boxes (\texttt{pit}), as condições do tempo
+(\texttt{weather}) e as mensagens da direção de prova (\texttt{race\_control}).
+
+A telemetria de cada carro traz velocidade, rotação do motor, marcha, posição do
 acelerador, acionamento do freio e estado do DRS, amostrados a cerca de 3,7~Hz. Na corrida
 do Bahrein de 2024, são 443.940 amostras em 99 minutos, ou cerca de 75 eventos por segundo
-com os 20 carros. Neste trabalho, os dados históricos são a base de um workload
-reproduzível (Seção~\ref{sec:workload}).
+com os 20 carros. O acesso gratuito limita o número de requisições por segundo e por
+minuto, e os dados ao vivo exigem assinatura paga; os dados históricos, porém, são
+abertos.
+
+Três características tornam a OpenF1 adequada como base de carga para este trabalho. Os
+dados são medições reais de um sistema de telemetria, e não valores sintéticos. Eles vêm
+de muitas fontes simultâneas, os carros, cada uma com a sua sequência ordenada de
+amostras, como numa frota de dispositivos de IoT. E são públicos, o que permite
+reproduzir os experimentos. A baixa frequência original é compensada na reprodução da
+carga (Seção~\ref{sec:workload}).
 
 % ===================================================================
 
@@ -462,33 +494,15 @@ de controle sem ele. Essa lacuna reforça a originalidade e a relevância deste 
 \section{Arquitetura e Implementação}
 \label{sec:implementacao}
 
-Esta seção descreve a bancada experimental construída: os modos avaliados, os módulos do
-sistema e as decisões de implementação que afetam a medição. Todo o código, os scripts
-de execução e de análise e os resultados brutos estão disponíveis no repositório do
-projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. O cenário padrão é medido
-com a versão marcada como \texttt{cenario-padrao-v1.2}.
-
-\subsection{Combinações Avaliadas}
-
-O trabalho avalia dois brokers (RabbitMQ e Kafka) em três modos de processamento,
-totalizando seis combinações:
-
-\begin{itemize}
-  \item \textbf{Direto} (\textit{Direct}): o evento é processado no próprio retorno de chamada do
-        consumidor do broker, sem mecanismo interno;
-  \item \textbf{Channels}: o consumidor converte a mensagem em objeto e a escreve num
-        canal limitado; uma thread de trabalho por faixa lê e processa;
-  \item \textbf{Pipelines}: o consumidor escreve os bytes recebidos num \texttt{Pipe};
-        a thread de trabalho lê o fluxo e interpreta os registros direto do buffer, sem
-        criar um objeto por evento.
-\end{itemize}
-
-O modo direto não estava previsto na proposta do TCC1. Ele foi incluído como grupo de
-controle: sem ele, uma diferença entre ``Kafka com Channels'' e ``RabbitMQ com Channels''
-mostra que o broker importa, mas não mostra se o Channels ajudou ou atrapalhou. Medir a
-composição exige medir também a arquitetura sem a composição.
-
-\subsection{Arquitetura Geral}
+Esta seção descreve a bancada experimental construída para comparar as seis
+combinações avaliadas: dois brokers, RabbitMQ e Kafka, em três modos de
+processamento, direto, Channels e Pipelines. A Figura~\ref{fig:arquitetura_geral}
+mostra o caminho de um evento pela bancada, em cinco etapas numeradas; as
+subseções a seguir seguem essa numeração e usam os mesmos nomes da figura. Todo o
+código, os scripts de execução e de análise e os resultados brutos estão
+disponíveis no repositório do
+projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. O cenário padrão é
+medido com a versão marcada como \texttt{cenario-padrao-v1.2}.
 
 % Fonte da figura: arquitetura_geral.html (layout C do mapa da arquitetura,
 % só com o nome de cada passo); o PDF vetorial e o PNG saem dela pelo
@@ -502,130 +516,152 @@ passos na ordem do fluxo.}
 \label{fig:arquitetura_geral}
 \end{figure}
 
-O sistema é composto pelos seguintes módulos, conforme ilustrado na
-Figura~\ref{fig:arquitetura_geral}:
+A etapa 1 acontece uma única vez, antes dos experimentos. As etapas 2 a 5 rodam
+em containers Docker, cada uma com núcleos de processador exclusivos, indicados
+no topo de cada etapa na figura (Seção~\ref{sec:metodologia}). Dentro de cada
+etapa, os passos se leem de cima para baixo, e as setas ligam o último passo de
+uma etapa ao primeiro da seguinte.
 
-\begin{enumerate}
-  \item \textbf{Dados}: a telemetria da OpenF1, baixada uma única vez para disco;
-  \item \textbf{Ingestão}: reproduz os dados como carga e publica no broker
-        (Seção~\ref{sec:workload});
-  \item \textbf{Mensageria}: RabbitMQ 4.3.6 ou Kafka 4.1.0, com quatro filas ou
-        partições (Seção~\ref{sec:mensageria});
-  \item \textbf{Processamento}: consumidor nos três modos, sobre a mesma biblioteca de
-        processamento (Seção~\ref{sec:processamento});
-  \item \textbf{Persistência}: grava em lote, num PostgreSQL 17, os resultados
-        agregados, e guarda as métricas dos containers.
-\end{enumerate}
+\subsection{Etapa 1: Dados}
+\label{sec:dados}
 
-A coleta de métricas atravessa as etapas 2 a 5: latência por evento no consumidor,
-recursos de cada container e indicadores de validade da rodada (Seção~\ref{sec:coleta}).
+A API da OpenF1 não é, por si só, uma fonte de alta frequência: a telemetria tem
+cerca de 3,7~Hz por carro, o acesso gratuito limita as requisições e os dados ao
+vivo exigem assinatura (Seção~\ref{sec:fundamentacao}). Por isso, o passo
+\textit{API OpenF1} é feito uma única vez: um programa próprio baixa a telemetria
+e a posição na pista de nove corridas da temporada de 2024, cerca de 8,4 milhões
+de amostras, e grava uma \textit{Cópia local} em disco, em texto, com uma amostra
+por linha. A API não é chamada durante os experimentos, o que garante que todas as
+rodadas usem exatamente os mesmos dados. Os experimentos usam a telemetria da
+corrida do Bahrein de 2024.
 
-Toda a infraestrutura é containerizada com Docker, e os containers de cada rodada são
-criados e removidos por scripts, o que garante reprodutibilidade e padronização dos
-experimentos.
-
-\subsection{Carga de Trabalho}
+\subsection{Etapa 2: Ingestão}
 \label{sec:workload}
 
-A API da OpenF1 não é, por si só, uma fonte de alta frequência: a telemetria tem cerca
-de 3,7~Hz por carro, o plano gratuito limita as requisições e os dados ao vivo exigem
-assinatura. Por isso, os dados históricos são baixados uma vez para disco e reproduzidos
-por um gerador próprio; a API não é chamada durante os experimentos.
+A ingestão transforma a cópia local numa carga controlada, em quatro passos.
 
-\textbf{Multiplicação de frota.} Para obter 100 mil eventos por segundo de uma corrida
-que produz cerca de 75, há duas opções: comprimir o tempo ou simular mais carros. A
-segunda foi escolhida porque preserva o intervalo entre amostras de cada carro e
-corresponde ao cenário de frota que motiva o trabalho. Cada réplica recebe número de
-carro próprio e um deslocamento de fase, para que a frota não publique em rajadas
-sincronizadas.
+\textbf{Recorte.} Os experimentos usam um trecho de 130~s da corrida, que começa
+no décimo minuto: o aquecimento, a medição e uma margem.
 
-\textbf{Frequência de 100~Hz.} No cenário principal, cada carro é reamostrado de 3,7 para
-100~Hz por interpolação. Os experimentos usam a corrida do Bahrein de 2024, num trecho
-de 130~s que começa no décimo minuto: o aquecimento, a medição e uma margem.
-Velocidade, rotação e acelerador são interpolados em linha reta; marcha, freio e DRS
-permanecem em degrau, de modo que as frenagens e trocas de marcha detectadas são as mesmas
-da corrida original, o que é verificado em teste. A 100 mil eventos por segundo, a carga
-corresponde a uma frota de 1.000 carros. Uma bateria a 3,7~Hz, com os dados sem
-interpolação, serve de análise de sensibilidade.
+\textbf{Interpolação.} No cenário principal, cada carro é reamostrado de 3,7 para
+100~Hz. Velocidade, rotação e acelerador são interpolados em linha reta; marcha,
+freio e DRS permanecem em degrau, de modo que as frenagens e trocas de marcha
+detectadas são as mesmas da corrida original, o que é verificado em teste. Uma
+bateria a 3,7~Hz, com os dados sem interpolação, serve de análise de
+sensibilidade.
 
-\textbf{Gerador em malha aberta.} O gerador emite cada evento no instante previsto pela
-taxa alvo, independentemente das confirmações do broker, e registra o maior atraso entre
-o instante previsto e o envio efetivo. Esse atraso é critério de validade da rodada
-(Seção~\ref{sec:analise}).
+\textbf{Multiplicação.} Para chegar a cargas de dezenas ou centenas de milhares
+de eventos por segundo, há duas opções: comprimir o tempo ou simular mais carros.
+A segunda foi escolhida porque preserva o intervalo entre as amostras de cada
+carro e corresponde ao cenário de frota que motiva o trabalho. Cada réplica recebe
+número de carro próprio e um deslocamento de fase, para que a frota não publique
+em rajadas sincronizadas. A 100 mil eventos por segundo, a carga corresponde a uma
+frota de 1.000 carros.
 
-\textbf{Formato da mensagem.} Cada evento é um registro binário de 46 bytes, de tamanho
-fixo, com o número da sequência, a sessão, o carro, o instante da amostra, o instante da
-publicação e os seis canais de telemetria. O formato binário evita que o custo de
-interpretar texto domine a medição, e o tamanho fixo dispensa enquadramento no modo
-Pipelines. A compressão fica desligada nos dois brokers, porque as réplicas de uma mesma
-amostra têm conteúdo quase idêntico e favoreceriam artificialmente a compressão em lote do
-Kafka.
+\textbf{Publicação.} O gerador emite cada evento no instante previsto pela taxa
+alvo, independentemente das confirmações do broker (malha aberta), e registra o
+maior atraso entre o instante previsto e o envio efetivo, que é critério de
+validade da rodada (Seção~\ref{sec:analise}). Cada evento é um registro binário de
+46 bytes, de tamanho fixo, com o número da sequência, a sessão, o carro, o
+instante da amostra, o instante da publicação e os seis canais de telemetria. O
+formato binário evita que o custo de interpretar texto domine a medição, e o
+tamanho fixo dispensa enquadramento no modo Pipelines. A compressão fica
+desligada nos dois brokers, porque as réplicas de uma mesma amostra têm conteúdo
+quase idêntico e favoreceriam artificialmente a compressão em lote do Kafka.
 
-\subsection{Mensageria}
+\subsection{Etapa 3: Mensageria}
 \label{sec:mensageria}
 
-Os dois brokers rodam com um único nó. A carga é dividida em quatro faixas: quatro
-partições no Kafka e quatro filas clássicas no RabbitMQ. O carro de cada evento define
-a faixa pela mesma função nos dois brokers (CRC32 da chave, a função padrão do cliente
-do Kafka), de modo que os eventos de um carro chegam sempre em ordem e à mesma faixa. Do
-lado do consumidor, há um consumidor por faixa nos dois brokers.
+Cada rodada usa um dos dois brokers, \textit{Kafka} ou \textit{RabbitMQ}, com um
+único nó. A carga é dividida em quatro faixas: quatro partições no Kafka e quatro
+filas clássicas no RabbitMQ. O carro de cada evento define a faixa pela mesma
+função nos dois brokers (CRC32 da chave, a função padrão do cliente do Kafka), de
+modo que os eventos de um carro chegam sempre em ordem e à mesma faixa.
 
-A garantia de entrega é \textit{at-least-once} nos dois: o produtor espera a confirmação
-do broker (\texttt{acks=all} no Kafka, \textit{publisher confirms} no RabbitMQ), e o
-consumidor confirma a mensagem só depois de entregá-la ao processamento. A configuração
-completa está na Seção~\ref{sec:configuracao}.
+A garantia de entrega é \textit{at-least-once} nos dois: o produtor espera a
+confirmação do broker (\texttt{acks=all} no Kafka, \textit{publisher confirms} no
+RabbitMQ), e o consumidor confirma a mensagem só depois de entregá-la ao
+processamento. A configuração completa está na Seção~\ref{sec:configuracao}.
 
-\subsection{Processamento}
+\subsection{Etapa 4: Processamento}
 \label{sec:processamento}
 
-A lógica de processamento é a mesma biblioteca nos três modos. Ela segue as operações de
-referência dos benchmarks de processamento de fluxos \cite{arasu:2004,mutschler:2013}:
+\textbf{Consumidor.} Um consumidor por faixa recebe as mensagens do broker e
+confirma o recebimento em lotes.
+
+\textbf{Um modo por rodada.} O consumidor entrega cada evento ao processamento por
+um de três modos, e cada rodada usa um só:
 
 \begin{itemize}
-  \item \textbf{agregação em janela por carro}: janelas de 1~s em tempo do evento, com
-        velocidade média e máxima e contagem de eventos;
-  \item \textbf{detecção de padrão sobre eventos consecutivos} do mesmo carro: frenagens
-        (transição de freio solto para acionado) e trocas de marcha.
+  \item \textbf{Direct} (direto): o evento é processado no próprio retorno de
+        chamada do consumidor, sem mecanismo interno;
+  \item \textbf{Channels}: o consumidor escreve o evento num canal limitado, de
+        10.000 eventos por faixa, e uma thread de trabalho por faixa lê e processa;
+  \item \textbf{Pipelines}: o consumidor escreve os bytes recebidos num
+        \texttt{Pipe}, e uma thread de trabalho por faixa lê o fluxo e interpreta os
+        registros direto do buffer, sem criar um objeto por evento. O
+        \texttt{Pipe} pausa o escritor com 460.000 bytes pendentes, o mesmo volume
+        do canal, e o retoma na metade.
 \end{itemize}
 
-A detecção exige que os eventos de cada carro cheguem em ordem; se a ordem quebrar, as
-contagens mudam. O resultado de cada rodada é resumido num \textit{digest} independente da
-ordem de fechamento das janelas. Como todas as combinações processam a mesma entrada em
-cada nível de carga, todas precisam produzir o mesmo digest: uma divergência indica perda
-de evento, duplicação ou quebra de ordem.
+Quando o canal ou o \texttt{Pipe} enche, o consumidor espera, e a contrapressão
+chega ao broker, que deixa de entregar novas mensagens. O modo direto não estava
+previsto na proposta do TCC1. Ele foi incluído como grupo de controle: sem ele,
+uma diferença entre ``Kafka com Channels'' e ``RabbitMQ com Channels'' mostra que
+o broker importa, mas não mostra se o Channels ajudou ou atrapalhou.
 
-Nos modos Channels e Pipelines, há um mecanismo e uma thread de trabalho por faixa. O canal
-tem capacidade de 10.000 eventos, e o \texttt{Pipe} pausa o escritor com 460.000 bytes
-pendentes (o mesmo volume, 10.000 eventos de 46 bytes) e o retoma na metade. Quando o
-mecanismo enche, o consumidor espera, e a contrapressão chega ao broker, que deixa de
-entregar novas mensagens.
-
-\subsection{Persistência}
-
-Os resultados das janelas são gravados no PostgreSQL em lote, por \texttt{COPY} binário,
-em tabelas sem registro de transação (\texttt{UNLOGGED}) e com
-\texttt{synchronous\_commit} desligado. O objetivo é que o banco não se torne o gargalo e
-mascare as diferenças entre as combinações. A latência medida termina no fim do
-processamento, antes da gravação, e a persistência é acompanhada à parte: uma rodada em
-que a fila de gravação descarta janelas é inválida.
-
-\subsection{Coleta de Métricas}
-\label{sec:coleta}
+\textbf{Janelas e detecção.} Os três modos chamam exatamente o mesmo código de
+processamento, uma biblioteca compartilhada entre eles; o que muda de um modo para
+outro é só o caminho do evento entre o consumidor e esse código. Assim, qualquer
+diferença medida entre os modos vem da forma de entrega, e não do cálculo. O
+processamento segue as operações de referência dos benchmarks de processamento de
+fluxos \cite{arasu:2004,mutschler:2013}:
 
 \begin{itemize}
-  \item \textbf{Latência}: o produtor grava na mensagem o instante da publicação, lido de um
-        relógio monotônico; o consumidor compara esse valor com o mesmo relógio ao fim do
-        processamento. Como produtor e consumidor rodam na mesma máquina, os relógios são
-        comparáveis sem sincronização. As latências são registradas em histogramas
-        HdrHistogram, que preservam a cauda da distribuição;
+  \item \textbf{agregação em janela por carro}: janelas de 1~s em tempo do evento,
+        com velocidade média e máxima e contagem de eventos;
+  \item \textbf{detecção de padrão sobre eventos consecutivos} do mesmo carro:
+        frenagens (transição de freio solto para acionado) e trocas de marcha.
+\end{itemize}
+
+A detecção exige que os eventos de cada carro cheguem em ordem; se a ordem
+quebrar, as contagens mudam. O resultado de cada rodada é resumido num
+\textit{digest} independente da ordem de fechamento das janelas. Como todas as
+combinações processam a mesma entrada em cada nível de carga, todas precisam
+produzir o mesmo digest: uma divergência indica perda de evento, duplicação ou
+quebra de ordem.
+
+\subsection{Etapa 5: Persistência e Métricas}
+\label{sec:coleta}
+
+\textbf{PostgreSQL.} Os resultados das janelas são gravados no PostgreSQL~17 em
+lote, por \texttt{COPY} binário, em tabelas sem registro de transação
+(\texttt{UNLOGGED}) e com \texttt{synchronous\_commit} desligado, para que o banco
+não se torne o gargalo e mascare as diferenças entre as combinações. A latência
+medida termina no fim do processamento, antes da gravação, e a persistência é
+acompanhada à parte: uma rodada em que a fila de gravação descarta janelas é
+inválida.
+
+\textbf{Métricas.} O Prometheus, com o cAdvisor, lê a CPU e a memória de cada
+container durante toda a rodada. As demais medidas são registradas pelo próprio
+gerador e pelo consumidor, e todas são gravadas por rodada:
+
+\begin{itemize}
+  \item \textbf{Latência}: o produtor grava na mensagem o instante da publicação,
+        lido de um relógio monotônico; o consumidor compara esse valor com o mesmo
+        relógio ao fim do processamento. Como produtor e consumidor rodam na mesma
+        máquina, os relógios são comparáveis sem sincronização. As latências são
+        registradas em histogramas HdrHistogram, que preservam a cauda da
+        distribuição;
   \item \textbf{Throughput}: eventos processados por segundo na janela de medição;
-  \item \textbf{CPU e memória} de cada container, pelo cAdvisor, coletadas pelo Prometheus;
-  \item \textbf{Alocações e coletas de lixo} do consumidor .NET, pelos contadores do
-        runtime;
+  \item \textbf{CPU e memória} de cada container, pelo cAdvisor;
+  \item \textbf{Alocações e coletas de lixo} do consumidor .NET, pelos contadores
+        do runtime;
   \item \textbf{Validade}: atraso máximo de envio do gerador, digest do resultado,
-        registros incompletos no \texttt{Pipe} e janelas descartadas na persistência;
-  \item \textbf{Configuração efetiva}: os parâmetros de cada cliente e as variáveis de
-        ambiente do .NET são gravados com cada rodada.
+        registros incompletos no \texttt{Pipe} e janelas descartadas na
+        persistência;
+  \item \textbf{Configuração efetiva}: os parâmetros de cada cliente e as
+        variáveis de ambiente do .NET.
 \end{itemize}
 
 % ===================================================================
@@ -1138,6 +1174,6 @@ cenário for incluído no trabalho}.
 % ===================================================================
 
 \bibliographystyle{sbc}
-\bibliography{sbc-template}
+\bibliography{sbc-template,referencias-novas}
 
 \end{document}
