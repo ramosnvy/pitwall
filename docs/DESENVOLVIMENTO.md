@@ -108,6 +108,23 @@ Antes de cada noite: tag conferida (o roteiro faz), painéis desligados, só o b
 
 ## Fase 7. Cenário ajustado
 
+**Definida em 22/10/2026.** Dois perfis (AUDITORIA-CONFIG, "Cenário ajustado"):
+- **ajustado:** baixa latência. Kafka com `linger.ms` 0; RabbitMQ com mensagem transitória e `prefetch` 300.
+- **ajustado-vazao:** throughput, só no Kafka, com `linger.ms` 20.
+
+Hipóteses e regras de comparação registradas antes de medir (ANALISE §10). Roteiro: `experiments/matriz-ajustada.ps1 -Parte rabbit|kafka|vazao`.
+
+| Parte | Rodadas | Tempo |
+| --- | --- | --- |
+| rabbit: ajustado, mesmas cargas do padrão | 150 + 20 a 3,7 Hz | cerca de 5 h 30 min |
+| kafka: ajustado, mesmas cargas do padrão | 240 + 20 a 3,7 Hz | cerca de 8 h 40 min |
+| vazao: ajustado-vazao, Kafka a 200, 300 e 400 mil | 90 | cerca de 3 h |
+
+Total: 520 rodadas, cerca de 17 h, numa sessão contínua.
+
+O plano original, abaixo, previa só o perfil de latência.
+
+
 - Perfil `ajustado` com a recomendação de cada fornecedor e o que as fases 2 e 6 indicarem.
 - Candidatos: `prefetch` e tipo de mensagem no RabbitMQ; `linger.ms` e `batch.size` no Kafka.
 - Mesma matriz, com o mesmo protocolo. Se o tempo de máquina apertar, cortar cargas, não repetições.

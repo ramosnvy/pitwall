@@ -48,7 +48,7 @@ param(
     # cpuset: nucleos exclusivos por container (padrao); quota: como na 7e283c2.
     [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
     # Perfil de configuracao dos clientes (Get-ProfileArgs no Pitwall.Runner).
-    [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao'
+    [ValidateSet('padrao', 'legado', 'ajustado', 'ajustado-vazao')][string]$Profile = 'padrao'
 )
 
 Import-Module (Join-Path $PSScriptRoot 'Pitwall.Runner.psm1') -Force

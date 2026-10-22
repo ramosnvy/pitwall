@@ -409,7 +409,17 @@ function Get-ProfileArgs {
     e varredura a 100 Hz). Reproduz so o lado dos clientes: heap do Kafka,
     compressao do broker e limite de memoria do RabbitMQ mudaram no compose.
 
-    ajustado: definido na fase 7, depois de medir o padrao.
+    ajustado: fase 7, a recomendacao de cada fornecedor para baixa latencia,
+    mantendo o at-least-once. Kafka: linger.ms 0 (testa se o piso de ~5 ms do
+    padrao vem da espera de formacao de lotes). RabbitMQ: mensagem transitoria
+    (com um no, confirma com a mensagem na memoria, como o Kafka confirma com
+    ela no cache do sistema) e prefetch 300 (faixa de 100 a 300 da
+    documentacao). O resto igual ao padrao.
+
+    ajustado-vazao: fase 7, a recomendacao do Kafka para throughput:
+    linger.ms 20 (o batch.size padrao da librdkafka ja e 1 MB). No RabbitMQ a
+    recomendacao de throughput coincide com a de latencia, entao e igual ao
+    ajustado. Medido so no Kafka, nas cargas altas (docs/DESENVOLVIMENTO.md).
     #>
     param(
         [Parameter(Mandatory)][string]$Profile,
@@ -432,8 +442,14 @@ function Get-ProfileArgs {
             }
             return @{ Producer = @('--confirm-batch', '1000'); Consumer = @('--prefetch', '300') }
         }
-        'ajustado' { throw 'O perfil ajustado so e definido na fase 7 (docs/DESENVOLVIMENTO.md).' }
-        default { throw "Perfil desconhecido: $Profile. Use padrao ou legado." }
+        { $_ -in 'ajustado', 'ajustado-vazao' } {
+            if ($kafka) {
+                $linger = if ($Profile -eq 'ajustado') { '0' } else { '20' }
+                return @{ Producer = @('--linger-ms', $linger); Consumer = @() }
+            }
+            return @{ Producer = @('--confirm-batch', '12500', '--transient'); Consumer = @('--prefetch', '300') }
+        }
+        default { throw "Perfil desconhecido: $Profile. Use padrao, legado, ajustado ou ajustado-vazao." }
     }
 }
 
@@ -476,7 +492,7 @@ function Invoke-PitwallRun {
         # inteira, como na matriz 7e283c2. Obrigatorio com -Hz.
         [double]$WindowStart = -1,
         # Perfil de configuracao dos clientes (Get-ProfileArgs).
-        [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao',
+        [ValidateSet('padrao', 'legado', 'ajustado', 'ajustado-vazao')][string]$Profile = 'padrao',
         # Argumentos avulsos, para as medicoes de decisao da fase 2. Vencem os
         # do perfil: os clientes leem a primeira ocorrencia de cada opcao.
         [string[]]$ProducerExtraArgs = @(),

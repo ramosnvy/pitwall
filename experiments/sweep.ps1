@@ -30,7 +30,7 @@ param(
     [double]$WindowStart = -1,
     [ValidateSet('cpuset', 'quota')][string]$CpuMode = 'cpuset',
     # Perfil de configuracao dos clientes (Get-ProfileArgs no Pitwall.Runner).
-    [ValidateSet('padrao', 'legado', 'ajustado')][string]$Profile = 'padrao',
+    [ValidateSet('padrao', 'legado', 'ajustado', 'ajustado-vazao')][string]$Profile = 'padrao',
     [switch]$HostProcesses
 )
 

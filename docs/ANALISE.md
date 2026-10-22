@@ -83,3 +83,25 @@ Para cada combinação e carga também sai a fração de rodadas que cumprem as 
 | Data | Mudança | Motivo |
 | --- | --- | --- |
 | 13/10/2026 | Uma carga acima da saturação em cada broker: 80 mil no RabbitMQ e 400 mil no Kafka, além das fixadas em 24/09 | No ensaio curto, o RabbitMQ ficou abaixo de 50 ms a 60 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Decidido antes de qualquer rodada da matriz v3 |
+
+## 10. Cenário ajustado (registrado em 22/10/2026, antes de medir)
+
+Fase 7. Os perfis estão em AUDITORIA-CONFIG ("Cenário ajustado") e em `Get-ProfileArgs`.
+
+**Mesmas regras.** As seções 2 a 5 valem para cada perfil separadamente: validade, Tukey dentro da combinação, resumo e ponto de saturação.
+
+**Comparação com o padrão.**
+- **Efeito do ajuste:** diferença entre a mediana do ajustado e a do padrão, no mesmo broker, modo, carga e frequência.
+- **Tamanho relevante:** o mesmo da seção 6, 10% na vazão ou 20% no P99.
+- **Saturação:** os pontos de saturação dos dois perfis lado a lado, por broker e modo.
+- **No Kafka, nas cargas de 200, 300 e 400 mil,** três perfis lado a lado: padrão (`linger.ms` 5), ajustado (0) e ajustado-vazao (20).
+
+**Hipóteses**, a confirmar ou refutar no texto:
+
+| # | Hipótese |
+| --- | --- |
+| H7a | Kafka ajustado: P50 e P99 caem de forma relevante em todas as cargas, e o P99 fica abaixo de 3 ms até 100 mil. Se cair, o piso de cerca de 5 ms do padrão vem da espera de formação de lotes |
+| H7b | Kafka ajustado: a CPU do broker sobe, e a saturação pode cair para menos de 400 mil |
+| H7c | RabbitMQ ajustado: o P99 cai de forma relevante a partir de 40 mil, e a saturação sobe para 80 mil |
+| H7d | Channels e Pipelines continuam sem efeito relevante de latência contra o Direct, nos dois perfis |
+| H7e | Kafka ajustado-vazao: o P99 sobe em relação ao padrão, a CPU do broker e do gerador cai, e há menos rodadas inválidas a 400 mil |

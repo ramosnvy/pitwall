@@ -239,3 +239,16 @@ Feitas na fase 2 (IMPLEMENTACAO §8) e, para a janela do Kafka, na fase 4 (§9).
 2. RabbitMQ com mensagem persistente e transitória, a 40 mil ev/s.
 3. `prefetch` 300 contra sem limite, a 40 mil e a 60 mil ev/s.
 4. Janelas do produtor (1 milhão contra 100 mil no Kafka; 8 mil contra 100 mil no RabbitMQ) na carga de saturação de cada um.
+
+## Cenário ajustado (fase 7, 22/10/2026)
+
+Recomendação de cada fornecedor, mantendo o at-least-once (`acks=all` e publisher confirms) e o resto igual ao cenário padrão. Tag `cenario-ajustado-v1`.
+
+| Perfil | Broker | Parâmetro | Padrão | Ajustado | Motivo |
+| --- | --- | --- | --- | --- | --- |
+| ajustado | Kafka | `linger.ms` | 5 | 0 | recomendação para baixa latência; testa se o piso de cerca de 5 ms do padrão vem da espera de formação de lotes |
+| ajustado | RabbitMQ | mensagem | persistente | transitória | com um nó, confirma com a mensagem na memória, como o Kafka confirma com ela no cache do sistema: iguala a assimetria A em vez de afrouxar a garantia. Na fase 2, a persistência custou 48% no P99 |
+| ajustado | RabbitMQ | `prefetch` | sem limite | 300 | faixa de 100 a 300 da documentação; na fase 2, sem diferença relevante |
+| ajustado-vazao | Kafka | `linger.ms` | 5 | 20 | recomendação para throughput; o `batch.size` padrão da librdkafka já é 1 MB. Compressão continua desligada, pela mesma regra de equivalência |
+
+No RabbitMQ, a recomendação para throughput coincide com a de latência, então o perfil ajustado-vazao só é medido no Kafka.
