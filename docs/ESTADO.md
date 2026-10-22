@@ -1,10 +1,10 @@
 # Estado do projeto
 
-Retrato de 22/10/2026, no cenário padrão congelado (tag `cenario-padrao-v1.2`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
+Retrato de 22/10/2026, depois da matriz v3 do cenário padrão (tag `cenario-padrao-v1.2`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
 
 ## 1. Em que momento estamos
 
-**Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG; tag `cenario-padrao-v1.2`). O ensaio curto da noite 1 deu 14 rodadas válidas. Falta rodar a matriz: uma noite por broker.
+**Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG; tag `cenario-padrao-v1.2`). **Matriz v3 concluída em 22/10/2026** (fase 6): 430 rodadas em duas sessões seguidas, 0 falhas técnicas, 417 válidas, digest idêntico em todas as cargas. Análise pré-registrada em `results/analise-v3-*.csv`. RabbitMQ satura em 60 mil ev/s nos três modos; Kafka sustenta 400 mil, a maior carga testada. Channels e Pipelines sem diferença relevante de latência, throughput ou alocação; custam de 2,4 a 3,3 vezes a CPU do consumidor no Kafka.
 
 **Texto em andamento** (fase 10): `texto/tcc2.tex` tem todas as seções que não dependem de medição (fundamentação, trabalhos relacionados, arquitetura e implementação, metodologia, calibração, ameaças à validade) e a Figura 1 nova. O que falta está marcado com `\pendente{...}` (seção 8 deste arquivo).
 
@@ -77,9 +77,9 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 3 | Cenário padrão congelado (tag `cenario-padrao-v1`) | **concluída** (13/10): sem ajuste de disco da VM |
 | 4 | Instabilidade do Kafka com Channels | **concluída** (25/09; IMPLEMENTACAO §9): não é do Channels; é a gravação periódica do disco virtual da VM. Log do Kafka passou para o volume (defeito 3) |
 | 5 | Análise pré-registrada: Tukey, critério de saturação, `ANALISE.md` | **concluída** (25/09): `analysis/analise.ps1`, testado na fase 2 e na varredura a 100 Hz |
-| 6 | Matriz v3 no cenário padrão, em duas noites (`experiments/matriz-v3.ps1`) | **próxima** |
-| 7 | Cenário ajustado | depende da 6 |
-| 8 | Parte .NET: memória e coleta de lixo | depende da 6 |
+| 6 | Matriz v3 no cenário padrão, em duas noites (`experiments/matriz-v3.ps1`) | **concluída** (22/10): 430 rodadas, 0 falhas, 417 válidas |
+| 7 | Cenário ajustado | **próxima** |
+| 8 | Parte .NET: memória e coleta de lixo | **concluída no texto** (22/10): alocação e coletas iguais nos três modos; custo é CPU |
 | 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | depende do aval do orientador e da 6 |
 | 9B | Segundo cenário, passo B: vários fluxos, etapas e tempo do evento | depende do passo A mostrar efeito, ou de pedido do orientador |
 | 10 | Texto e figuras | **em andamento** (13/10): estrutura completa, Figura 1 e tudo o que não depende de resultado; 10 trechos pendentes (seção 8) |
@@ -95,11 +95,11 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 
 | # | Pendência | Quem | Depende de |
 | --- | --- | --- | --- |
-| 1 | Noite 1 da matriz (RabbitMQ, 170 rodadas, cerca de 5 h 30 min) | Pedro inicia | nada |
-| 2 | Noite 2 da matriz (Kafka, 260 rodadas, cerca de 8 h 20 min) | Pedro inicia | nada |
-| 3 | Análise da matriz e os 8 trechos de resultado do texto | Claude | 1 e 2 |
+| 1 | ~~Noites 1 e 2 da matriz~~ | — | **feito** em 22/10 |
+| 2 | ~~Análise da matriz~~ | — | **feito** (`results/analise-v3-*.csv`) |
+| 3 | ~~Resultados no texto~~ | — | **feito**: seção 6, resumo, abstract e considerações finais |
 | 4 | Fase 7: perfil ajustado, definido e medido (1 ou 2 noites) | Claude define, Pedro roda | 3 |
-| 5 | Fase 8: CPU, memória e coleta de lixo por modo | Claude | 3 |
+| 5 | ~~Fase 8~~ | — | **feito** no texto (Custo de Recursos no .NET) |
 | 6 | Segundo cenário: construir (fase 9A) ou deixar como trabalho futuro | orientador | proposta em REUNIAO-ORIENTADOR |
 | 7 | Nome completo do orientador e banca no `tcc2.tex` | Pedro | — |
 | 8 | Datas "Acesso em: maio 2025" no `sbc-template.bib` (só no Overleaf) | Pedro | — |
@@ -107,5 +107,5 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 10 | Compilar no Overleaf (o texto nunca foi compilado; o ponto mais provável de erro é o `fontenc` com o template SBC) | Pedro | — |
 | 11 | Data de aprovação | — | defesa |
 
-**Trechos `\pendente` no texto:** resumo, abstract, validade das rodadas, saturação, latência, efeito do mecanismo interno, custo no .NET e síntese final (matriz); perfil ajustado e cenário ajustado (fase 7); frase de trabalhos futuros (segundo cenário). Antes da entrega, nenhum pode sobrar.
+**Trechos `\pendente` no texto:** perfil ajustado e cenário ajustado (fase 7); frase de trabalhos futuros (segundo cenário). Os de resultados da matriz foram preenchidos em 22/10. Antes da entrega, nenhum pode sobrar.
 
