@@ -131,6 +131,8 @@ Para cada um: valor padrão, valor usado, por quê, e se os dois brokers ficam e
 
 ### 1h. Segundo cenário: vários fluxos, etapas e republicação (proposta de 24/09/2026)
 
+**Validado pelo orientador em 27/10/2026.** A construção começa pelo passo A (republicação sobre a carga atual); o passo B segue a regra de antes: só se o A mostrar efeito ou se o orientador pedir.
+
 Resposta à pergunta do orientador sobre o que se ganha com Channels e Pipelines. Aguarda o aval dele. Desenho completo em [APROFUNDAMENTO.md](APROFUNDAMENTO.md) §8; sequência em [DESENVOLVIMENTO.md](DESENVOLVIMENTO.md), fase 9.
 
 - **Argumento:** o mecanismo interno tem papel real quando há espera por entrada e saída a esconder, e não quando o cálculo é pesado. Publicar o resultado noutro broker e esperar a confirmação cria essa espera.

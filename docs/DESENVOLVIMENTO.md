@@ -138,7 +138,7 @@ O plano original, abaixo, previa só o perfil de latência.
 
 ## Fase 9. Segundo cenário: vários fluxos, etapas e republicação
 
-Só depois do aval do orientador. Desenho, dados, hipóteses (H5a a H5d) e referências em APROFUNDAMENTO §8. Construído em dois passos: o A testa a ideia central com pouco código, e o B só começa se o A mostrar efeito ou se o orientador pedir o cenário completo.
+**Aval do orientador em 27/10/2026; passo A em construção.** Desenho, dados, hipóteses (H5a a H5d) e referências em APROFUNDAMENTO §8. Construído em dois passos: o A testa a ideia central com pouco código, e o B só começa se o A mostrar efeito ou se o orientador pedir o cenário completo.
 
 ### Passo A. Republicação sobre a carga atual
 

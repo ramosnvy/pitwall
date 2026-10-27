@@ -80,7 +80,7 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 6 | Matriz v3 no cenário padrão, em duas noites (`experiments/matriz-v3.ps1`) | **concluída** (22/10): 430 rodadas, 0 falhas, 417 válidas |
 | 7 | Cenário ajustado | **próxima** |
 | 8 | Parte .NET: memória e coleta de lixo | **concluída no texto** (22/10): alocação e coletas iguais nos três modos; custo é CPU |
-| 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | depende do aval do orientador e da 6 |
+| 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | **em construção** (aval do orientador em 27/10) |
 | 9B | Segundo cenário, passo B: vários fluxos, etapas e tempo do evento | depende do passo A mostrar efeito, ou de pedido do orientador |
 | 10 | Texto e figuras | **em andamento** (13/10): estrutura completa, Figura 1 e tudo o que não depende de resultado; 10 trechos pendentes (seção 8) |
 
@@ -100,7 +100,7 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 3 | ~~Resultados no texto~~ | — | **feito**: seção 6, resumo, abstract e considerações finais |
 | 4 | Fase 7: perfil ajustado, definido e medido (1 ou 2 noites) | Claude define, Pedro roda | 3 |
 | 5 | ~~Fase 8~~ | — | **feito** no texto (Custo de Recursos no .NET) |
-| 6 | Segundo cenário: construir (fase 9A) ou deixar como trabalho futuro | orientador | proposta em REUNIAO-ORIENTADOR |
+| 6 | ~~Segundo cenário: decisão~~ | — | **validado pelo orientador em 27/10**; passo A em construção |
 | 7 | Nome completo do orientador e banca no `tcc2.tex` | Pedro | — |
 | 8 | Datas "Acesso em: maio 2025" no `sbc-template.bib` (só no Overleaf) | Pedro | — |
 | 9 | Conferir nas fontes os trabalhos relacionados vindos do TCC1 e as 8 referências novas (`texto/referencias-novas.bib`) | Pedro | — |
