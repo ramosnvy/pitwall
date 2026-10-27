@@ -3,6 +3,7 @@ using System.Globalization;
 using HdrHistogram;
 using Pitwall.Consumer;
 using Pitwall.Consumer.Pipelines;
+using Pitwall.Consumer.Republish;
 using Pitwall.Consumer.Sources;
 using Pitwall.Contracts;
 using Pitwall.Persistence;
@@ -58,34 +59,55 @@ var runId = GetArg("--run-id") is { } rid ? Guid.Parse(rid) : Guid.NewGuid();
 var processingOptions = new ProcessingOptions { SyntheticCostMicros = syntheticCost };
 var digest = new ResultDigest();
 var latency = new LatencyRecorder(partitions, TimeSpan.FromSeconds(warmupSeconds));
+var bootstrap = GetArg("--bootstrap") ?? "localhost:9092";
+var rabbitHost = GetArg("--rabbit-host") ?? "localhost";
+
+// Segundo cenario (fase 9A, docs/APROFUNDAMENTO.md secao 8.6). Com
+// --republish, o consumidor republica o resultado num segundo topico do mesmo
+// broker; com --painel, este processo e o consumidor final, que le essa saida
+// e mede a latencia de ponta a ponta.
+var republishKind = ParseKind(GetArg("--republish"));
+var painelKind = ParseKind(GetArg("--painel"));
+var outputTopic = GetArg("--output-topic") ?? "resultado";
+
+// O painel le o topico de saida. Na saida enriquecida sabe quantas mensagens
+// esperar (uma por evento); na resumida, nao, e encerra pelo silencio.
+var inputTopic = painelKind is null ? GetArg("--topic") ?? "telemetry" : outputTopic;
+var sourceExpected = painelKind == OutputKind.Resumida ? 0 : expectedEvents;
 
 IEventSource source = broker switch
 {
     "kafka" => new KafkaEventSource(new KafkaSourceOptions
     {
-        BootstrapServers = GetArg("--bootstrap") ?? "localhost:9092",
-        Topic = GetArg("--topic") ?? "telemetry",
-        GroupId = GetArg("--group") ?? "pitwall",
+        BootstrapServers = bootstrap,
+        Topic = inputTopic,
+        GroupId = painelKind is null ? GetArg("--group") ?? "pitwall" : "painel",
         // Sem a opcao, vale o padrao da librdkafka (docs/AUDITORIA-CONFIG.md).
         FetchWaitMaxMs = GetArg("--fetch-wait-max-ms") is { } fetchWait ? int.Parse(fetchWait) : null,
         SocketNagleDisable = ParseNagle(),
-        ExpectedEvents = expectedEvents,
+        ExpectedEvents = sourceExpected,
         Partitions = partitions,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
     }),
     "rabbit" or "rabbitmq" => new RabbitEventSource(new RabbitSourceOptions
     {
-        Host = GetArg("--rabbit-host") ?? "localhost",
-        Queue = GetArg("--queue") ?? "telemetry",
+        Host = rabbitHost,
+        Queue = painelKind is null ? GetArg("--queue") ?? "telemetry" : outputTopic,
+        Exchange = painelKind is null ? "telemetry" : outputTopic,
         Partitions = partitions,
         // 0 = sem limite, o padrao do RabbitMQ.
         Prefetch = ushort.Parse(GetArg("--prefetch") ?? "0"),
         AckBatch = int.Parse(GetArg("--ack-batch") ?? "100"),
-        ExpectedEvents = expectedEvents,
+        ExpectedEvents = sourceExpected,
         IdleTimeout = TimeSpan.FromSeconds(idleSeconds)
     }),
     _ => throw new ArgumentException($"Broker desconhecido: {broker}. Use kafka ou rabbit.")
 };
+
+if (painelKind is { } kindPainel)
+{
+    return await RunPainelAsync(kindPainel);
+}
 
 var architecture = source.Broker + "-" + mode;
 var recorder = new ExperimentRunRecorder(connectionString);
@@ -112,17 +134,50 @@ Action<DriverWindowStats> onWindow = writer is null
         writer.Enqueue(stats);
     };
 
+// Segundo cenario: as pendencias de cada faixa e quem publica a saida.
+ReleaseTracker? tracker = null;
+IRepublisher? republisher = null;
+RepublishOptions? republishOptions = null;
+
+if (republishKind is { } kindOut)
+{
+    tracker = new ReleaseTracker(partitions);
+    republishOptions = new RepublishOptions
+    {
+        Kind = kindOut,
+        ConfirmBatch = int.Parse(GetArg("--out-confirm-batch") ?? "100"),
+        MaxInFlight = int.Parse(GetArg("--out-max-in-flight") ?? capacity.ToString(CultureInfo.InvariantCulture)),
+        Capacity = capacity
+    };
+    republisher = source.Broker == "kafka"
+        ? new KafkaRepublisher(bootstrap, outputTopic, partitions, tracker)
+        : await RabbitRepublisher.ConnectAsync(rabbitHost, outputTopic, partitions,
+            persistent: !args.Contains("--transient-out"), tracker, cts.Token);
+}
+
 // A capacidade e declarada em eventos e convertida para bytes na variante
 // Pipelines, para que as duas tenham a mesma contrapressao em numero de
 // eventos e nao em unidades diferentes.
-await using IProcessingPipeline pipeline = mode switch
+await using IProcessingPipeline pipeline = (mode, republishOptions) switch
 {
-    "direct" => new DirectPipeline(partitions, processingOptions, onWindow, latency),
-    "channels" => new ChannelsPipeline(partitions, capacity, processingOptions, onWindow, latency),
-    "pipelines" => new PipelinesPipeline(
+    ("direct", null) => new DirectPipeline(partitions, processingOptions, onWindow, latency),
+    ("channels", null) => new ChannelsPipeline(partitions, capacity, processingOptions, onWindow, latency),
+    ("pipelines", null) => new PipelinesPipeline(
         partitions, capacity * TelemetryCodec.Size, processingOptions, onWindow, latency),
+    ("direct", { } ro) => new RepublishDirectPipeline(
+        partitions, ro, processingOptions, onWindow, latency, tracker!, republisher!),
+    ("channels", { } ro) => new RepublishChannelsPipeline(
+        partitions, ro, processingOptions, onWindow, latency, tracker!, republisher!),
+    ("pipelines", { } ro) => new RepublishPipelinesPipeline(
+        partitions, ro, processingOptions, onWindow, latency, tracker!, republisher!),
     _ => throw new ArgumentException($"Modo desconhecido: {mode}. Use direct, channels ou pipelines.")
 };
+
+var clientConfig = republishOptions is null
+    ? source.EffectiveConfig
+    : source.EffectiveConfig + ";" + republisher!.EffectiveConfig +
+      $";republish={republishOptions.Kind.ToString().ToLowerInvariant()}" +
+      $";out_confirm_batch={republishOptions.ConfirmBatch};out_max_in_flight={republishOptions.MaxInFlight}";
 
 if (persist)
 {
@@ -172,6 +227,15 @@ await pipeline.CompleteAsync();
 watch.Stop();
 tracer?.Dispose();
 
+// Segundo cenario: o pipeline ja esperou todas as confirmacoes; aqui o
+// publicador de saida fecha as conexoes.
+if (republisher is not null)
+{
+    await republisher.DisposeAsync();
+    Console.WriteLine($"Saida             : {republisher.Published:N0} publicadas, {republisher.Failed:N0} recusadas, " +
+                      $"{tracker!.Waits:N0} esperas por confirmacao somando {tracker.WaitTime.TotalMilliseconds:N0} ms");
+}
+
 if (writer is not null)
 {
     await writer.DisposeAsync();
@@ -214,10 +278,21 @@ if (persist)
 
 if (reportPath is not null)
 {
+    // Colunas do segundo cenario so quando ele esta ligado: os relatorios dele
+    // sao arquivos proprios, e os do primeiro cenario continuam iguais.
+    List<(string, string)>? extra = republisher is null ? null :
+    [
+        ("republish", republishOptions!.Kind.ToString().ToLowerInvariant()),
+        ("out_published", republisher.Published.ToString(CultureInfo.InvariantCulture)),
+        ("out_failed", republisher.Failed.ToString(CultureInfo.InvariantCulture)),
+        ("confirm_waits", tracker!.Waits.ToString(CultureInfo.InvariantCulture)),
+        ("confirm_wait_ms", tracker.WaitTime.TotalMilliseconds.ToString("0.0", CultureInfo.InvariantCulture))
+    ];
+
     WriteReport(reportPath, runId, architecture, partitions, targetRate, replication,
-        received, seconds, throughput, latency, resources, digest, syntheticCost, persist,
-        writer?.Written ?? 0, writer?.Dropped ?? 0,
-        source.EffectiveConfig, RunSettings.DotnetEnvironment(), pipeline.IncompleteRecords);
+        received, seconds, throughput, latency, resources, digest.Windows, digest.Hash.ToString("X16"),
+        syntheticCost, persist, writer?.Written ?? 0, writer?.Dropped ?? 0,
+        clientConfig, RunSettings.DotnetEnvironment(), pipeline.IncompleteRecords, extra);
 
     Console.WriteLine($"Relatorio         : {reportPath}");
 }
@@ -240,6 +315,41 @@ bool? ParseNagle() => GetArg("--nagle") switch
     var other => throw new ArgumentException($"--nagle aceita on ou off, nao '{other}'.")
 };
 
+static OutputKind? ParseKind(string? value) => value switch
+{
+    null => null,
+    "enriquecida" => OutputKind.Enriquecida,
+    "resumida" => OutputKind.Resumida,
+    _ => throw new ArgumentException($"Saida desconhecida: {value}. Use enriquecida ou resumida.")
+};
+
+// O consumidor final do segundo cenario: le a saida republicada, mede a
+// latencia de ponta a ponta e confere o resultado. Sem persistencia.
+async Task<int> RunPainelAsync(OutputKind kind)
+{
+    var painel = new PainelPipeline(kind, processingOptions.WindowSize, latency);
+
+    Console.WriteLine($"Painel: {source.Broker} | saida {kind.ToString().ToLowerInvariant()} | topico {outputTopic} | rodada {runId}");
+
+    await using var painelResources = new ResourceSampler();
+    var painelReceived = await source.ConsumeAsync(painel, cts.Token);
+    var painelSeconds = latency.ActiveSeconds;
+    var painelThroughput = painelSeconds > 0 ? latency.TotalCount / painelSeconds : 0;
+
+    Console.WriteLine($"Mensagens recebidas: {painelReceived:N0} | latencia de ponta a ponta: {latency.Summary()}");
+    Console.WriteLine($"Conferencia        : {painel.Messages:N0} mensagens, hash {painel.HashHex}");
+
+    if (reportPath is not null)
+    {
+        WriteReport(reportPath, runId, "painel-" + source.Broker, partitions, targetRate, replication,
+            painelReceived, painelSeconds, painelThroughput, latency, painelResources, painel.Messages, painel.HashHex,
+            0, persist: false, 0, 0, source.EffectiveConfig, RunSettings.DotnetEnvironment(), 0,
+            [("output", kind.ToString().ToLowerInvariant())]);
+    }
+
+    return 0;
+}
+
 static void WriteReport(
     string path,
     Guid runId,
@@ -252,14 +362,16 @@ static void WriteReport(
     double throughput,
     LatencyRecorder latency,
     ResourceSampler resources,
-    ResultDigest digest,
+    long digestWindows,
+    string digestHash,
     double syntheticCost,
     bool persist,
     long windowsWritten,
     long windowsDropped,
     string clientConfig,
     string dotnetEnv,
-    long incompleteRecords)
+    long incompleteRecords,
+    List<(string Name, string Value)>? extra = null)
 {
     var histogram = latency.Merged();
     var exists = File.Exists(path);
@@ -275,7 +387,8 @@ static void WriteReport(
             "persistence,events,seconds,throughput,mean_us,p50_us,p95_us,p99_us,max_us," +
             "cpu_avg,cpu_peak,mem_avg_mb,mem_peak_mb,gc_gen0,gc_gen1,gc_gen2,allocated_mb," +
             "windows,digest_hash,warmup_events,measured_events,windows_written,windows_dropped," +
-            "client_config,dotnet_env,incomplete_records");
+            "client_config,dotnet_env,incomplete_records" +
+            (extra is null ? "" : "," + string.Join(',', extra.Select(e => e.Name))));
     }
 
     var gc = resources.Collections;
@@ -305,15 +418,16 @@ static void WriteReport(
         gc.Gen1,
         gc.Gen2,
         resources.AllocatedMb,
-        digest.Windows,
-        digest.Hash.ToString("X16"),
+        digestWindows,
+        digestHash,
         latency.WarmupCount,
         latency.TotalCount,
         windowsWritten,
         windowsDropped,
         clientConfig,
         dotnetEnv,
-        incompleteRecords));
+        incompleteRecords) +
+        (extra is null ? "" : "," + string.Join(',', extra.Select(e => e.Value))));
 }
 
 static void PrintUsage() => Console.WriteLine("""

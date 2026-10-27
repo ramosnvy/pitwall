@@ -49,6 +49,11 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
         var lastTags = new ulong[options.Partitions];
         var unacked = new int[options.Partitions];
 
+        // Segundo cenario: so se confirma ate a etiqueta que o pipeline liberou,
+        // isto e, cuja saida ja foi confirmada pelo broker de saida.
+        var tracksRelease = pipeline.TracksRelease;
+        var ackedUpTo = new long[options.Partitions];
+
         // O lote de confirmacao precisa caber folgado no prefetch: com lote
         // maior ou igual ao prefetch, o broker para de entregar esperando uma
         // confirmacao que so viria com a proxima entrega -- impasse. Com
@@ -108,7 +113,7 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
                 // sem bloquear a thread: o despachante do canal so passa a
                 // proxima entrega quando esta termina, e isso e a contrapressao
                 // (REVISAO-TECNICA §2.3).
-                var submitted = pipeline.SubmitAsync(index, ea.Body.Span);
+                var submitted = pipeline.SubmitAsync(index, ea.Body.Span, (long)ea.DeliveryTag);
 
                 if (!submitted.IsCompletedSuccessfully)
                 {
@@ -119,6 +124,19 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
                 idle.Touch();
 
                 lastTags[index] = ea.DeliveryTag;
+
+                if (tracksRelease)
+                {
+                    var released = pipeline.Released(index);
+
+                    if (released - ackedUpTo[index] >= options.AckBatch)
+                    {
+                        ackedUpTo[index] = released;
+                        await channel.BasicAckAsync((ulong)released, multiple: true, ct);
+                    }
+
+                    return;
+                }
 
                 // Confirmacao em lote com multiple=true, como recomenda a
                 // documentacao do RabbitMQ para reduzir trafego: uma
@@ -145,8 +163,19 @@ public sealed class RabbitEventSource(RabbitSourceOptions options) : IEventSourc
         for (var lane = 0; lane < channels.Length; lane++)
         {
             // Confirma o lote parcial que sobrou. Sem isso, as ultimas entregas
-            // voltariam para a fila ao fechar o canal.
-            if (unacked[lane] > 0)
+            // voltariam para a fila ao fechar o canal. No segundo cenario, so o
+            // que ja foi liberado: o resto volta para a fila, que e recriada na
+            // rodada seguinte.
+            if (tracksRelease)
+            {
+                var released = pipeline.Released(lane);
+
+                if (released > ackedUpTo[lane] && released > 0)
+                {
+                    await channels[lane].BasicAckAsync((ulong)released, multiple: true, ct);
+                }
+            }
+            else if (unacked[lane] > 0)
             {
                 await channels[lane].BasicAckAsync(lastTags[lane], multiple: true, ct);
             }

@@ -87,6 +87,22 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
         long consumed = 0;
         var startupDeadline = DateTime.UtcNow + options.StartupTimeout;
 
+        // Segundo cenario: o offset so e armazenado ate a posicao que o
+        // pipeline liberou, isto e, cuja saida ja foi confirmada.
+        var tracksRelease = pipeline.TracksRelease;
+        long storedUpTo = -1;
+
+        void StoreReleased()
+        {
+            var released = pipeline.Released(partition);
+
+            if (released > storedUpTo)
+            {
+                consumer.StoreOffset(new TopicPartitionOffset(options.Topic, partition, released + 1));
+                storedUpTo = released;
+            }
+        }
+
         try
         {
             // Com total esperado, a espera por mensagem e curta para reavaliar o
@@ -99,6 +115,11 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
 
                 if (result?.Message is null)
                 {
+                    if (tracksRelease)
+                    {
+                        StoreReleased();
+                    }
+
                     if (ShouldStop(consumed, startupDeadline))
                     {
                         break;
@@ -111,14 +132,22 @@ public sealed class KafkaEventSource(KafkaSourceOptions options) : IEventSource
                 // Aqui a espera sincrona e correta -- a thread e dedicada a
                 // particao (LongRunning) e o Consume() ja e sincrono --, ao
                 // contrario do despachante do RabbitMQ, que e assincrono.
-                var submitted = pipeline.SubmitAsync(partition, result.Message.Value);
+                var submitted = pipeline.SubmitAsync(partition, result.Message.Value, result.Offset.Value);
 
                 if (!submitted.IsCompletedSuccessfully)
                 {
                     submitted.AsTask().GetAwaiter().GetResult();
                 }
 
-                consumer.StoreOffset(result);
+                if (tracksRelease)
+                {
+                    StoreReleased();
+                }
+                else
+                {
+                    consumer.StoreOffset(result);
+                }
+
                 consumed++;
 
                 Interlocked.Increment(ref _received);

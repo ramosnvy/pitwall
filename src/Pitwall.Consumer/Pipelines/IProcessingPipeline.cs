@@ -28,6 +28,23 @@ public interface IProcessingPipeline : IAsyncDisposable
     ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload);
 
     /// <summary>
+    /// Como o anterior, com a posicao da mensagem na faixa de entrada (offset
+    /// do Kafka ou etiqueta de entrega do RabbitMQ). So os modos do segundo
+    /// cenario usam a posicao; os outros ignoram.
+    /// </summary>
+    ValueTask SubmitAsync(int lane, ReadOnlySpan<byte> payload, long position) => SubmitAsync(lane, payload);
+
+    /// <summary>
+    /// Se a fonte deve esperar <see cref="Released"/> para confirmar a entrada.
+    /// No primeiro cenario e falso: a entrada e confirmada ao ser entregue ao
+    /// processamento. No segundo, so depois de a saida ser confirmada.
+    /// </summary>
+    bool TracksRelease => false;
+
+    /// <summary>Maior posicao de entrada da faixa que ja pode ser confirmada; -1 se nenhuma.</summary>
+    long Released(int lane) => long.MaxValue;
+
+    /// <summary>
     /// Registros incompletos encontrados ao fechar a faixa. Qualquer valor
     /// acima de zero invalida a rodada (REVISAO-TECNICA §2.4).
     /// </summary>

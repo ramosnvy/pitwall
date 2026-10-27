@@ -94,6 +94,27 @@ public sealed class TelemetryProcessor(ProcessingOptions options, Action<DriverW
         _cars.Clear();
     }
 
+    /// <summary>
+    /// Estado da janela corrente de um carro, ja com o ultimo evento dele.
+    /// Usado pela saida enriquecida do segundo cenario (fase 9A): so le o
+    /// estado, nao muda o processamento.
+    /// </summary>
+    public WindowSnapshot Snapshot(int driverNumber)
+    {
+        if (!_cars.TryGetValue(driverNumber, out var car))
+        {
+            return default;
+        }
+
+        return new WindowSnapshot(
+            car.WindowStart.UtcTicks,
+            car.EventCount,
+            car.EventCount > 0 ? (float)car.SpeedSum / car.EventCount : 0,
+            car.MaxSpeed,
+            car.HardBrakings,
+            car.GearChanges);
+    }
+
     private ref CarState GetState(int driverNumber, DateTimeOffset eventTime, out bool isNew)
     {
         ref var car = ref System.Runtime.InteropServices.CollectionsMarshal
