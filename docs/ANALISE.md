@@ -136,6 +136,15 @@ Republicação no mesmo broker, com at-least-once de ponta a ponta e o painel co
 
 **Limite do painel.** O painel divide o núcleo 11 com o banco e as métricas. Uma carga em que ele passa de 50% desse núcleo (`e2e_cpu_avg` acima de 50) não entra na matriz: ali a latência de ponta a ponta mediria o limite do painel, e não o dos brokers ou dos modos.
 
+**Cargas escolhidas pela varredura (28/10/2026, antes da matriz).** Varredura em `results/republicacao-varredura-runs.csv`: 66 rodadas, 0 falhas, digest igual em todas as cargas.
+
+| Broker | Enriquecida | Resumida | Motivo |
+| --- | --- | --- | --- |
+| Kafka | 20, 50, 100 e 200 mil | 200 mil | 20 mil é a mais baixa; 50 e 200 mil, trecho em que algum modo sustenta; 100 mil, a primeira em que um modo (o Direct, teto de cerca de 64 mil) deixa de sustentar. 300 mil fica de fora: painel acima de 50% do núcleo. Resumida na carga de maior diferença entre o Direct e os outros, dentro do limite do painel |
+| RabbitMQ | 10, 20, 30 e 40 mil | 40 mil | Só 10 e 20 mil ficaram no trecho sustentado. Para completar as quatro cargas, 30 mil entra entre a última sustentada e a primeira que falha (40 mil), para localizar o joelho; é um desvio da regra, decidido antes da matriz. 60 mil fica de fora: painel acima de 50% do núcleo e todos os modos saturados. Resumida em 40 mil, a carga de maior diferença dentro do limite do painel |
+
+Matriz: 10 repetições, 60 s de medição, 300 rodadas.
+
 **Hipóteses** (APROFUNDAMENTO §8.7):
 
 | # | Hipótese |
