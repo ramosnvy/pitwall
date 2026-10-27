@@ -57,7 +57,7 @@ function Set-KafkaDeleteDelay {
 }
 
 function Reset-KafkaTopic {
-    param([int]$Partitions = 4)
+    param([int]$Partitions = 4, [string]$Topic = 'telemetry')
 
     # Topico recriado a cada rodada: sem isso, a rodada seguinte leria as
     # mensagens da anterior e o log cresceria sem limite.
@@ -66,11 +66,11 @@ function Reset-KafkaTopic {
     # "topic marked for deletion" -- e, com a criacao automatica desligada, a
     # rodada seguinte publicaria num topico inexistente. Numa execucao
     # desatendida de horas, uma corrida dessas perderia rodadas em silencio.
-    Invoke-KafkaTopics @('--delete', '--topic', 'telemetry') | Out-Null
+    Invoke-KafkaTopics @('--delete', '--topic', $Topic) | Out-Null
 
     for ($i = 0; $i -lt 30; $i++) {
         $topics = Invoke-KafkaTopics @('--list')
-        if (-not ($topics -contains 'telemetry')) { break }
+        if (-not ($topics -contains $Topic)) { break }
         Start-Sleep -Milliseconds 500
     }
 
@@ -86,30 +86,39 @@ function Reset-KafkaTopic {
     }
 
     for ($i = 0; $i -lt 10; $i++) {
-        Invoke-KafkaTopics @('--create', '--topic', 'telemetry',
+        Invoke-KafkaTopics @('--create', '--topic', $Topic,
             '--partitions', "$Partitions", '--replication-factor', '1') | Out-Null
 
-        $describe = Invoke-KafkaTopics @('--describe', '--topic', 'telemetry') | Out-String
+        $describe = Invoke-KafkaTopics @('--describe', '--topic', $Topic) | Out-String
         if ($describe -match "PartitionCount:\s*$Partitions\b") { return }
         Start-Sleep -Seconds 1
     }
 
-    throw "Nao foi possivel recriar o topico telemetry com $Partitions particoes."
+    throw "Nao foi possivel recriar o topico $Topic com $Partitions particoes."
 }
 
 function Reset-RabbitQueues {
-    param([int]$Partitions = 4)
+    param([int]$Partitions = 4, [string[]]$Prefixes = @('telemetry'))
 
-    for ($lane = 0; $lane -lt $Partitions; $lane++) {
-        & $script:Docker exec pitwall-rabbitmq rabbitmqctl purge_queue "telemetry.$lane" 2>$null | Out-Null
+    foreach ($prefix in $Prefixes) {
+        for ($lane = 0; $lane -lt $Partitions; $lane++) {
+            & $script:Docker exec pitwall-rabbitmq rabbitmqctl purge_queue "$prefix.$lane" 2>$null | Out-Null
+        }
     }
 }
 
 function Reset-Broker {
-    param([string]$Broker, [int]$Partitions = 4)
+    # Com -Republish (segundo cenario), tambem o topico ou as filas de saida.
+    param([string]$Broker, [int]$Partitions = 4, [switch]$Republish)
 
-    if ($Broker -eq 'kafka') { Reset-KafkaTopic -Partitions $Partitions }
-    else { Reset-RabbitQueues -Partitions $Partitions }
+    if ($Broker -eq 'kafka') {
+        Reset-KafkaTopic -Partitions $Partitions
+        if ($Republish) { Reset-KafkaTopic -Partitions $Partitions -Topic 'resultado' }
+    }
+    else {
+        $prefixes = if ($Republish) { @('telemetry', 'resultado') } else { @('telemetry') }
+        Reset-RabbitQueues -Partitions $Partitions -Prefixes $prefixes
+    }
 }
 
 function Get-ContainerMetrics {
@@ -502,6 +511,12 @@ function Invoke-PitwallRun {
         # Linha do tempo de 100 ms do produtor e do consumidor e pausas de coleta
         # de lixo do broker Kafka, em results/traces (fase 4).
         [switch]$Trace,
+        # Segundo cenario (fase 9A): o consumidor republica a saida, enriquecida
+        # (1 para 1) ou resumida (por janela), e um painel no nucleo de infra le
+        # e mede a latencia de ponta a ponta. Vazio = primeiro cenario.
+        [ValidateSet('', 'enriquecida', 'resumida')][string]$Republish = '',
+        [string]$PainelReport = 'results/painel.csv',
+        [string]$PainelMemory = '512m',
         [string]$Commit = ''
     )
 
@@ -517,7 +532,7 @@ function Invoke-PitwallRun {
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
     $log = Join-Path $logDir "$Broker-$Mode-$Rate-$Replication.log"
 
-    Reset-Broker -Broker $Broker -Partitions $Partitions
+    Reset-Broker -Broker $Broker -Partitions $Partitions -Republish:($Republish -ne '')
 
     # Assentamento entre rodadas: o broker ainda pode estar limpando o log ou
     # descarregando para disco o trabalho da rodada anterior.
@@ -562,6 +577,7 @@ function Invoke-PitwallRun {
     )
 
     if ($Persist) { $consumerArgs += @('--persist', '--truncate') }
+    if ($Republish) { $consumerArgs += @('--republish', $Republish) }
 
     $producerArgs = @(
         '--dataset', $datasetArg,
@@ -619,7 +635,7 @@ function Invoke-PitwallRun {
         }
     }
     else {
-        & $script:Docker rm -f pitwall-consumer pitwall-producer 2>$null | Out-Null
+        & $script:Docker rm -f pitwall-consumer pitwall-producer pitwall-painel 2>$null | Out-Null
 
         $resultsDir = (Join-Path $root 'results') -replace '\\', '/'
         $dataDir = (Split-Path (Join-Path $root $Dataset) -Parent) -replace '\\', '/'
@@ -649,6 +665,36 @@ function Invoke-PitwallRun {
                 $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll') +
             $consumerArgs
 
+        # Segundo cenario: o painel sobe antes, no nucleo de infra, e espera a
+        # saida. Mesmo binario do consumidor, no papel de consumidor final.
+        if ($Republish) {
+            $painelArgs = @(
+                '--broker', $Broker, '--painel', $Republish,
+                '--partitions', $Partitions,
+                '--idle-timeout', $IdleTimeout,
+                '--warmup-seconds', $WarmupSeconds,
+                '--expected-events', $events,
+                '--target-rate', $Rate,
+                '--replication', $Replication,
+                '--run-id', $runId,
+                '--timer-resolution-ms', '1',
+                '--bootstrap', $bootstrap,
+                '--rabbit-host', $rabbitHost,
+                '--conn', $conn,
+                '--report', ('/results/' + (Split-Path $PainelReport -Leaf))
+            )
+            $painelDocker = @('run', '-d', '--name', 'pitwall-painel', '--network', $script:Network,
+                    '--label', 'pitwall.role=painel') +
+                $labels +
+                (Get-ClientCpuArgs -CpuMode $CpuMode -Cpus 1 -Cpuset $script:Layout.infra) +
+                @('--memory', $PainelMemory,
+                    '-v', "${consumerBin}:/app:ro", '-v', "${resultsDir}:/results",
+                    $script:RuntimeImage, 'dotnet', '/app/Pitwall.Consumer.dll') +
+                $painelArgs
+
+            & $script:Docker $painelDocker | Out-Null
+        }
+
         & $script:Docker $consumerDocker | Out-Null
         Start-Sleep -Seconds 3
 
@@ -670,6 +716,16 @@ function Invoke-PitwallRun {
 
         if (-not $finished) {
             Write-Warning "Consumidor nao encerrou; removendo container ($Broker-$Mode-$Rate)"
+        }
+
+        if ($Republish) {
+            # O painel termina depois: le o que o consumidor publicou por ultimo
+            # e, na saida resumida, ainda espera o silencio.
+            $painelFinished = Wait-Container -Name 'pitwall-painel' -TimeoutSeconds ($IdleTimeout * 3 + 120)
+            & $script:Docker logs pitwall-painel 2>&1 | Out-File "$log.painel" -Encoding utf8
+            if (-not $painelFinished) {
+                Write-Warning "Painel nao encerrou; removendo container ($Broker-$Mode-$Rate)"
+            }
         }
     }
 
@@ -696,6 +752,7 @@ function Invoke-PitwallRun {
     $brokerCpuMode = Get-CpuMode -Container $brokerContainer
     $consumerMetrics = $null
     $producerMetrics = $null
+    $painelMetrics = $null
     $consumerThrottled = ''
     $producerThrottled = ''
 
@@ -704,7 +761,10 @@ function Invoke-PitwallRun {
         $producerMetrics = Get-ContainerMetrics -Container 'pitwall-producer' -Start $measureStart -End $producerEnd
         $consumerThrottled = Get-ThrottledPercent -Container 'pitwall-consumer' -Start $measureStart -End $producerEnd
         $producerThrottled = Get-ThrottledPercent -Container 'pitwall-producer' -Start $measureStart -End $producerEnd
-        & $script:Docker rm -f pitwall-consumer pitwall-producer 2>$null | Out-Null
+        if ($Republish) {
+            $painelMetrics = Get-ContainerMetrics -Container 'pitwall-painel' -Start $measureStart -End $producerEnd
+        }
+        & $script:Docker rm -f pitwall-consumer pitwall-producer pitwall-painel 2>$null | Out-Null
     }
 
     if ($null -eq $row) { return $null }
@@ -776,6 +836,25 @@ function Invoke-PitwallRun {
     $enriched['broker_throttled_pct'] = $brokerThrottled
     $enriched['consumer_throttled_pct'] = $consumerThrottled
     $enriched['producer_throttled_pct'] = $producerThrottled
+
+    # Segundo cenario: latencia de ponta a ponta e conferencia, lidas do
+    # relatorio do painel pela chave da rodada. Sem linha do painel, os campos
+    # ficam vazios e a rodada e invalida na analise.
+    if ($Republish) {
+        $enriched['republish'] = $Republish
+        $painelPath = Join-Path $root $PainelReport
+        $pr = $null
+        if (Test-Path $painelPath) {
+            $pr = @(Import-Csv $painelPath) | Where-Object { $_.run_id -eq $runId } | Select-Object -Last 1
+        }
+        foreach ($field in 'events', 'measured_events', 'throughput', 'mean_us', 'p50_us', 'p95_us', 'p99_us', 'max_us', 'windows', 'digest_hash', 'cpu_avg', 'mem_peak_mb') {
+            $enriched["e2e_$field"] = if ($null -ne $pr) { $pr.$field } else { '' }
+        }
+        if ($null -ne $painelMetrics) {
+            $enriched['painel_container_cpu_avg'] = $painelMetrics.cpu_avg
+            $enriched['painel_container_mem_peak_mb'] = $painelMetrics.mem_peak_mb
+        }
+    }
 
     $enriched['client_placement'] = $placement
     $enriched['profile'] = $Profile
