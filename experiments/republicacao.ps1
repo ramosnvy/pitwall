@@ -22,6 +22,11 @@ param(
     [ValidateSet('enriquecida', 'resumida')][string[]]$Outputs = @('enriquecida', 'resumida'),
     [int[]]$Rates = @(20000),
     [int]$Reps = 3,
+    # Saida resumida com cargas e repeticoes proprias: ela quase nao espera
+    # confirmacao (fumaca de 27/10) e so confere a hipotese H5b. Vazio = as
+    # mesmas da enriquecida.
+    [int[]]$ResumidaRates = @(),
+    [int]$ResumidaReps = 0,
     [int]$Seconds = 90,
     [int]$WarmupSeconds = 10,
     [string]$Nome = 'republicacao'
@@ -41,8 +46,10 @@ if ($commit -like '*-modificado') {
 $runs = foreach ($broker in $Brokers) {
     $block = foreach ($mode in $Modes) {
         foreach ($output in $Outputs) {
-            foreach ($rate in $Rates) {
-                for ($rep = 1; $rep -le $Reps; $rep++) {
+            $outRates = if ($output -eq 'resumida' -and $ResumidaRates.Count -gt 0) { $ResumidaRates } else { $Rates }
+            $outReps = if ($output -eq 'resumida' -and $ResumidaReps -gt 0) { $ResumidaReps } else { $Reps }
+            foreach ($rate in $outRates) {
+                for ($rep = 1; $rep -le $outReps; $rep++) {
                     [pscustomobject]@{ Broker = $broker; Mode = $mode; Output = $output; Rate = $rate; Rep = $rep }
                 }
             }

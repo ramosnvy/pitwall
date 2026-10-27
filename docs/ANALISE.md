@@ -82,6 +82,7 @@ Para cada combinação e carga também sai a fração de rodadas que cumprem as 
 
 | Data | Mudança | Motivo |
 | --- | --- | --- |
+| 28/10/2026 | Matriz ajustada reduzida (tag `cenario-ajustado-v1.1`): Direct em todas as cargas; Channels e Pipelines só em duas por broker (RabbitMQ 20 e 60 mil, Kafka 20 e 200 mil); sem a bateria a 3,7 Hz; parte ajustado-vazao só com Direct. 240 rodadas em vez de 520, com as mesmas 10 repetições | Caber a medição restante numa sessão de cerca de 16 h. A pergunta da matriz ajustada é o efeito da configuração em cada broker; o dos modos já foi medido no padrão (nenhum ganho) e aqui só é conferido (H7d). A frequência mudou menos de 10% no padrão. Decidido antes de qualquer rodada da matriz ajustada |
 | 22/10/2026 | Perfil ajustado do Kafka com `linger.ms` 1, e não 0; H7a reescrita | O ensaio curto e o diagnóstico `experiments/diag-linger.ps1` (IMPLEMENTACAO §10) mostraram que `linger.ms` 0 degenera: P50 de cerca de 400 ms a 10 mil ev/s, isolado e repetido. Com 1, o P50 cai de 3 para 1 ms, e o P99 fica entre 3,6 e 12,5 ms. Decidido antes de qualquer rodada da matriz ajustada |
 | 13/10/2026 | Uma carga acima da saturação em cada broker: 80 mil no RabbitMQ e 400 mil no Kafka, além das fixadas em 24/09 | No ensaio curto, o RabbitMQ ficou abaixo de 50 ms a 60 mil; na varredura a 100 Hz, o Kafka com Pipelines aguentou 300 mil. Sem a carga a mais, a saturação ficaria só como "acima do maior ponto". Decidido antes de qualquer rodada da matriz v3 |
 
@@ -106,3 +107,34 @@ Fase 7. Os perfis estão em AUDITORIA-CONFIG ("Cenário ajustado") e em `Get-Pro
 | H7c | RabbitMQ ajustado: o P99 cai de forma relevante a partir de 40 mil, e a saturação sobe para 80 mil |
 | H7d | Channels e Pipelines continuam sem efeito relevante de latência contra o Direct, nos dois perfis |
 | H7e | Kafka ajustado-vazao: o P99 sobe em relação ao padrão, a CPU do broker e do gerador cai, e há menos rodadas inválidas a 400 mil |
+
+## 11. Segundo cenário, passo A (registrado em 28/10/2026, antes de medir)
+
+Republicação no mesmo broker, com at-least-once de ponta a ponta e o painel como consumidor final (APROFUNDAMENTO §8.6; DESENVOLVIMENTO, fase 9). Perfil padrão, 100 Hz, trecho a partir de 600 s, 10 s de aquecimento.
+
+**Unidade.** Combinação = broker × modo × saída (enriquecida ou resumida) × carga. **Medição de 60 s** por rodada (90 s no primeiro cenário): a 20 mil ev/s, 60 s já são 1,2 milhão de eventos.
+
+**Validade.** As regras da seção 2 valem para o consumidor, mais três:
+- existe a linha do painel, casada pelo `run_id`;
+- nenhuma saída recusada pelo broker (`out_failed = 0`);
+- o digest do painel é o de referência da carga e da saída (o mais frequente entre todas as combinações). Na saída resumida, ele também precisa ser igual ao digest do consumidor.
+
+**Latência principal:** o P99 de ponta a ponta, medido no painel. O P99 até o fim do processamento, no consumidor, fica como medida secundária.
+
+**Ponto de saturação:** o da seção 5, com o P99 de ponta a ponta no lugar do P99 do consumidor.
+
+**Comparações e tamanho relevante:** os da seção 6, contra o Direct, no mesmo broker, saída e carga. Medida extra: o tempo parado esperando confirmação (`confirm_wait_ms`) e o número de esperas.
+
+**Varredura (calibração, fora da análise):** saída enriquecida com RabbitMQ em 10, 20, 40 e 60 mil e Kafka em 20, 50, 100, 200 e 300 mil, os três modos, 2 repetições, 30 s; saída resumida em 2 cargas por broker (RabbitMQ 20 e 60 mil, Kafka 50 e 200 mil), 1 repetição.
+
+**Escolha das cargas da matriz, a partir da varredura:**
+- **Saída enriquecida:** 4 cargas por broker: a mais baixa da varredura, duas no trecho em que algum modo ainda sustenta a carga e a primeira em que algum modo deixa de sustentá-la. Se nenhum modo saturar no Kafka, a maior carga da varredura.
+- **Saída resumida:** 1 carga por broker, a mesma em que a enriquecida mostrou a maior diferença de P99 de ponta a ponta entre o Direct e os outros modos.
+- 10 repetições por combinação, em ordem sorteada dentro de cada broker.
+
+**Hipóteses** (APROFUNDAMENTO §8.7):
+
+| # | Hipótese |
+| --- | --- |
+| H5a | Na saída enriquecida, o Direct sustenta menos carga que Channels e Pipelines, ou tem P99 de ponta a ponta maior na mesma carga, porque para a cada espera de confirmação |
+| H5b | Na saída resumida, os três modos empatam: sem espera frequente para esconder, vale a conclusão do primeiro cenário |

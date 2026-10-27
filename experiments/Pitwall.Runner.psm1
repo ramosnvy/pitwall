@@ -517,6 +517,10 @@ function Invoke-PitwallRun {
         [ValidateSet('', 'enriquecida', 'resumida')][string]$Republish = '',
         [string]$PainelReport = 'results/painel.csv',
         [string]$PainelMemory = '512m',
+        # Silencio que encerra o painel. Na saida resumida ele nao sabe quantas
+        # mensagens esperar; o consumidor publica as ultimas janelas logo que
+        # termina, entao 5 s de silencio ja sao o fim.
+        [int]$PainelIdleTimeout = 5,
         [string]$Commit = ''
     )
 
@@ -671,7 +675,7 @@ function Invoke-PitwallRun {
             $painelArgs = @(
                 '--broker', $Broker, '--painel', $Republish,
                 '--partitions', $Partitions,
-                '--idle-timeout', $IdleTimeout,
+                '--idle-timeout', $PainelIdleTimeout,
                 '--warmup-seconds', $WarmupSeconds,
                 '--expected-events', $events,
                 '--target-rate', $Rate,
