@@ -450,11 +450,34 @@ public sealed class RepublishPipelinesPipeline : IProcessingPipeline
 /// o resultado. Na saida resumida, o digest e o mesmo ResultDigest do
 /// consumidor, entao os dois precisam bater; na enriquecida, o EnrichedDigest.
 /// </summary>
-public sealed class PainelPipeline(OutputKind kind, TimeSpan windowSize, LatencyRecorder latency) : IProcessingPipeline
+public sealed class PainelPipeline(int lanes, OutputKind kind, TimeSpan windowSize, LatencyRecorder latency) : IProcessingPipeline
 {
-    public ResultDigest Summary { get; } = new();
+    // Uma conferencia por faixa: cada faixa tem a sua thread, entao a trava de
+    // cada uma nunca e disputada. Somadas no fim, dao o mesmo valor que uma
+    // conferencia unica, sem as 4 faixas brigando pela mesma trava a cada
+    // mensagem (o painel fica num nucleo so, dividido com o banco).
+    private readonly ResultDigest[] _summary = Enumerable.Range(0, lanes).Select(_ => new ResultDigest()).ToArray();
+    private readonly EnrichedDigest[] _enriched = Enumerable.Range(0, lanes).Select(_ => new EnrichedDigest()).ToArray();
 
-    public EnrichedDigest Enriched { get; } = new();
+    public ResultDigest Summary
+    {
+        get
+        {
+            var total = new ResultDigest();
+            foreach (var part in _summary) total.Merge(part);
+            return total;
+        }
+    }
+
+    public EnrichedDigest Enriched
+    {
+        get
+        {
+            var total = new EnrichedDigest();
+            foreach (var part in _enriched) total.Merge(part);
+            return total;
+        }
+    }
 
     public string Mode => "painel";
 
@@ -467,13 +490,13 @@ public sealed class PainelPipeline(OutputKind kind, TimeSpan windowSize, Latency
         if (kind == OutputKind.Enriquecida)
         {
             var (evt, window) = OutputCodec.ReadEnriched(payload);
-            Enriched.Add(evt, window);
+            _enriched[lane].Add(evt, window);
             latency.Record(lane, evt.PublishedTicks);
         }
         else
         {
             var (stats, publishedTicks) = OutputCodec.ReadSummary(payload, windowSize);
-            Summary.Add(stats);
+            _summary[lane].Add(stats);
 
             if (publishedTicks > 0)
             {

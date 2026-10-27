@@ -58,6 +58,21 @@ $runs = foreach ($broker in $Brokers) {
     $block | Sort-Object { Get-Random }
 }
 
+# Retomada: se a sessao parou no meio (queda, reinicio), pula as rodadas ja
+# gravadas com o mesmo commit, em vez de repetir tudo.
+if (Test-Path $outPath) {
+    $done = @{}
+    foreach ($r in (Import-Csv $outPath | Where-Object { $_.commit -eq $commit })) {
+        $done["$($r.architecture)|$($r.republish)|$($r.target_rate)|$($r.replication)"] = $true
+    }
+    $before = @($runs).Count
+    $runs = @($runs | Where-Object {
+        $arch = $(if ($_.Broker -eq 'kafka') { 'kafka' } else { 'rabbitmq' }) + '-' + $_.Mode
+        -not $done["$arch|$($_.Output)|$($_.Rate)|$($_.Rep)"]
+    })
+    if ($before -ne $runs.Count) { Write-Host "Retomada: $($before - $runs.Count) rodada(s) ja feitas com este commit." -ForegroundColor Yellow }
+}
+
 $total = @($runs).Count
 Write-Host "Segundo cenario: $total rodadas | $WarmupSeconds s + $Seconds s | commit $commit" -ForegroundColor Cyan
 

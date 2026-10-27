@@ -338,7 +338,7 @@ public class RepublishTests
             }
 
             // O painel le a saida e confere.
-            var painel = new PainelPipeline(kind, TimeSpan.FromSeconds(1), new LatencyRecorder(1, TimeSpan.Zero));
+            var painel = new PainelPipeline(1, kind, TimeSpan.FromSeconds(1), new LatencyRecorder(1, TimeSpan.Zero));
             foreach (var (_, payload, _) in republisher.Sent)
             {
                 await painel.SubmitAsync(0, payload);

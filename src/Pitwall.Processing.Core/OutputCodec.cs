@@ -134,6 +134,17 @@ public sealed class EnrichedDigest
     public override string ToString() =>
         $"mensagens={_messages:N0} somaEventosJanela={_windowEventsSum:N0} hash={_hash:X16}";
 
+    /// <summary>Soma outro digest a este (ver ResultDigest.Merge).</summary>
+    public void Merge(EnrichedDigest other)
+    {
+        lock (_gate)
+        {
+            _messages += other._messages;
+            _windowEventsSum += other._windowEventsSum;
+            _hash ^= other._hash;
+        }
+    }
+
     private static ulong Mix(params ulong[] values)
     {
         // FNV-1a sobre os bytes de cada valor, como o ResultDigest.

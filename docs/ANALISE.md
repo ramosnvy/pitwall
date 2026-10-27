@@ -132,6 +132,10 @@ Republicação no mesmo broker, com at-least-once de ponta a ponta e o painel co
 - **Saída resumida:** 1 carga por broker, a mesma em que a enriquecida mostrou a maior diferença de P99 de ponta a ponta entre o Direct e os outros modos.
 - 10 repetições por combinação, em ordem sorteada dentro de cada broker.
 
+**Código (tag `cenario-republicacao-v1.1`, 28/10/2026).** Antes da varredura, o painel passou a conferir o resultado com uma trava por faixa, somada no fim, em vez de uma trava única disputada pelas 4 faixas a cada mensagem. Muda só o lado que mede, e não o que é medido. A única rodada feita com a v1 foi descartada.
+
+**Limite do painel.** O painel divide o núcleo 11 com o banco e as métricas. Uma carga em que ele passa de 50% desse núcleo (`e2e_cpu_avg` acima de 50) não entra na matriz: ali a latência de ponta a ponta mediria o limite do painel, e não o dos brokers ou dos modos.
+
 **Hipóteses** (APROFUNDAMENTO §8.7):
 
 | # | Hipótese |

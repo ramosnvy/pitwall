@@ -327,7 +327,7 @@ static OutputKind? ParseKind(string? value) => value switch
 // latencia de ponta a ponta e confere o resultado. Sem persistencia.
 async Task<int> RunPainelAsync(OutputKind kind)
 {
-    var painel = new PainelPipeline(kind, processingOptions.WindowSize, latency);
+    var painel = new PainelPipeline(partitions, kind, processingOptions.WindowSize, latency);
 
     Console.WriteLine($"Painel: {source.Broker} | saida {kind.ToString().ToLowerInvariant()} | topico {outputTopic} | rodada {runId}");
 

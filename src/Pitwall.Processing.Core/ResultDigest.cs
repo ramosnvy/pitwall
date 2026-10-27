@@ -57,6 +57,24 @@ public sealed class ResultDigest
         $"janelas={_windows:N0} eventos={_events:N0} frenagens={_hardBrakings:N0} " +
         $"trocas={_gearChanges:N0} somaVmax={_maxSpeedSum:N0} hash={_hash:X16}";
 
+    /// <summary>
+    /// Soma outro digest a este. Como a combinacao e comutativa, varios digests
+    /// parciais (um por faixa, sem disputa de trava) somados dao o mesmo valor
+    /// que um digest unico. Usado pelo painel do segundo cenario.
+    /// </summary>
+    public void Merge(ResultDigest other)
+    {
+        lock (_gate)
+        {
+            _windows += other._windows;
+            _events += other._events;
+            _hardBrakings += other._hardBrakings;
+            _gearChanges += other._gearChanges;
+            _maxSpeedSum += other._maxSpeedSum;
+            _hash ^= other._hash;
+        }
+    }
+
     /// <summary>Compara dois digests campo a campo, para relatorio de divergencia.</summary>
     public bool Matches(ResultDigest other) =>
         _windows == other._windows
