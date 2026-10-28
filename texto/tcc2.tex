@@ -515,8 +515,7 @@ medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_visao_geral.pdf}
-\caption{Visão geral da bancada experimental: o caminho de um evento em cinco etapas
-e o que varia de uma rodada para outra.}
+\caption{Visão geral da bancada experimental.}
 \label{fig:visao_geral}
 \end{figure}
 
@@ -525,30 +524,27 @@ A Figura~\ref{fig:visao_geral} resume a bancada. Dados reais de telemetria
 a publica num broker, Kafka ou RabbitMQ (etapa~3). Um consumidor em .NET recebe os
 eventos e os processa num de três modos (etapa~4), e os resultados e as medições de
 cada rodada são gravados (etapa~5). Entre uma rodada e outra variam três fatores: a
-carga, o broker e o modo. No segundo cenário, o consumidor também republica o
-resultado no broker.
+carga, o broker e o modo. No segundo cenário, indicado pelo tracejado, o consumidor
+também republica o resultado no broker.
 
-A Figura~\ref{fig:arquitetura_geral} detalha cada etapa, com os passos que o evento
-percorre dentro dela, e as subseções a seguir seguem a mesma numeração e os mesmos
-nomes da figura.
+A Figura~\ref{fig:arquitetura_geral} mostra a mesma bancada em mais detalhe: os
+componentes de cada etapa e onde cada um roda. As subseções a seguir seguem a
+numeração das etapas.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_arquitetura.pdf}
-\caption{Arquitetura da bancada experimental em detalhe: as cinco etapas, os núcleos de
-processador exclusivos de cada uma e, dentro de cada etapa, os passos na ordem do
-fluxo. Kafka e RabbitMQ, assim como os três modos de entrega, são alternativas: cada
-rodada usa um broker e um modo. O tracejado é o caminho acrescentado no segundo
-cenário (Seção~\ref{sec:republicacao}).}
+\caption{Arquitetura da bancada experimental.}
 \label{fig:arquitetura_geral}
 \end{figure}
 
-A etapa 1 acontece uma única vez, antes dos experimentos. As etapas 2 a 5 rodam
-em containers Docker, cada uma com núcleos de processador exclusivos, indicados
-no topo de cada etapa na figura (Seção~\ref{sec:metodologia}). Dentro de cada
-etapa, os passos se leem de cima para baixo, e as setas ligam o último passo de
-uma etapa ao primeiro da seguinte. A palavra ``ou'' separa alternativas: numa
-rodada, o evento passa por um só broker e por um só modo de entrega.
+A etapa 1 acontece uma única vez, antes dos experimentos, fora dos containers. As
+etapas 2 a 5 rodam em containers Docker, cada uma com núcleos de processador
+exclusivos, indicados no pé de cada grupo na figura (Seção~\ref{sec:metodologia}).
+O broker entrega os eventos ao consumidor em quatro faixas, as quatro setas da
+figura, com uma instância do consumidor por faixa. Numa rodada, o evento passa por
+um só broker, Kafka ou RabbitMQ, e por um só modo de entrega, Direct, Channels ou
+Pipelines, antes de chegar ao processamento em janelas.
 
 \subsection{Etapa 1: Dados}
 \label{sec:dados}
@@ -625,10 +621,7 @@ roda:
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_modos.pdf}
-\caption{Os três modos de entrega, numa das quatro faixas. No Direct, o evento é
-processado na própria thread que o recebe do broker. No Channels e no Pipelines, a
-recepção escreve numa fila interna limitada, de eventos ou de bytes, e uma thread de
-trabalho lê dela e processa. O código de processamento é o mesmo nos três modos.}
+\caption{Os três modos de entrega, numa das quatro faixas.}
 \label{fig:modos}
 \end{figure}
 
@@ -904,11 +897,7 @@ prefixo contínuo de eventos com todas as saídas confirmadas.
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_segundo_cenario.pdf}
-\caption{Segundo cenário: como cada modo trata a espera pela confirmação da saída. O
-modo direto recebe, processa e publica na mesma thread e, a cada 100 saídas, para até
-receber todas as confirmações. Channels e Pipelines publicam num estágio próprio,
-recebem as confirmações em paralelo e confirmam a entrada até o ponto em que todas as
-saídas anteriores já foram confirmadas.}
+\caption{Segundo cenário: a espera pela confirmação da saída em cada modo.}
 \label{fig:segundo-cenario}
 \end{figure}
 
