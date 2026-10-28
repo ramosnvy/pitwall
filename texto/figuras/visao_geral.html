@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Figura 1</title>
+<!-- Figura 1 do TCC2: visao abstrata da bancada, um bloco por etapa, com o que
+     varia e o que se mede. A Figura 2 (arquitetura.html) detalha cada etapa e
+     guia as subsecoes da secao 4. Mesmo estilo e cores das demais figuras.
+     PDF e PNG: texto/figuras/exportar.ps1. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+<style>
+:root {
+  --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
+  --data: #5E6872; --data-bg: #F1F2F3; --prod: #2B5797; --prod-bg: #E0E8F5;
+  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
+  --infra: #3A4550; --infra-bg: #EEF0EC;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+@page { size: 720px 172px; margin: 0; }
+html, body { margin: 0; padding: 0; background: var(--white); }
+svg { display: block; width: 720px; height: 172px; }
+.hd-t { font: 700 13.5px var(--display); letter-spacing: .01em; text-transform: uppercase; fill: var(--white); }
+.nb { fill: var(--white); }
+.nb-t { font: 600 10px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.s { font: 10px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.k { font: 500 10px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.kb { font: 600 10px var(--mono); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.note { font: italic 10px var(--sans); fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+.ln2 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.ah { fill: var(--muted); }
+</style></head><body>
+<svg viewBox="0 0 720 172" role="img" aria-label="Figura 1: visão geral da bancada em cinco etapas: dados reais da OpenF1, gerador de carga, broker Kafka ou RabbitMQ, consumidor .NET em um de três modos e persistência e métricas.">
+<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+
+<!-- 1 Dados -->
+<rect x="8" y="8" width="118" height="80" rx="6" style="fill:var(--data-bg);stroke:var(--data);stroke-width:1.2"/>
+<path style="fill:var(--data)" d="M8 32 V14 Q8 8 14 8 H120 Q126 8 126 14 V32 Z"/>
+<circle class="nb" cx="21" cy="20" r="7"/><text class="nb-t" x="21" y="20">1</text>
+<text class="hd-t" x="33" y="25">Dados</text>
+<text class="t" x="67" y="51">OpenF1</text>
+<text class="s" x="67" y="70">telemetria real</text>
+
+<!-- 2 Ingestão -->
+<rect x="152" y="8" width="118" height="80" rx="6" style="fill:var(--prod-bg);stroke:var(--prod);stroke-width:1.2"/>
+<path style="fill:var(--prod)" d="M152 32 V14 Q152 8 158 8 H264 Q270 8 270 14 V32 Z"/>
+<circle class="nb" cx="165" cy="20" r="7"/><text class="nb-t" x="165" y="20">2</text>
+<text class="hd-t" x="177" y="25">Ingestão</text>
+<text class="t" x="211" y="51">Gerador</text>
+<text class="s" x="211" y="70">carga controlada</text>
+
+<!-- 3 Mensageria -->
+<rect x="296" y="8" width="118" height="80" rx="6" style="fill:var(--brk-bg);stroke:var(--brk);stroke-width:1.2"/>
+<path style="fill:var(--brk)" d="M296 32 V14 Q296 8 302 8 H408 Q414 8 414 14 V32 Z"/>
+<circle class="nb" cx="309" cy="20" r="7"/><text class="nb-t" x="309" y="20">3</text>
+<text class="hd-t" x="321" y="25">Mensageria</text>
+<text class="t" x="355" y="51">Broker</text>
+<text class="s" x="355" y="70">Kafka ou RabbitMQ</text>
+
+<!-- 4 Processamento -->
+<rect x="440" y="8" width="118" height="80" rx="6" style="fill:var(--cons-bg);stroke:var(--cons);stroke-width:1.2"/>
+<path style="fill:var(--cons)" d="M440 32 V14 Q440 8 446 8 H552 Q558 8 558 14 V32 Z"/>
+<circle class="nb" cx="453" cy="20" r="7"/><text class="nb-t" x="453" y="20">4</text>
+<text class="hd-t" x="465" y="25">Processamento</text>
+<text class="t" x="499" y="51">Consumidor .NET</text>
+<text class="s" x="499" y="70">um de três modos</text>
+
+<!-- 5 Persistência e métricas -->
+<rect x="584" y="8" width="128" height="80" rx="6" style="fill:var(--infra-bg);stroke:var(--infra);stroke-width:1.2"/>
+<path style="fill:var(--infra)" d="M584 32 V14 Q584 8 590 8 H706 Q712 8 712 14 V32 Z"/>
+<circle class="nb" cx="597" cy="20" r="7"/><text class="nb-t" x="597" y="20">5</text>
+<text class="hd-t" x="609" y="25">Persistência</text>
+<text class="t" x="648" y="51">Resultados</text>
+<text class="s" x="648" y="70">e métricas</text>
+
+<!-- Fluxo principal -->
+<path class="ln" d="M126 48 H150" marker-end="url(#ah)"/>
+<path class="ln" d="M270 48 H294" marker-end="url(#ah)"/>
+<path class="ln" d="M414 48 H438" marker-end="url(#ah)"/>
+<path class="ln" d="M558 48 H582" marker-end="url(#ah)"/>
+
+<!-- Segundo cenário: o consumidor republica no broker -->
+<path class="ln2" d="M499 88 V100 H355 V90" marker-end="url(#ah)"/>
+<text class="note" x="427" y="110">2º cenário: republica o resultado</text>
+
+<!-- O que varia e o que se mede -->
+<text class="k" x="67" y="134">uma vez, antes</text>
+<text class="k" x="211" y="134">varia: carga</text>
+<text class="s" x="211" y="148">10 a 400 mil ev/s</text>
+<text class="k" x="355" y="134">varia: broker</text>
+<text class="s" x="355" y="148">2 opções</text>
+<text class="k" x="499" y="134">varia: modo</text>
+<text class="s" x="499" y="148">Direct, Channels</text>
+<text class="s" x="499" y="162">ou Pipelines</text>
+<text class="k" x="648" y="134">mede</text>
+<text class="s" x="648" y="148">latência, vazão,</text>
+<text class="s" x="648" y="162">CPU e memória</text>
+</svg>
+</body></html>

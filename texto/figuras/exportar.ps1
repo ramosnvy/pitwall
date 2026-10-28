@@ -12,7 +12,7 @@ Google Fonts, entao a exportacao precisa de rede.
 ./texto/figuras/exportar.ps1 -Nomes modos
 #>
 param(
-    [string[]]$Nomes = @('arquitetura', 'modos', 'segundo_cenario')
+    [string[]]$Nomes = @('visao_geral', 'arquitetura', 'modos', 'segundo_cenario')
 )
 
 $here = $PSScriptRoot

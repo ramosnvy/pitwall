@@ -501,23 +501,41 @@ de controle sem ele. Essa lacuna reforça a originalidade e a relevância deste 
 
 Esta seção descreve a bancada experimental construída para comparar as seis
 combinações avaliadas: dois brokers, RabbitMQ e Kafka, em três modos de
-processamento, direto, Channels e Pipelines. A Figura~\ref{fig:arquitetura_geral}
-mostra o caminho de um evento pela bancada, em cinco etapas numeradas; as
-subseções a seguir seguem essa numeração e usam os mesmos nomes da figura. Todo o
-código, os scripts de execução e de análise e os resultados brutos estão
-disponíveis no repositório do
+processamento, direto, Channels e Pipelines. Todo o código, os scripts de execução e
+de análise e os resultados brutos estão disponíveis no repositório do
 projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. O cenário padrão é
 medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
 \texttt{cenario-ajustado-v1.1} e o segundo cenário, de republicação
 (Seção~\ref{sec:republicacao}), com a \texttt{cenario-republicacao-v1.1}.
 
-% Fontes das Figuras 1 a 3: texto/figuras/{arquitetura,modos,segundo_cenario}.html;
-% o PDF vetorial e o PNG saem delas por texto/figuras/exportar.ps1. Na largura
-% da página, o texto das figuras fica com cerca de 8 pt.
+% Fontes das Figuras 1 a 4: texto/figuras/{visao_geral,arquitetura,modos,
+% segundo_cenario}.html; o PDF vetorial e o PNG saem delas por
+% texto/figuras/exportar.ps1. Na largura da página, o texto das figuras fica com
+% cerca de 8 pt.
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig_visao_geral.pdf}
+\caption{Visão geral da bancada experimental: o caminho de um evento em cinco etapas
+e o que varia de uma rodada para outra.}
+\label{fig:visao_geral}
+\end{figure}
+
+A Figura~\ref{fig:visao_geral} resume a bancada. Dados reais de telemetria
+(etapa~1) alimentam um gerador, que produz a carga numa taxa controlada (etapa~2) e
+a publica num broker, Kafka ou RabbitMQ (etapa~3). Um consumidor em .NET recebe os
+eventos e os processa num de três modos (etapa~4), e os resultados e as medições de
+cada rodada são gravados (etapa~5). Entre uma rodada e outra variam três fatores: a
+carga, o broker e o modo. No segundo cenário, o consumidor também republica o
+resultado no broker.
+
+A Figura~\ref{fig:arquitetura_geral} detalha cada etapa, com os passos que o evento
+percorre dentro dela, e as subseções a seguir seguem a mesma numeração e os mesmos
+nomes da figura.
+
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_arquitetura.pdf}
-\caption{Arquitetura da bancada experimental: as cinco etapas, os núcleos de
+\caption{Arquitetura da bancada experimental em detalhe: as cinco etapas, os núcleos de
 processador exclusivos de cada uma e, dentro de cada etapa, os passos na ordem do
 fluxo. Kafka e RabbitMQ, assim como os três modos de entrega, são alternativas: cada
 rodada usa um broker e um modo. O tracejado é o caminho acrescentado no segundo
