@@ -6,6 +6,11 @@ maior P99 das rodadas usadas) e escreve, em texto/:
 
   fig_p99.pdf               P99 por carga, um painel por broker, uma linha por modo
   fig_cpu_consumidor.pdf    CPU do consumidor (nucleos) por carga, idem
+  fig_ajustado.pdf          P99 do modo direto por carga, uma linha por perfil
+                            (results/analise-fase7-resumo.csv)
+  fig_republicacao.pdf      P99 de ponta a ponta na saida enriquecida, por carga
+                            e modo, em escala logaritmica
+                            (results/analise-republicacao-resumo.csv)
 
 Uso, na raiz do repositorio:  python texto/figuras/graficos.py
 """
@@ -106,3 +111,67 @@ def figure(field, ylabel, filename, scale=1.0, band=False, limit=None):
 
 figure("p99_ms", "latência P99 (ms)", "fig_p99.pdf", band=True, limit=50)
 figure("cpu_consumidor", "CPU do consumidor (núcleos)", "fig_cpu_consumidor.pdf", scale=0.01)
+
+
+# --- cenario ajustado: P99 do modo direto em cada perfil -----------------------
+
+PROFILES = [
+    ("padrao", "padrão", "#2a78d6", "o", "-"),
+    ("ajustado", "ajustado", "#eb6834", "s", "--"),
+    ("ajustado-vazao", "ajustado para vazão", "#1baf7a", "^", ":"),
+]
+fase7 = [r for r in read("analise-fase7-resumo.csv") if r["hz"] == "100" and r["modo"] == "direct"]
+
+fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
+for ax, (broker, title) in zip(axes, BROKERS):
+    for profile, label, color, marker, dash in PROFILES:
+        rows = sorted((r for r in fase7 if r["broker"] == broker and r["perfil"] == profile),
+                      key=lambda r: int(r["carga"]))
+        if not rows:
+            continue
+        ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r["p99_ms"]) for r in rows],
+                color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
+                markeredgecolor="white", markeredgewidth=0.6, label=label)
+    ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+    ax.set_title(title, loc="left", fontweight="bold")
+    ax.set_xlabel("carga oferecida (mil eventos/s)")
+    ax.set_ylim(bottom=0)
+    ax.grid(axis="y")
+    ax.set_axisbelow(True)
+axes[0].set_ylabel("latência P99 (ms)")
+handles, labels = axes[1].get_legend_handles_labels()
+fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
+fig.savefig(os.path.join(OUT, "fig_ajustado.pdf"))
+fig.savefig(os.path.join(OUT, "fig_ajustado.png"), dpi=200)
+plt.close(fig)
+print("escrito: fig_ajustado.pdf")
+
+
+# --- segundo cenario: P99 de ponta a ponta, saida enriquecida -------------------
+
+rep = [r for r in read("analise-republicacao-resumo.csv") if r["saida"] == "enriquecida"]
+
+fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.6), constrained_layout=True)
+for ax, (broker, title) in zip(axes, BROKERS):
+    for mode, label, color, marker, dash in MODES:
+        rows = sorted((r for r in rep if r["broker"] == broker and r["modo"] == mode),
+                      key=lambda r: int(r["carga"]))
+        ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r["p99_ms"]) for r in rows],
+                color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
+                markeredgecolor="white", markeredgewidth=0.6, label=label)
+    ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+    ax.annotate("limite de 50 ms", xy=(0, 50), xycoords=("axes fraction", "data"),
+                xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
+                fontsize=7, color="#52514e")
+    ax.set_yscale("log")
+    ax.set_title(title, loc="left", fontweight="bold")
+    ax.set_xlabel("carga oferecida (mil eventos/s)")
+    ax.grid(axis="y", which="major")
+    ax.set_axisbelow(True)
+axes[0].set_ylabel("P99 de ponta a ponta (ms, log)")
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
+fig.savefig(os.path.join(OUT, "fig_republicacao.pdf"))
+fig.savefig(os.path.join(OUT, "fig_republicacao.png"), dpi=200)
+plt.close(fig)
+print("escrito: fig_republicacao.pdf")

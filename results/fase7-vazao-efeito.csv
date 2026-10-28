@@ -1,0 +1,4 @@
+﻿"broker","modo","carga","hz","p99_padrao","p99_ajustado","dif_p99_pct","p50_padrao","p50_ajustado","dif_p50_pct","vazao_padrao","vazao_ajustado","dif_vazao_pct","cpu_consumidor_padrao","cpu_consumidor_ajustado","cpu_broker_padrao","cpu_broker_ajustado","cpu_produtor_padrao","cpu_produtor_ajustado","validas_padrao","validas_ajustado","relevante"
+"kafka","direct","200000","100","5.493","20.591","274,9","3.1","11.383","267,2","200005","200022","0","35.7","30.0","46.5","31.5","115.6","113.4","10","9","True"
+"kafka","direct","300000","100","5.651","20.767","267,5","3.221","11.847","267,8","300004","300032","0","46.7","43.6","45.5","33.3","124.5","121.5","10","9","True"
+"kafka","direct","400000","100","6.051","21.015","247,3","3.407","12.395","263,8","400003","400033","0","63.1","58.0","49.4","35.4","133.1","129.3","6","9","True"

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Analise pre-registrada da matriz (docs/ANALISE.md): validade, descarte de
 Tukey, resumo por combinacao, ponto de saturacao e comparacoes.
@@ -16,10 +16,18 @@ sweep ou do decisoes-fase2) e escreve quatro CSVs com o mesmo prefixo:
   <prefixo>-modos.csv      efeito do mecanismo interno contra o Direct e o
                            teste de Kruskal-Wallis entre os tres modos.
 
+Com -Republicacao (segundo cenario, ANALISE.md secao 11), a saida
+(enriquecida ou resumida) entra na combinacao, a latencia principal passa a
+ser a de ponta a ponta medida no painel (a do consumidor fica em p99_proc),
+e valem tres regras de validade a mais: linha do painel, nenhuma saida
+recusada e digest do painel igual ao de referencia (na resumida, tambem
+igual ao do consumidor).
+
 Mudar uma regra aqui exige registrar a mudanca em docs/ANALISE.md.
 
 .EXAMPLE
 ./analise.ps1 -In results/matrix-v3-runs.csv -Out results/analise-v3
+./analise.ps1 -In results/republicacao-matriz-runs.csv -Out results/analise-republicacao -Republicacao
 #>
 param(
     [string[]]$In = @('results/matrix-v3-runs.csv'),
@@ -29,7 +37,8 @@ param(
     [double]$SaturationP99Ms = 50,
     [double]$RelevantThroughput = 0.10,
     [double]$RelevantP99 = 0.20,
-    [int]$MinRunsForTukey = 5
+    [int]$MinRunsForTukey = 5,
+    [switch]$Republicacao
 )
 
 $ErrorActionPreference = 'Stop'
@@ -158,11 +167,20 @@ $rows = foreach ($path in $In) {
             seconds        = $r.measure_seconds
             decisao        = $r.decisao
             lado           = $r.lado
+            output         = "$($r.republish)"
             throughput     = Num $r.throughput
-            p50            = (Num $r.p50_us) / 1000
-            p95            = (Num $r.p95_us) / 1000
-            p99            = (Num $r.p99_us) / 1000
-            max            = (Num $r.max_us) / 1000
+            # No segundo cenario, a latencia principal e a de ponta a ponta.
+            p50            = (Num $(if ($Republicacao) { $r.e2e_p50_us } else { $r.p50_us })) / 1000
+            p95            = (Num $(if ($Republicacao) { $r.e2e_p95_us } else { $r.p95_us })) / 1000
+            p99            = (Num $(if ($Republicacao) { $r.e2e_p99_us } else { $r.p99_us })) / 1000
+            max            = (Num $(if ($Republicacao) { $r.e2e_max_us } else { $r.max_us })) / 1000
+            p99_proc       = (Num $r.p99_us) / 1000
+            e2e_events     = Num $r.e2e_events
+            e2e_digest     = $r.e2e_digest_hash
+            out_failed     = Num $r.out_failed
+            confirm_waits  = Num $r.confirm_waits
+            confirm_wait_ms = Num $r.confirm_wait_ms
+            cpu_painel     = Num $r.e2e_cpu_avg
             jitter         = Num $r.producer_jitter_ms
             digest         = $r.digest_hash
             incomplete     = Num $r.incomplete_records
@@ -185,7 +203,7 @@ $rows = foreach ($path in $In) {
 
 # Combinacao: broker x modo x carga, dentro do perfil, da frequencia e de um
 # mesmo lado de uma medicao de decisao, quando houver.
-function ComboKey($r) { "$($r.profile)|$($r.hz)|$($r.decisao)|$($r.lado)|$($r.broker)|$($r.mode)|$($r.rate)" }
+function ComboKey($r) { "$($r.profile)|$($r.hz)|$($r.decisao)|$($r.lado)|$($r.output)|$($r.broker)|$($r.mode)|$($r.rate)" }
 
 # --- 2. validade -------------------------------------------------------------
 
@@ -196,6 +214,12 @@ foreach ($g in ($rows | Group-Object { "$($_.rate)|$($_.hz)|$($_.window)|$($_.se
     $reference[$g.Name] = ($g.Group | Group-Object digest | Sort-Object Count -Descending | Select-Object -First 1).Name
 }
 
+# Segundo cenario: o digest do painel depende tambem da saida.
+$referenceE2e = @{}
+foreach ($g in ($rows | Group-Object { "$($_.rate)|$($_.hz)|$($_.window)|$($_.seconds)|$($_.output)" })) {
+    $referenceE2e[$g.Name] = ($g.Group | Group-Object e2e_digest | Sort-Object Count -Descending | Select-Object -First 1).Name
+}
+
 foreach ($r in $rows) {
     $inputKey = "$($r.rate)|$($r.hz)|$($r.window)|$($r.seconds)"
     $r.motivo = if ([double]::IsNaN($r.jitter)) { 'sem_relatorio' }
@@ -203,6 +227,10 @@ foreach ($r in $rows) {
         elseif ($r.digest -ne $reference[$inputKey]) { 'conferencia' }
         elseif ($r.incomplete -gt 0) { 'registro_incompleto' }
         elseif ($r.dropped -gt 0) { 'persistencia' }
+        elseif ($Republicacao -and [double]::IsNaN($r.e2e_events)) { 'sem_painel' }
+        elseif ($Republicacao -and $r.out_failed -gt 0) { 'saida_recusada' }
+        elseif ($Republicacao -and ($r.e2e_digest -ne $referenceE2e["$inputKey|$($r.output)"] -or
+                ($r.output -eq 'resumida' -and $r.e2e_digest -ne $r.digest))) { 'conferencia_painel' }
         else { '' }
     $r.valid = $r.motivo -eq ''
 }
@@ -246,7 +274,7 @@ $summary = foreach ($g in ($rows | Group-Object { ComboKey $_ } | Sort-Object { 
     $reasons = ($g.Group | Where-Object { -not $_.valid } | Group-Object motivo | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ';'
 
     [pscustomobject]@{
-        perfil = $first.profile; hz = $first.hz; decisao = $first.decisao; lado = $first.lado
+        perfil = $first.profile; hz = $first.hz; decisao = $first.decisao; lado = $first.lado; saida = $first.output
         broker = $first.broker; modo = $first.mode; carga = $first.rate
         rodadas = $g.Count; validas = $validCount; invalidas = ($reasons); descartadas_tukey = @($g.Group | Where-Object tukey).Count
         usadas = $kept.Count
@@ -259,6 +287,8 @@ $summary = foreach ($g in ($rows | Group-Object { ComboKey $_ } | Sort-Object { 
         bytes_por_evento = Fmt (Median $kept.bytes_event) '0.0'
         gc0_por_milhao = Fmt (Median $kept.gc0_per_m) '0.00'; gc1_por_milhao = Fmt (Median $kept.gc1_per_m) '0.00'
         gc2_por_milhao = Fmt (Median $kept.gc2_per_m) '0.00'
+        p99_proc_ms = Fmt (Median $kept.p99_proc); cpu_painel = Fmt (Median $kept.cpu_painel) '0.0'
+        esperas_confirmacao = Fmt (Median $kept.confirm_waits) '0'; espera_confirmacao_ms = Fmt (Median $kept.confirm_wait_ms) '0'
         sustentada = $sustained; falhou_em = $failed; rodadas_que_cumprem = "$alone/$($g.Count)"
         poucas_rodadas = ($validCount -lt $MinRunsForTukey)
     }
@@ -266,7 +296,7 @@ $summary = foreach ($g in ($rows | Group-Object { ComboKey $_ } | Sort-Object { 
 
 # --- 5. ponto de saturacao ---------------------------------------------------
 
-$saturation = foreach ($g in ($summary | Group-Object { "$($_.perfil)|$($_.hz)|$($_.decisao)|$($_.lado)|$($_.broker)|$($_.modo)" })) {
+$saturation = foreach ($g in ($summary | Group-Object { "$($_.perfil)|$($_.hz)|$($_.decisao)|$($_.lado)|$($_.saida)|$($_.broker)|$($_.modo)" })) {
     $loads = @($g.Group | Sort-Object carga)
     $point = 0
     $irregular = $false
@@ -278,7 +308,7 @@ $saturation = foreach ($g in ($summary | Group-Object { "$($_.perfil)|$($_.hz)|$
     }
     $first = $loads[0]
     [pscustomobject]@{
-        perfil = $first.perfil; hz = $first.hz; decisao = $first.decisao; lado = $first.lado
+        perfil = $first.perfil; hz = $first.hz; decisao = $first.decisao; lado = $first.lado; saida = $first.saida
         broker = $first.broker; modo = $first.modo
         ponto_saturacao = $point
         irregular = $irregular
@@ -289,7 +319,7 @@ $saturation = foreach ($g in ($summary | Group-Object { "$($_.perfil)|$($_.hz)|$
 # --- 6. comparacoes entre modos -----------------------------------------------
 
 $modes = foreach ($g in ($rows | Where-Object { $_.valid -and -not $_.tukey } |
-        Group-Object { "$($_.profile)|$($_.hz)|$($_.decisao)|$($_.lado)|$($_.broker)|$($_.rate)" })) {
+        Group-Object { "$($_.profile)|$($_.hz)|$($_.decisao)|$($_.lado)|$($_.output)|$($_.broker)|$($_.rate)" })) {
     $byMode = @{}
     foreach ($m in ($g.Group | Group-Object mode)) { $byMode[$m.Name] = [double[]]@($m.Group.p99) }
     $kw = KruskalWallis $byMode
@@ -306,7 +336,7 @@ $modes = foreach ($g in ($rows | Where-Object { $_.valid -and -not $_.tukey } |
         $relevant = [math]::Abs($effectP99) -ge $RelevantP99 -or [math]::Abs($effectThroughput) -ge $RelevantThroughput
 
         [pscustomobject]@{
-            perfil = $first.profile; hz = $first.hz; decisao = $first.decisao; lado = $first.lado
+            perfil = $first.profile; hz = $first.hz; decisao = $first.decisao; lado = $first.lado; saida = $first.output
             broker = $first.broker; carga = $first.rate; modo = $m.Name
             efeito_p99 = Fmt $effectP99 '0.0%'; efeito_vazao = Fmt $effectThroughput '0.0%'
             relevante = if ($direct) { $relevant } else { '' }
@@ -318,7 +348,7 @@ $modes = foreach ($g in ($rows | Where-Object { $_.valid -and -not $_.tukey } |
 # --- saida -------------------------------------------------------------------
 
 $prefix = Join-Path $root $Out
-$rows | Select-Object source, run_id, profile, hz, decisao, lado, broker, mode, rate, valid, motivo, tukey, p99, jitter |
+$rows | Select-Object source, run_id, profile, hz, decisao, lado, output, broker, mode, rate, valid, motivo, tukey, p99, p99_proc, jitter |
     Export-Csv "$prefix-rodadas.csv" -NoTypeInformation -Encoding UTF8
 $summary | Export-Csv "$prefix-resumo.csv" -NoTypeInformation -Encoding UTF8
 $saturation | Export-Csv "$prefix-saturacao.csv" -NoTypeInformation -Encoding UTF8

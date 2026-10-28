@@ -1,12 +1,14 @@
 # Estado do projeto
 
-Retrato de 22/10/2026, depois da matriz v3 do cenário padrão (tag `cenario-padrao-v1.2`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
+Retrato de 28/10/2026, depois de todas as medições: matriz v3 do cenário padrão (tag `cenario-padrao-v1.2`), matriz ajustada (`cenario-ajustado-v1.1`) e matriz do segundo cenário (`cenario-republicacao-v1.1`). Decisões em [PLANO.md](PLANO.md); números em [RESULTADOS.md](RESULTADOS.md) e [IMPLEMENTACAO.md](IMPLEMENTACAO.md); configurações em [AUDITORIA-CONFIG.md](AUDITORIA-CONFIG.md).
 
 ## 1. Em que momento estamos
 
 **Pronto para a matriz oficial (v3).** A calibração terminou: a auditoria encontrou três defeitos e três assimetrias, todos corrigidos ou decididos (fases 1, 2 e 4), a análise está escrita antes dos dados (fase 5) e o **cenário padrão** foi congelado em 13/10 (fase 3, tabela final em AUDITORIA-CONFIG; tag `cenario-padrao-v1.2`). **Matriz v3 concluída em 22/10/2026** (fase 6): 430 rodadas em duas sessões seguidas, 0 falhas técnicas, 417 válidas, digest idêntico em todas as cargas. Análise pré-registrada em `results/analise-v3-*.csv`. RabbitMQ satura em 60 mil ev/s nos três modos; Kafka sustenta 400 mil, a maior carga testada. Channels e Pipelines sem diferença relevante de latência, throughput ou alocação; custam de 2,4 a 3,3 vezes a CPU do consumidor no Kafka.
 
-**Texto em andamento** (fase 10): `texto/tcc2.tex` tem todas as seções que não dependem de medição (fundamentação, trabalhos relacionados, arquitetura e implementação, metodologia, calibração, ameaças à validade) e a Figura 1 nova. O que falta está marcado com `\pendente{...}` (seção 8 deste arquivo).
+**Medições encerradas em 28/10/2026.** Matriz ajustada (27/10): 240 rodadas, 0 falhas técnicas, 232 válidas, digest idêntico; análise em `results/analise-fase7-*.csv` e `results/fase7-{latencia,vazao}-*.csv`. Matriz do segundo cenário (27 e 28/10): 300 rodadas, 0 falhas técnicas, 295 válidas, digest do painel idêntico; análise em `results/analise-republicacao-*.csv` (`analysis/analise.ps1 -Republicacao`).
+
+**Texto** (fase 10): `texto/tcc2.tex` tem todas as seções, com os três cenários nos resultados, resumo, abstract e considerações finais. Nenhum `\pendente` sobra no texto; o que falta está na seção 8 deste arquivo.
 
 ## 2. Ambiente
 
@@ -82,7 +84,7 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 8 | Parte .NET: memória e coleta de lixo | **concluída no texto** (22/10): alocação e coletas iguais nos três modos; custo é CPU |
 | 9A | Segundo cenário, passo A: republicação sobre a carga atual e latência de ponta a ponta | **em construção** (aval do orientador em 27/10) |
 | 9B | Segundo cenário, passo B: vários fluxos, etapas e tempo do evento | depende do passo A mostrar efeito, ou de pedido do orientador |
-| 10 | Texto e figuras | **em andamento** (13/10): estrutura completa, Figura 1 e tudo o que não depende de resultado; 10 trechos pendentes (seção 8) |
+| 10 | Texto e figuras | **completo** (28/10): os três cenários nos resultados; falta compilar no Overleaf e as pendências do Pedro (seção 8) |
 
 ## 7. Pontos de atenção
 
@@ -98,14 +100,14 @@ A sequência completa, com tarefas e critérios de pronto, está em [DESENVOLVIM
 | 1 | ~~Noites 1 e 2 da matriz~~ | — | **feito** em 22/10 |
 | 2 | ~~Análise da matriz~~ | — | **feito** (`results/analise-v3-*.csv`) |
 | 3 | ~~Resultados no texto~~ | — | **feito**: seção 6, resumo, abstract e considerações finais |
-| 4 | Fase 7: perfil ajustado, definido e medido (1 ou 2 noites) | Claude define, Pedro roda | 3 |
+| 4 | ~~Fase 7: perfil ajustado~~ | — | **feito**: medido em 27/10, no texto (Cenário Ajustado) |
 | 5 | ~~Fase 8~~ | — | **feito** no texto (Custo de Recursos no .NET) |
-| 6 | ~~Segundo cenário: decisão~~ | — | **validado pelo orientador em 27/10**; passo A em construção |
+| 6 | ~~Segundo cenário, passo A~~ | — | **feito**: medido em 27 e 28/10, no texto (Segundo Cenário: Republicação); passo B só se o orientador pedir |
 | 7 | Nome completo do orientador e banca no `tcc2.tex` | Pedro | — |
 | 8 | Datas "Acesso em: maio 2025" no `sbc-template.bib` (só no Overleaf) | Pedro | — |
 | 9 | Conferir nas fontes os trabalhos relacionados vindos do TCC1 e as 8 referências novas (`texto/referencias-novas.bib`) | Pedro | — |
 | 10 | Compilar no Overleaf (o texto nunca foi compilado; o ponto mais provável de erro é o `fontenc` com o template SBC) | Pedro | — |
 | 11 | Data de aprovação | — | defesa |
 
-**Trechos `\pendente` no texto:** perfil ajustado e cenário ajustado (fase 7); frase de trabalhos futuros (segundo cenário). Os de resultados da matriz foram preenchidos em 22/10. Antes da entrega, nenhum pode sobrar.
+**Trechos `\pendente` no texto:** nenhum desde 28/10 (os do cenário ajustado e de trabalhos futuros foram preenchidos).
 

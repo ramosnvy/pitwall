@@ -122,7 +122,7 @@ Hipóteses e regras de comparação registradas antes de medir (ANALISE §10). R
 
 Total: 520 rodadas, cerca de 17 h, numa sessão contínua.
 
-**Reduzida em 28/10/2026** (tag `cenario-ajustado-v1.1`; ANALISE, tabela de mudanças): Direct em todas as cargas, Channels e Pipelines em duas por broker, sem 3,7 Hz e parte de vazão só com Direct. 240 rodadas, cerca de 8 h.
+**Reduzida em 27/10/2026** (tag `cenario-ajustado-v1.1`; ANALISE, tabela de mudanças): Direct em todas as cargas, Channels e Pipelines em duas por broker, sem 3,7 Hz e parte de vazão só com Direct. 240 rodadas, cerca de 8 h.
 
 O plano original, abaixo, previa só o perfil de latência.
 
@@ -158,7 +158,7 @@ A mesma telemetria de hoje, com o consumidor publicando o resultado num segundo 
 | 9.8 | Núcleos: onde fica o consumidor final; CPU medida | o consumidor final abaixo de 50% do núcleo em que ficar |
 | 9.9 | Varredura de saturação e medição de decisão: os três modos, as duas saídas, 3 rodadas | H5a e H5b confirmadas ou refutadas, registrado em IMPLEMENTACAO |
 
-**Sessão de 28/10/2026:** varredura reduzida e matriz do passo A, com as regras e a escolha das cargas registradas em ANALISE §11.
+**Sessão de 27 e 28/10/2026:** varredura reduzida e matriz do passo A, com as regras e a escolha das cargas registradas em ANALISE §11.
 
 **Portão:** se Channels e Pipelines não mostrarem diferença nem com a saída enriquecida, o passo B só entra se o orientador pedir. O passo A já basta para a resposta sobre a parte .NET.
 

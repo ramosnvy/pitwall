@@ -1,0 +1,7 @@
+﻿"broker","modo","hz","saturacao_padrao","saturacao_ajustado","cargas_ajustado"
+"kafka","channels","100","400000","200000","20000:ok 200000:ok"
+"kafka","direct","100","400000","400000","10000:ok 20000:ok 40000:ok 60000:ok 100000:ok 200000:ok 300000:ok 400000:ok"
+"kafka","pipelines","100","400000","200000","20000:ok 200000:ok"
+"rabbitmq","channels","100","60000","60000","20000:ok 60000:ok"
+"rabbitmq","direct","100","60000","80000","10000:ok 20000:ok 40000:ok 60000:ok 80000:ok"
+"rabbitmq","pipelines","100","60000","60000","20000:ok 60000:ok"

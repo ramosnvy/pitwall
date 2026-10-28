@@ -1,0 +1,2 @@
+﻿"broker","modo","hz","saturacao_padrao","saturacao_ajustado","cargas_ajustado"
+"kafka","direct","100","400000","400000","200000:ok 300000:ok 400000:ok"
