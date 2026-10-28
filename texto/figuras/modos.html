@@ -2,72 +2,83 @@
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Figura 3</title>
 <!-- Figura 3 do TCC2: o caminho de um evento dentro do consumidor, numa faixa,
-     em cada modo. A cor diz em que thread cada passo roda. So o essencial; o
-     que cada passo faz esta no texto (Etapa 4). Mesmo estilo das Figuras 1 e 2.
-     PDF e PNG: texto/figuras/exportar.ps1. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+     em cada modo, no estilo de icones das Figuras 1 e 2. A cor diz em que
+     thread cada passo roda. So o essencial; o que cada passo faz esta no
+     texto (Etapa 4). PDF e PNG: texto/figuras/exportar.ps1. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;600&display=block">
 <style>
 :root {
   --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
-  --prod: #2B5797; --prod-bg: #E0E8F5;
-  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
-  --infra: #3A4550; --infra-bg: #EEF0EC;
+  --brk: #A5620F; --cli: #2D7552; --wrk: #2B5797; --fila: #7A848D;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;
 }
-@page { size: 720px 160px; margin: 0; }
+@page { size: 720px 262px; margin: 0; }
 html, body { margin: 0; padding: 0; background: var(--white); }
-svg { display: block; width: 720px; height: 160px; }
+svg { display: block; width: 720px; height: 262px; }
 .row { font: 700 16px var(--display); letter-spacing: .03em; text-transform: uppercase; fill: var(--ink); dominant-baseline: central; }
-.bx { stroke-width: 1.2; }
-.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.ln { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.lbl { font: 600 11.5px var(--sans); fill: var(--ink); text-anchor: middle; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.3; }
 .ah { fill: var(--muted); }
-.brk { fill: var(--brk-bg); stroke: var(--brk); }
-.cli { fill: var(--cons-bg); stroke: var(--cons); }
-.wrk { fill: var(--prod-bg); stroke: var(--prod); }
-.fila { fill: var(--infra-bg); stroke: var(--infra); }
+.sep { stroke: #E2E5E8; stroke-width: 1; }
+.g { fill: none; stroke: var(--white); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.gf { fill: var(--white); stroke: none; }
+.gt { font: 600 10px var(--mono); fill: var(--white); text-anchor: middle; dominant-baseline: central; }
 .leg { font: 10px var(--mono); fill: var(--ink-2); dominant-baseline: central; }
 </style></head><body>
-<svg viewBox="0 0 720 160" role="img" aria-label="Figura 3: o caminho de um evento dentro do consumidor nos modos Direct, Channels e Pipelines, com a thread em que cada passo roda.">
-<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+<svg viewBox="0 0 720 262" role="img" aria-label="Figura 3: o caminho de um evento dentro do consumidor nos modos Direct, Channels e Pipelines; a cor indica em que thread cada passo roda.">
+<defs>
+  <marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker>
+  <!-- Glifos 40x40, os mesmos da Figura 2 -->
+  <g id="broker"><rect width="40" height="40" rx="6" style="fill:var(--brk)"/><path class="g" d="M10 11.5 H30 M10 17 H30 M10 22.5 H30 M10 28 H30"/></g>
+  <g id="callback"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><path class="g" d="M10 22 V29 H30 V22 M20 9 V21 M15 16 L20 21 L25 16"/></g>
+  <g id="channel"><rect width="40" height="40" rx="6" style="fill:var(--fila)"/><rect class="g" x="8" y="14" width="24" height="12" rx="2"/><path class="gf" d="M11 17 h4 v6 h-4 z M18 17 h4 v6 h-4 z M25 17 h4 v6 h-4 z"/></g>
+  <g id="pipe"><rect width="40" height="40" rx="6" style="fill:var(--fila)"/><rect class="g" x="8" y="13" width="24" height="14" rx="7"/><text class="gt" x="20" y="20.5">01</text></g>
+  <g id="leitor"><rect width="40" height="40" rx="6" style="fill:var(--wrk)"/><path class="g" d="M10 18 V29 H30 V18 M20 22 V9 M15 14 L20 9 L25 14"/></g>
+  <g id="janelas"><rect class="g" x="8.5" y="13" width="23" height="14" rx="1.5"/><path class="g" d="M16.2 13 V27 M23.8 13 V27"/></g>
+</defs>
 
 <!-- Direct -->
-<text class="row" x="8" y="24">Direct</text>
-<rect class="bx brk" x="92" y="8" width="72" height="32" rx="4"/><text class="t" x="128" y="24">Broker</text>
-<path class="ln" d="M164 24 H178" marker-end="url(#ah)"/>
-<rect class="bx cli" x="180" y="8" width="132" height="32" rx="4"/><text class="t" x="246" y="24">Callback</text>
-<path class="ln" d="M312 24 H594" marker-end="url(#ah)"/>
-<rect class="bx cli" x="596" y="8" width="116" height="32" rx="4"/><text class="t" x="654" y="24">Processa</text>
+<text class="row" x="8" y="30">Direct</text>
+<use href="#broker" x="130" y="10"/><text class="lbl" x="150" y="64">Broker</text>
+<path class="ln" d="M170 30 H248" marker-end="url(#ah)"/>
+<use href="#callback" x="250" y="10"/><text class="lbl" x="270" y="64">Callback</text>
+<path class="ln" d="M290 30 H608" marker-end="url(#ah)"/>
+<g transform="translate(610 10)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#janelas"/></g>
+<text class="lbl" x="630" y="64">Processa</text>
+<line class="sep" x1="8" y1="80" x2="712" y2="80"/>
 
 <!-- Channels -->
-<text class="row" x="8" y="70">Channels</text>
-<rect class="bx brk" x="92" y="54" width="72" height="32" rx="4"/><text class="t" x="128" y="70">Broker</text>
-<path class="ln" d="M164 70 H178" marker-end="url(#ah)"/>
-<rect class="bx cli" x="180" y="54" width="132" height="32" rx="4"/><text class="t" x="246" y="70">Callback</text>
-<path class="ln" d="M312 70 H326" marker-end="url(#ah)"/>
-<rect class="bx fila" x="328" y="54" width="118" height="32" rx="4"/><text class="t" x="387" y="70">Channel</text>
-<path class="ln" d="M446 70 H460" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="462" y="54" width="118" height="32" rx="4"/><text class="t" x="521" y="70">Leitor</text>
-<path class="ln" d="M580 70 H594" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="596" y="54" width="116" height="32" rx="4"/><text class="t" x="654" y="70">Processa</text>
+<text class="row" x="8" y="110">Channels</text>
+<use href="#broker" x="130" y="90"/><text class="lbl" x="150" y="144">Broker</text>
+<path class="ln" d="M170 110 H248" marker-end="url(#ah)"/>
+<use href="#callback" x="250" y="90"/><text class="lbl" x="270" y="144">Callback</text>
+<path class="ln" d="M290 110 H368" marker-end="url(#ah)"/>
+<use href="#channel" x="370" y="90"/><text class="lbl" x="390" y="144">Channel</text>
+<path class="ln" d="M410 110 H488" marker-end="url(#ah)"/>
+<use href="#leitor" x="490" y="90"/><text class="lbl" x="510" y="144">Leitor</text>
+<path class="ln" d="M530 110 H608" marker-end="url(#ah)"/>
+<g transform="translate(610 90)"><rect width="40" height="40" rx="6" style="fill:var(--wrk)"/><use href="#janelas"/></g>
+<text class="lbl" x="630" y="144">Processa</text>
+<line class="sep" x1="8" y1="160" x2="712" y2="160"/>
 
 <!-- Pipelines -->
-<text class="row" x="8" y="116">Pipelines</text>
-<rect class="bx brk" x="92" y="100" width="72" height="32" rx="4"/><text class="t" x="128" y="116">Broker</text>
-<path class="ln" d="M164 116 H178" marker-end="url(#ah)"/>
-<rect class="bx cli" x="180" y="100" width="132" height="32" rx="4"/><text class="t" x="246" y="116">Callback</text>
-<path class="ln" d="M312 116 H326" marker-end="url(#ah)"/>
-<rect class="bx fila" x="328" y="100" width="118" height="32" rx="4"/><text class="t" x="387" y="116">Pipe</text>
-<path class="ln" d="M446 116 H460" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="462" y="100" width="118" height="32" rx="4"/><text class="t" x="521" y="116">Leitor</text>
-<path class="ln" d="M580 116 H594" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="596" y="100" width="116" height="32" rx="4"/><text class="t" x="654" y="116">Processa</text>
+<text class="row" x="8" y="190">Pipelines</text>
+<use href="#broker" x="130" y="170"/><text class="lbl" x="150" y="224">Broker</text>
+<path class="ln" d="M170 190 H248" marker-end="url(#ah)"/>
+<use href="#callback" x="250" y="170"/><text class="lbl" x="270" y="224">Callback</text>
+<path class="ln" d="M290 190 H368" marker-end="url(#ah)"/>
+<use href="#pipe" x="370" y="170"/><text class="lbl" x="390" y="224">Pipe</text>
+<path class="ln" d="M410 190 H488" marker-end="url(#ah)"/>
+<use href="#leitor" x="490" y="170"/><text class="lbl" x="510" y="224">Leitor</text>
+<path class="ln" d="M530 190 H608" marker-end="url(#ah)"/>
+<g transform="translate(610 170)"><rect width="40" height="40" rx="6" style="fill:var(--wrk)"/><use href="#janelas"/></g>
+<text class="lbl" x="630" y="224">Processa</text>
 
 <!-- Legenda das cores -->
-<rect class="bx cli" x="8" y="142" width="12" height="12" rx="2"/><text class="leg" x="25" y="148">thread do cliente</text>
-<rect class="bx wrk" x="146" y="142" width="12" height="12" rx="2"/><text class="leg" x="163" y="148">thread de trabalho</text>
-<rect class="bx fila" x="290" y="142" width="12" height="12" rx="2"/><text class="leg" x="307" y="148">fila interna</text>
+<rect x="8" y="244" width="12" height="12" rx="2" style="fill:var(--cli)"/><text class="leg" x="25" y="250">thread do cliente</text>
+<rect x="146" y="244" width="12" height="12" rx="2" style="fill:var(--wrk)"/><text class="leg" x="163" y="250">thread de trabalho</text>
+<rect x="290" y="244" width="12" height="12" rx="2" style="fill:var(--fila)"/><text class="leg" x="307" y="250">fila interna</text>
 </svg>
 </body></html>

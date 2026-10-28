@@ -1,70 +1,69 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Figura 1</title>
-<!-- Figura 1 do TCC2: visao abstrata da bancada, um bloco por etapa. So o
-     essencial; a explicacao esta no texto da secao 4. Mesmo estilo e cores das
-     demais figuras. PDF e PNG: texto/figuras/exportar.ps1. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+<!-- Figura 1 do TCC2: visao abstrata da bancada, um icone por etapa, no estilo
+     dos diagramas de arquitetura de nuvem, com os mesmos icones e cores da
+     Figura 2. So o essencial; a explicacao esta no texto da secao 4.
+     PDF e PNG: texto/figuras/exportar.ps1. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
 <style>
 :root {
-  --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
-  --data: #5E6872; --data-bg: #F1F2F3; --prod: #2B5797; --prod-bg: #E0E8F5;
-  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
-  --infra: #3A4550; --infra-bg: #EEF0EC;
+  --ink: #17202A; --muted: #5E6872; --white: #FFFFFF;
+  --data: #5E6872; --prod: #2B5797; --brk: #A5620F; --cons: #2D7552; --infra: #3A4550;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
-@page { size: 720px 112px; margin: 0; }
+@page { size: 720px 132px; margin: 0; }
 html, body { margin: 0; padding: 0; background: var(--white); }
-svg { display: block; width: 720px; height: 112px; }
-.hd-t { font: 700 13.5px var(--display); letter-spacing: .01em; text-transform: uppercase; fill: var(--white); }
-.nb { fill: var(--white); }
-.nb-t { font: 600 10px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.note { font: italic 10px var(--sans); fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+svg { display: block; width: 720px; height: 132px; }
+.st { font: 700 12.5px var(--display); letter-spacing: .04em; text-transform: uppercase; text-anchor: middle; }
+.lbl { font: 600 12px var(--sans); fill: var(--ink); text-anchor: middle; }
+.note { font: italic 10px var(--sans); fill: var(--muted); text-anchor: middle; }
 .ln { fill: none; stroke: var(--muted); stroke-width: 1.4; }
 .ln2 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .ah { fill: var(--muted); }
+.g { fill: none; stroke: var(--white); stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.gf { fill: var(--white); stroke: none; }
 </style></head><body>
-<svg viewBox="0 0 720 112" role="img" aria-label="Figura 1: visão geral da bancada em cinco etapas: OpenF1, gerador, broker, consumidor .NET e resultados.">
+<svg viewBox="0 0 720 132" role="img" aria-label="Figura 1: visão geral da bancada em cinco etapas: OpenF1, gerador, broker, consumidor .NET e resultados; tracejado, a republicação do segundo cenário.">
 <defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
 
-<rect x="8" y="8" width="118" height="66" rx="6" style="fill:var(--data-bg);stroke:var(--data);stroke-width:1.2"/>
-<path style="fill:var(--data)" d="M8 32 V14 Q8 8 14 8 H120 Q126 8 126 14 V32 Z"/>
-<circle class="nb" cx="21" cy="20" r="7"/><text class="nb-t" x="21" y="20">1</text>
-<text class="hd-t" x="33" y="25">Dados</text>
-<text class="t" x="67" y="53">OpenF1</text>
+<!-- Ícones 48x48 (os glifos da Figura 2, em escala 1,2) -->
+<text class="st" style="fill:var(--data)" x="72" y="14">1 · Dados</text>
+<g transform="translate(48 22) scale(1.2)"><rect width="40" height="40" rx="6" style="fill:var(--data)"/>
+  <path class="g" d="M12 27 H28 A5.5 5.5 0 0 0 28 16 A7.5 7.5 0 0 0 14 14.5 A6 6 0 0 0 12 27 Z"/></g>
+<text class="lbl" x="72" y="88">OpenF1</text>
 
-<rect x="152" y="8" width="118" height="66" rx="6" style="fill:var(--prod-bg);stroke:var(--prod);stroke-width:1.2"/>
-<path style="fill:var(--prod)" d="M152 32 V14 Q152 8 158 8 H264 Q270 8 270 14 V32 Z"/>
-<circle class="nb" cx="165" cy="20" r="7"/><text class="nb-t" x="165" y="20">2</text>
-<text class="hd-t" x="177" y="25">Ingestão</text>
-<text class="t" x="211" y="53">Gerador</text>
+<text class="st" style="fill:var(--prod)" x="216" y="14">2 · Ingestão</text>
+<g transform="translate(192 22) scale(1.2)"><rect width="40" height="40" rx="6" style="fill:var(--prod)"/>
+  <path class="gf" d="M10 12 L20 20 L10 28 Z M20 12 L30 20 L20 28 Z"/></g>
+<text class="lbl" x="216" y="88">Gerador</text>
 
-<rect x="296" y="8" width="118" height="66" rx="6" style="fill:var(--brk-bg);stroke:var(--brk);stroke-width:1.2"/>
-<path style="fill:var(--brk)" d="M296 32 V14 Q296 8 302 8 H408 Q414 8 414 14 V32 Z"/>
-<circle class="nb" cx="309" cy="20" r="7"/><text class="nb-t" x="309" y="20">3</text>
-<text class="hd-t" x="321" y="25">Mensageria</text>
-<text class="t" x="355" y="53">Broker</text>
+<text class="st" style="fill:var(--brk)" x="360" y="14">3 · Mensageria</text>
+<g transform="translate(336 22) scale(1.2)"><rect width="40" height="40" rx="6" style="fill:var(--brk)"/>
+  <path class="g" d="M10 11.5 H30 M10 17 H30 M10 22.5 H30 M10 28 H30"/></g>
+<text class="lbl" x="360" y="88">Broker</text>
 
-<rect x="440" y="8" width="118" height="66" rx="6" style="fill:var(--cons-bg);stroke:var(--cons);stroke-width:1.2"/>
-<path style="fill:var(--cons)" d="M440 32 V14 Q440 8 446 8 H552 Q558 8 558 14 V32 Z"/>
-<circle class="nb" cx="453" cy="20" r="7"/><text class="nb-t" x="453" y="20">4</text>
-<text class="hd-t" x="465" y="25">Processamento</text>
-<text class="t" x="499" y="53">Consumidor .NET</text>
+<text class="st" style="fill:var(--cons)" x="504" y="14">4 · Processamento</text>
+<g transform="translate(480 22) scale(1.2)"><rect width="40" height="40" rx="6" style="fill:var(--cons)"/>
+  <rect class="g" x="13" y="13" width="14" height="14" rx="1.5"/>
+  <path class="g" d="M17 9 V13 M23 9 V13 M17 27 V31 M23 27 V31 M9 17 H13 M9 23 H13 M27 17 H31 M27 23 H31"/></g>
+<text class="lbl" x="504" y="88">Consumidor .NET</text>
 
-<rect x="584" y="8" width="128" height="66" rx="6" style="fill:var(--infra-bg);stroke:var(--infra);stroke-width:1.2"/>
-<path style="fill:var(--infra)" d="M584 32 V14 Q584 8 590 8 H706 Q712 8 712 14 V32 Z"/>
-<circle class="nb" cx="597" cy="20" r="7"/><text class="nb-t" x="597" y="20">5</text>
-<text class="hd-t" x="609" y="25">Persistência</text>
-<text class="t" x="648" y="53">Resultados</text>
+<text class="st" style="fill:var(--infra)" x="648" y="14">5 · Persistência</text>
+<g transform="translate(624 22) scale(1.2)"><rect width="40" height="40" rx="6" style="fill:var(--infra)"/>
+  <ellipse class="g" cx="20" cy="12.5" rx="8.5" ry="3.2"/>
+  <path class="g" d="M11.5 12.5 V27.5 A8.5 3.2 0 0 0 28.5 27.5 V12.5 M11.5 20 A8.5 3.2 0 0 0 28.5 20"/></g>
+<text class="lbl" x="648" y="88">Resultados</text>
 
-<path class="ln" d="M126 53 H150" marker-end="url(#ah)"/>
-<path class="ln" d="M270 53 H294" marker-end="url(#ah)"/>
-<path class="ln" d="M414 53 H438" marker-end="url(#ah)"/>
-<path class="ln" d="M558 53 H582" marker-end="url(#ah)"/>
+<!-- Fluxo -->
+<path class="ln" d="M96 46 H190" marker-end="url(#ah)"/>
+<path class="ln" d="M240 46 H334" marker-end="url(#ah)"/>
+<path class="ln" d="M384 46 H478" marker-end="url(#ah)"/>
+<path class="ln" d="M528 46 H622" marker-end="url(#ah)"/>
 
-<path class="ln2" d="M499 74 V88 H355 V76" marker-end="url(#ah)"/>
-<text class="note" x="427" y="100">segundo cenário</text>
+<!-- Segundo cenário -->
+<path class="ln2" d="M504 96 V108 H360 V98" marker-end="url(#ah)"/>
+<text class="note" x="432" y="124">segundo cenário</text>
 </svg>
 </body></html>

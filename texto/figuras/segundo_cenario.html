@@ -2,65 +2,82 @@
 <html lang="pt-BR"><head><meta charset="utf-8">
 <title>Figura 4</title>
 <!-- Figura 4 do TCC2: como cada modo trata a espera pela confirmacao da saida
-     republicada, no segundo cenario. So o essencial; a explicacao esta no texto
-     (Metodologia, Segundo Cenario). Mesmo estilo das Figuras 1 a 3.
+     republicada, no segundo cenario, no estilo de icones das Figuras 1 a 3.
+     So o essencial; a explicacao esta no texto (Metodologia, Segundo Cenario).
      PDF e PNG: texto/figuras/exportar.ps1. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;600&display=block">
 <style>
 :root {
   --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
-  --prod: #2B5797; --prod-bg: #E0E8F5;
-  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
-  --stop: #A93A2E; --stop-bg: #F6E0DC;
+  --brk: #A5620F; --cli: #2D7552; --wrk: #2B5797; --stop: #A93A2E;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", Consolas, monospace;
 }
-@page { size: 720px 120px; margin: 0; }
+@page { size: 720px 182px; margin: 0; }
 html, body { margin: 0; padding: 0; background: var(--white); }
-svg { display: block; width: 720px; height: 120px; }
+svg { display: block; width: 720px; height: 182px; }
 .row { font: 700 16px var(--display); letter-spacing: .03em; text-transform: uppercase; fill: var(--ink); dominant-baseline: central; }
-.bx { stroke-width: 1.2; }
-.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.ln { fill: none; stroke: var(--muted); stroke-width: 1.2; }
-.ln2 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.lbl { font: 600 11.5px var(--sans); fill: var(--ink); text-anchor: middle; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.3; }
+.ln2 { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 4 3; }
 .ah { fill: var(--muted); }
-.brk { fill: var(--brk-bg); stroke: var(--brk); }
-.cli { fill: var(--cons-bg); stroke: var(--cons); }
-.wrk { fill: var(--prod-bg); stroke: var(--prod); }
-.stop { fill: var(--stop-bg); stroke: var(--stop); }
+.sep { stroke: #E2E5E8; stroke-width: 1; }
+.g { fill: none; stroke: var(--white); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .leg { font: 10px var(--mono); fill: var(--ink-2); dominant-baseline: central; }
 </style></head><body>
-<svg viewBox="0 0 720 120" role="img" aria-label="Figura 4: no segundo cenário, o modo direto recebe, processa, publica e para para esperar as confirmações antes de confirmar a entrada; Channels e Pipelines publicam num estágio próprio e confirmam a entrada sem parar a recepção.">
-<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+<svg viewBox="0 0 720 182" role="img" aria-label="Figura 4: no segundo cenário, o modo direto recebe, processa e publica na mesma thread e para para esperar as confirmações antes de confirmar a entrada; Channels e Pipelines processam e publicam em threads próprias e recebem as confirmações em paralelo.">
+<defs>
+  <marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker>
+  <!-- Glifos 40x40, os mesmos das Figuras 2 e 3 -->
+  <g id="broker"><rect width="40" height="40" rx="6" style="fill:var(--brk)"/><path class="g" d="M10 11.5 H30 M10 17 H30 M10 22.5 H30 M10 28 H30"/></g>
+  <path id="recebe" class="g" d="M10 22 V29 H30 V22 M20 9 V21 M15 16 L20 21 L25 16"/>
+  <g id="janelas"><rect class="g" x="8.5" y="13" width="23" height="14" rx="1.5"/><path class="g" d="M16.2 13 V27 M23.8 13 V27"/></g>
+  <path id="publica" class="g" d="M9 20.5 L31 11 L25 30 L20.5 23 Z M20.5 23 L31 11"/>
+  <g id="espera"><rect width="40" height="40" rx="6" style="fill:var(--stop)"/><circle class="g" cx="20" cy="20" r="10"/><path class="g" d="M20 14 V20 L24.5 23"/></g>
+  <path id="confirma" class="g" d="M11.5 21 L17.5 27 L29 13.5"/>
+</defs>
 
-<!-- Direct -->
-<text class="row" x="8" y="24">Direct</text>
-<rect class="bx brk" x="92" y="8" width="72" height="32" rx="4"/><text class="t" x="128" y="24">Broker</text>
-<path class="ln" d="M164 24 H178" marker-end="url(#ah)"/>
-<rect class="bx cli" x="180" y="8" width="344" height="32" rx="4"/><text class="t" x="352" y="24">Recebe, processa e publica</text>
-<path class="ln" d="M524 24 H538" marker-end="url(#ah)"/>
-<rect class="bx stop" x="540" y="8" width="84" height="32" rx="4"/><text class="t" x="582" y="24">Espera</text>
-<path class="ln" d="M624 24 H638" marker-end="url(#ah)"/>
-<rect class="bx cli" x="640" y="8" width="72" height="32" rx="4"/><text class="t" x="676" y="24">Confirma</text>
+<!-- Direct: tudo na thread do cliente, e para a cada 100 saídas -->
+<text class="row" x="8" y="30">Direct</text>
+<use href="#broker" x="130" y="10"/><text class="lbl" x="150" y="64">Broker</text>
+<path class="ln" d="M170 30 H248" marker-end="url(#ah)"/>
+<g transform="translate(250 10)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#recebe"/></g>
+<text class="lbl" x="270" y="64">Recebe</text>
+<path class="ln" d="M290 30 H368" marker-end="url(#ah)"/>
+<g transform="translate(370 10)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#janelas"/></g>
+<text class="lbl" x="390" y="64">Processa</text>
+<path class="ln" d="M410 30 H488" marker-end="url(#ah)"/>
+<g transform="translate(490 10)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#publica"/></g>
+<text class="lbl" x="510" y="64">Publica</text>
+<path class="ln" d="M530 30 H548" marker-end="url(#ah)"/>
+<use href="#espera" x="550" y="10"/><text class="lbl" x="570" y="64">Espera</text>
+<path class="ln" d="M590 30 H608" marker-end="url(#ah)"/>
+<g transform="translate(610 10)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#confirma"/></g>
+<text class="lbl" x="630" y="64">Confirma</text>
+<line class="sep" x1="8" y1="80" x2="712" y2="80"/>
 
-<!-- Channels e Pipelines -->
-<text class="row" x="8" y="62">Channels</text>
-<text class="row" x="8" y="78">Pipelines</text>
-<rect class="bx brk" x="92" y="54" width="72" height="32" rx="4"/><text class="t" x="128" y="70">Broker</text>
-<path class="ln" d="M164 70 H178" marker-end="url(#ah)"/>
-<rect class="bx cli" x="180" y="54" width="104" height="32" rx="4"/><text class="t" x="232" y="70">Recebe</text>
-<path class="ln" d="M284 70 H298" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="300" y="54" width="104" height="32" rx="4"/><text class="t" x="352" y="70">Processa</text>
-<path class="ln" d="M404 70 H418" marker-end="url(#ah)"/>
-<rect class="bx wrk" x="420" y="54" width="104" height="32" rx="4"/><text class="t" x="472" y="70">Publica</text>
-<path class="ln2" d="M524 70 H638" marker-end="url(#ah)"/>
-<rect class="bx cli" x="640" y="54" width="72" height="32" rx="4"/><text class="t" x="676" y="70">Confirma</text>
+<!-- Channels e Pipelines: processa e publica em threads próprias -->
+<text class="row" x="8" y="102">Channels</text>
+<text class="row" x="8" y="119">Pipelines</text>
+<use href="#broker" x="130" y="90"/><text class="lbl" x="150" y="144">Broker</text>
+<path class="ln" d="M170 110 H248" marker-end="url(#ah)"/>
+<g transform="translate(250 90)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#recebe"/></g>
+<text class="lbl" x="270" y="144">Recebe</text>
+<path class="ln" d="M290 110 H368" marker-end="url(#ah)"/>
+<g transform="translate(370 90)"><rect width="40" height="40" rx="6" style="fill:var(--wrk)"/><use href="#janelas"/></g>
+<text class="lbl" x="390" y="144">Processa</text>
+<path class="ln" d="M410 110 H488" marker-end="url(#ah)"/>
+<g transform="translate(490 90)"><rect width="40" height="40" rx="6" style="fill:var(--wrk)"/><use href="#publica"/></g>
+<text class="lbl" x="510" y="144">Publica</text>
+<path class="ln2" d="M530 110 H608" marker-end="url(#ah)"/>
+<g transform="translate(610 90)"><rect width="40" height="40" rx="6" style="fill:var(--cli)"/><use href="#confirma"/></g>
+<text class="lbl" x="630" y="144">Confirma</text>
 
-<!-- Legenda das cores -->
-<rect class="bx cli" x="8" y="102" width="12" height="12" rx="2"/><text class="leg" x="25" y="108">thread do cliente</text>
-<rect class="bx wrk" x="146" y="102" width="12" height="12" rx="2"/><text class="leg" x="163" y="108">threads de trabalho</text>
-<rect class="bx stop" x="296" y="102" width="12" height="12" rx="2"/><text class="leg" x="313" y="108">recepção parada</text>
-<path class="ln2" d="M440 108 H470"/><text class="leg" x="476" y="108">confirmações em paralelo</text>
+<!-- Legenda -->
+<rect x="8" y="164" width="12" height="12" rx="2" style="fill:var(--cli)"/><text class="leg" x="25" y="170">thread do cliente</text>
+<rect x="146" y="164" width="12" height="12" rx="2" style="fill:var(--wrk)"/><text class="leg" x="163" y="170">threads de trabalho</text>
+<rect x="296" y="164" width="12" height="12" rx="2" style="fill:var(--stop)"/><text class="leg" x="313" y="170">recepção parada</text>
+<path class="ln2" d="M440 170 H470"/><text class="leg" x="476" y="170">confirmações em paralelo</text>
 </svg>
 </body></html>
