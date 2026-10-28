@@ -8,7 +8,7 @@ Retrato de 28/10/2026, depois de todas as medições. São três matrizes, todas
 | Cenário ajustado, reduzida | 27/10 | `cenario-ajustado-v1.1` | 240 | 232 | 14 |
 | Segundo cenário (republicação) | 27 e 28/10 | `cenario-republicacao-v1.1` | 300 | 295 | 18 |
 
-Nenhuma falha técnica nas três. Todas as rodadas inválidas foram por atraso de envio do gerador acima de 50 ms, no Kafka, a 200 mil ev/s ou mais (no segundo cenário, também no Kafka). Nenhuma rodada divergiu no digest, teve registro incompleto no `Pipe` ou descartou janelas: em cada carga, todas as combinações produziram o mesmo resultado, e nenhum evento se perdeu, duplicou ou saiu de ordem por carro.
+Nenhuma falha técnica nas três. Todas as rodadas inválidas foram por atraso de envio do gerador acima de 50 ms, no Kafka: a 200 mil ev/s ou mais no padrão e no ajustado, e de 50 a 200 mil no segundo cenário. Nenhuma rodada divergiu no digest, teve registro incompleto no `Pipe` ou descartou janelas: em cada carga, todas as combinações produziram o mesmo resultado, e nenhum evento se perdeu, duplicou ou saiu de ordem por carro.
 
 Ambiente: i5-12400F, Docker Desktop sobre WSL2, núcleos exclusivos (gerador 0–3, broker 4–7, consumidor 8–10, banco, métricas e painel 11). CPU em **núcleos**: 1,0 é um núcleo inteiro. Valores são medianas das rodadas válidas e não descartadas de cada combinação. O texto com a discussão completa é a seção 6 de `texto/tcc2.tex`; o apêndice traz todas as métricas do cenário padrão a 100 Hz.
 

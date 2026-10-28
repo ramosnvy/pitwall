@@ -1,6 +1,6 @@
 # Impactos da implementação
 
-Achados sobre como decisões de implementação e de ambiente afetam os resultados da matriz `7e283c2`. Estão separados por grau de evidência:
+Achados sobre como decisões de implementação e de ambiente afetam os resultados. As seções 1 a 6 partiram da primeira matriz (`7e283c2`, hoje calibração); as seções 7 a 10 são as medições que decidiram o protocolo; a seção 11 é a implementação do segundo cenário. Estão separados por grau de evidência:
 - **medido:** dado da matriz ou do Prometheus;
 - **calculado:** derivado do código e do dataset;
 - **hipótese:** ainda a testar.
@@ -8,6 +8,22 @@ Achados sobre como decisões de implementação e de ambiente afetam os resultad
 Os três primeiros achados são assimetrias entre os brokers, o que é o tipo mais grave de problema num trabalho comparativo.
 
 > **Atualização (experimento 2×2, §7):** a cota de CPU se confirmou como fator de peso: com núcleos fixos, o P99 do RabbitMQ caiu de 40% a 64%. Já a hipótese do §1 foi **refutada** a 40 e 60 mil ev/s: equilibrar as filas aumentou a CPU do broker e o P99, em vez de reduzir. O desbalanceamento não prejudicava o RabbitMQ nessas cargas; ajudava. O efeito sobre o teto de vazão ainda não foi medido.
+
+## Desfecho (28/10/2026)
+
+O que cada achado virou nas matrizes finais ([RESULTADOS.md](RESULTADOS.md)):
+
+| § | Achado | Desfecho |
+| --- | --- | --- |
+| 1 | Faixas desbalanceadas no RabbitMQ | CRC32 nos dois brokers, pela mesma divisão dos carros, mesmo custando latência ao RabbitMQ (§7) |
+| 2 | Cota de CPU estrangulava o RabbitMQ | Núcleos exclusivos para todos os componentes (§7) |
+| 3 | A biblioteca cliente aloca ~20× o evento | Confirmado na matriz v3: de 952 a 975 bytes por evento no Kafka e de 720 a 834 no RabbitMQ, iguais nos três modos. No texto, Custo de Recursos no .NET |
+| 4 | Terceiro buffer do cliente Kafka | `queued.min.messages` e `queued.max.messages.kbytes` ficaram no padrão e são gravados por rodada; não foram variados |
+| 5 | Espera ativa do ThreadPool | Não testada. As variáveis `DOTNET_*` ficaram no padrão e são gravadas por rodada; a H1e do APROFUNDAMENTO fica em aberto |
+| 8 | Medições de decisão | Nagle desligado, mensagem persistente e `prefetch` sem limite no padrão; transitória e `prefetch` 300 no ajustado; 100 mil em voo no produtor |
+| 9 | Picos do Kafka pelo disco da VM | Declarado nas ameaças. Invalidou 13 rodadas no padrão, 8 no ajustado e 5 no segundo cenário, todas do Kafka |
+| 10 | `linger.ms` 0 degenera | O ajustado usa 1. Na matriz, o P50 caiu de ~3 para ~1 ms, e o P99 subiu de 28 a 296% a partir de 40 mil |
+| 11 | Espera de confirmação na republicação | Decide o teto do Direct no Kafka: ~64 mil ev/s, contra 200 mil ou mais de Channels e Pipelines |
 
 ## 1. As faixas do RabbitMQ são desbalanceadas; as do Kafka, não (medido)
 
@@ -268,6 +284,38 @@ Dados em `results/fase4*-{runs,episodios,rodadas}.csv`; análise em `analysis/in
 - **O piso de cerca de 5 ms do padrão vem da espera de formação de lotes, para a mediana:** com `linger.ms` 1, o P50 cai de 3 para 1 ms.
 - **A cauda não acompanha:** o P99 com `linger.ms` 1 não melhora a 10 mil e piora a 100 mil (7 a 12 ms), com o broker gastando o dobro de CPU. Lotes menores trocam mediana por cauda e CPU.
 - **Decisão:** o perfil ajustado usa `linger.ms` 1 (ANALISE, tabela de mudanças). O `linger.ms` 0 entra no texto como achado: a recomendação genérica "linger.ms 0 para baixa latência" não vale aqui.
+- **Na matriz ajustada (27/10)** o diagnóstico se confirmou com 10 repetições: P50 de 0,91 a 1,04 ms em todas as cargas, P99 de 3,4 ms a 10 mil e de 7 a 22 ms a partir de 40 mil, CPU do broker de 0,8 a 1,2 núcleo (RESULTADOS §2).
+
+## 11. Segundo cenário: a espera de confirmação da republicação (medido)
+
+27 e 28/10/2026, fase 9A. Código em `src/Pitwall.Consumer/Republish`, roteiro `experiments/republicacao.ps1`, análise `analysis/analise.ps1 -Republicacao`. Dados em `results/republicacao-{varredura,matriz}-*.csv`.
+
+### 11.1 Como está implementado
+
+- **Republicação** (`Republishers.cs`): a saída vai para o mesmo tipo de broker da entrada, na faixa de mesmo número, com o mesmo cliente e os mesmos padrões do produtor de entrada (Kafka `acks=all`, RabbitMQ com *publisher confirms*). O publicador não espera a confirmação: quando ela chega, avisa o `ReleaseTracker`. Uma saída recusada pelo broker invalida a rodada.
+- **At-least-once de ponta a ponta** (`ReleaseTracker.cs`): por faixa, as pendências ficam em ordem de posição de entrada (offset do Kafka ou etiqueta de entrega do RabbitMQ). Como as confirmações chegam fora de ordem entre janelas de carros diferentes, só se libera ao broker de entrada o **prefixo contínuo** de entradas com todas as saídas confirmadas, a técnica do Confluent Parallel Consumer.
+- **Direct** (`RepublishDirectPipeline`): recebe, processa e publica na thread do cliente. A cada 100 saídas (`ConfirmBatch`, o mesmo lote da confirmação do consumidor RabbitMQ) para e espera todas as confirmações; durante a espera, a faixa não recebe nada.
+- **Channels e Pipelines** (`RepublishChannelsPipeline`, `RepublishPipelinesPipeline`): três estágios (recepção, processamento, publicação), com até 10 mil saídas em voo por faixa (`MaxInFlight`) antes de a publicação esperar. A recepção só para por contrapressão das filas internas.
+- **Painel** (`PainelPipeline`): consumidor final no núcleo 11. Mede a latência de ponta a ponta, do envio pelo gerador à chegada da saída, e confere o resultado com um digest próprio. O consumidor grava o número e o tempo total das esperas (`confirm_waits`, `confirm_wait_ms`).
+
+### 11.2 O que a espera custa
+
+| Broker | Situação | Esperas | Tempo por espera |
+| --- | --- | --- | --- |
+| Kafka | Direct, enriquecida, 20 mil ev/s | ~14 mil em 60 s | ~4,7 ms |
+| Kafka | Direct, enriquecida, na saturação | — | ~5,8 ms |
+| Kafka | Direct, resumida, 200 mil ev/s | ~1.400 por rodada | — |
+| RabbitMQ | Direct, enriquecida, 10 mil ev/s | — | ~1,3 ms |
+
+- **No Kafka, cada espera custa perto de um lote do `linger.ms` (5 ms).** Cem saídas a cada 5,8 ms dão ~17 mil ev/s por faixa, ~69 mil nas quatro, perto do teto medido de ~64 mil. A 100 e a 200 mil ev/s o Direct entrega 64 mil, e a fila cresce até P99 de 38 e 145 s. Channels e Pipelines sustentam 200 mil com P99 de 13 ms.
+- **No RabbitMQ a confirmação chega rápido,** e quem limita é a CPU do broker, que carrega o dobro de mensagens na saída enriquecida (3,2 a 3,6 núcleos). Os três modos sustentam até 30 mil e falham juntos a 40 mil.
+- **Mesmo com a saída resumida,** ~1% da entrada, o Direct do Kafka ainda para ~1.400 vezes por rodada e tem o dobro do P99 (33,5 contra 15 ms). Channels e Pipelines quase nunca param.
+- **O teto do Direct depende do `ConfirmBatch`,** que não foi variado. Uma janela maior reduziria as esperas, ao custo de mais entradas sem confirmação e de mais reprocessamento numa queda. O que não depende dela é que o Direct para de consumir a cada espera.
+
+### 11.3 Achados de protocolo
+
+- **Limite do painel.** Na varredura (66 rodadas, commit `e6c3841`), o painel passou de meio núcleo a 60 mil ev/s no RabbitMQ e a 300 mil no Kafka. Pela regra registrada antes, essas cargas ficaram fora da matriz, para que a latência de ponta a ponta não medisse o painel. Na matriz, o painel ocupou no máximo 0,42 núcleo.
+- **Retomada.** A sessão foi interrompida três vezes (um desligamento e duas pausas) e retomada da última rodada completa pelo roteiro; as rodadas interrompidas foram refeitas do início. Nenhuma falha técnica.
 
 ## Fontes
 
