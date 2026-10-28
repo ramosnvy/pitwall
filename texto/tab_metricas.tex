@@ -62,13 +62,14 @@ rodadas válidas e não descartadas; latências em ms.}
 \caption{Cenário padrão a 100~Hz: CPU (núcleos; 1,0 = um núcleo inteiro) e memória (MB)
 por combinação, médias e picos de cada rodada. Mediana das rodadas válidas e não
 descartadas. A CPU média do consumidor é a do container; o pico de CPU e a memória do
-consumidor, as do próprio processo; broker e gerador, as dos containers.}
+consumidor, as do próprio processo; broker e gerador, as dos containers. Cons.:
+consumidor; ger.: gerador.}
 \label{tab:metricas-recursos}
 \scriptsize
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{|l|l|r|r|r|r|r|r|r|r|r|r|r|}
 \hline
-\multirow{2}{*}{\textbf{Broker}} & \multirow{2}{*}{\textbf{Modo}} & \multirow{2}{*}{\textbf{Carga}} & \multicolumn{2}{c|}{\textbf{CPU consumidor}} & \multicolumn{2}{c|}{\textbf{CPU broker}} & \multicolumn{2}{c|}{\textbf{CPU gerador}} & \multicolumn{2}{c|}{\textbf{Mem. consumidor}} & \multicolumn{2}{c|}{\textbf{Mem. broker}} \\
+\multirow{2}{*}{\textbf{Broker}} & \multirow{2}{*}{\textbf{Modo}} & \multirow{2}{*}{\textbf{Carga}} & \multicolumn{2}{c|}{\textbf{CPU cons.}} & \multicolumn{2}{c|}{\textbf{CPU broker}} & \multicolumn{2}{c|}{\textbf{CPU ger.}} & \multicolumn{2}{c|}{\textbf{Mem. cons.}} & \multicolumn{2}{c|}{\textbf{Mem. broker}} \\
 \cline{4-13}
  & & & \textbf{méd.} & \textbf{pico} & \textbf{méd.} & \textbf{pico} & \textbf{méd.} & \textbf{pico} & \textbf{méd.} & \textbf{pico} & \textbf{méd.} & \textbf{pico} \\
 \hline
