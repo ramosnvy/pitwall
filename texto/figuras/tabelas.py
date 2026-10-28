@@ -18,6 +18,7 @@ Uso, na raiz do repositorio:  python texto/figuras/tabelas.py
 import csv
 import os
 from collections import defaultdict
+from decimal import ROUND_HALF_UP, Decimal
 from statistics import median
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -53,6 +54,9 @@ def med(rows, field, scale=1.0):
 
 
 def fmt(value, digits):
+    # Arredonda o meio para longe do zero, como o analise.ps1 (.NET); o format
+    # do Python arredondaria para o par (86,5 daria 86, e nao 87).
+    value = float(Decimal(repr(value)).quantize(Decimal(1).scaleb(-digits), rounding=ROUND_HALF_UP))
     return f"{value:,.{digits}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 

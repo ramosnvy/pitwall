@@ -315,7 +315,8 @@ relacionados. A Seção~\ref{sec:implementacao} descreve a arquitetura e a imple
 Seção~\ref{sec:metodologia} apresenta o ambiente e o protocolo experimental. A
 Seção~\ref{sec:resultados} apresenta e discute os resultados, e a
 Seção~\ref{sec:ameacas}, as ameaças à validade. Por fim, a
-Seção~\ref{sec:conclusao} traz as considerações finais.
+Seção~\ref{sec:conclusao} traz as considerações finais, e o
+Apêndice~\ref{sec:apendice-metricas}, as métricas completas do cenário padrão.
 
 % ===================================================================
 
@@ -334,8 +335,9 @@ processamento de um evento), throughput (número de eventos processados por unid
 tempo) e uso de recursos (CPU e memória) são fundamentais para avaliar tais sistemas
 \cite{jain:1991,fu:2021}.
 
-A latência é reportada por percentis, e não pela média, porque o que limita sistemas de
-tempo próximo ao real é a cauda da distribuição: o P99 é o valor abaixo do qual ficam
+A latência é analisada por percentis, e não pela média, que aparece só como informação
+complementar, porque o que limita sistemas de tempo próximo ao real é a cauda da
+distribuição: o P99 é o valor abaixo do qual ficam
 99\% dos eventos \cite{fu:2021}. Medir a cauda exige cuidado com o gerador de carga. Um
 gerador em malha fechada, que só envia o próximo evento depois de o anterior ser aceito,
 desacelera quando o sistema satura e deixa de registrar justamente os eventos mais
@@ -515,7 +517,7 @@ medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{arquitetura_geral.pdf}
-\caption{Arquitetura da bancada experimental, no formato da Figura~1 do TCC1: as cinco
+\caption{Arquitetura da bancada experimental: as cinco
 etapas, os núcleos de processador exclusivos de cada uma e, dentro de cada etapa, os
 passos na ordem do fluxo.}
 \label{fig:arquitetura_geral}
@@ -734,11 +736,12 @@ RabbitMQ, servidor & memória considerada de 3~GB & o padrão calcula sobre a me
 \end{tabular}
 \end{table}
 
-Uma diferença de garantia permanece e é declarada: com a mensagem persistente, o
-RabbitMQ grava em disco antes de confirmar, enquanto o Kafka confirma com a mensagem no
-cache do sistema operacional, o comportamento recomendado pelo próprio Kafka
+No cenário padrão, uma diferença de garantia permanece e é declarada: com a mensagem
+persistente, o RabbitMQ grava em disco antes de confirmar, enquanto o Kafka confirma com
+a mensagem no cache do sistema operacional, o comportamento recomendado pelo próprio Kafka
 \cite{kafka:docs}. Na calibração, essa gravação custou 48\% no P99 do RabbitMQ a 40 mil
-eventos por segundo (Seção~\ref{sec:calibracao}).
+eventos por segundo (Seção~\ref{sec:calibracao}). O cenário ajustado elimina essa
+diferença.
 
 \begin{table}[ht]
 \centering
@@ -799,13 +802,14 @@ segundo. São 240 rodadas, com as mesmas 10 repetições.
 \subsection{Métricas de Avaliação}
 
 \begin{itemize}
-  \item \textbf{Latência}: percentis P50, P95 e P99 e máxima, do envio ao fim do
-        processamento \cite{fu:2021};
+  \item \textbf{Latência}: percentis P50, P95 e P99, máxima e média, do envio ao fim do
+        processamento \cite{fu:2021}; no segundo cenário, também de ponta a ponta, do
+        envio à chegada da saída no painel;
   \item \textbf{Throughput}: número de eventos processados por segundo;
   \item \textbf{Ponto de saturação}: maior carga sustentada por cada combinação;
-  \item \textbf{Uso de CPU}: do consumidor, do broker e do gerador, em núcleos
-        (1,0 corresponde a um núcleo inteiro ocupado);
-  \item \textbf{Uso de memória}: pico do consumidor e do broker;
+  \item \textbf{Uso de CPU}: médio e de pico, do consumidor, do broker e do gerador, em
+        núcleos (1,0 corresponde a um núcleo inteiro ocupado);
+  \item \textbf{Uso de memória}: médio e de pico, do consumidor e do broker;
   \item \textbf{Custo do .NET}: bytes alocados por evento e coletas de lixo por milhão
         de eventos no consumidor.
 \end{itemize}
@@ -990,7 +994,8 @@ Terceiro, o consumidor do Kafka lê o log em lotes, enquanto o RabbitMQ entrega
 cada mensagem e recebe a confirmação em lotes de 100. O custo aparece também no
 gerador: publicar no RabbitMQ ocupa 3,1 dos 4 núcleos a 60 mil eventos por
 segundo, contra 1,1 núcleo no Kafka. Em troca, o Kafka usa mais memória no
-broker, de 1,4 a 1,7~GB, contra 0,2 a 0,3~GB do RabbitMQ.
+broker: de 1,3 a 1,5~GB em média e de 1,4 a 1,7~GB de pico, contra 0,16 a
+0,20~GB em média e 0,2 a 0,3~GB de pico do RabbitMQ.
 
 \subsection{Latência}
 
@@ -1055,8 +1060,8 @@ carga. Além disso, com nó único, o Kafka não paga a replicação que justifi
 sua durabilidade em produção, e o RabbitMQ paga uma gravação em disco que o
 Kafka não paga.
 
-A latência máxima do Kafka no modo direto sobe de 16 a 26~ms, até 300 mil eventos por segundo,
-para 93~ms a 400 mil. O aumento é compatível com os episódios de gravação de
+A latência máxima do Kafka no modo direto fica entre 16 e 26~ms até 300 mil eventos
+por segundo e sobe para 93~ms a 400 mil. O aumento é compatível com os episódios de gravação de
 disco da máquina virtual descritos na calibração, que são também o que invalida
 rodadas por atraso de envio nessa faixa.
 
@@ -1377,10 +1382,12 @@ a gravação do sistema operacional fugiria do cenário padrão e mudaria o ambi
 brokers; a mitigação são as dez repetições, a mediana e a regra de descarte, que impedem
 um episódio isolado de decidir o ponto de saturação.
 
-\textbf{Assimetria de durabilidade.} Com a mensagem persistente, o RabbitMQ oferece
-garantia mais forte que o Kafka em nó único, o que favorece o Kafka. Equalizar exigiria
-mensagens transitórias no RabbitMQ ou gravação forçada no Kafka, as duas fora da prática
-recomendada de cada fornecedor. O custo foi medido e é declarado.
+\textbf{Assimetria de durabilidade.} No cenário padrão, com a mensagem persistente, o
+RabbitMQ oferece garantia mais forte que o Kafka em nó único, o que favorece o Kafka. O
+cenário ajustado iguala as garantias com mensagens transitórias no RabbitMQ, que, com um
+nó, confirma com a mensagem na memória, como o Kafka confirma com ela no cache do sistema;
+a diferença entre os dois cenários mostra o peso dessa assimetria
+(Seção~\ref{sec:res-ajustado}).
 
 \textbf{Ordem por carro.} Para garantir a ordem dos eventos de cada carro nos dois
 brokers, o RabbitMQ usa uma fila por faixa, em vez de uma fila com consumidores
@@ -1431,9 +1438,10 @@ em produção, o Kafka costuma usar compressão.
 
 \textbf{Mensagem pequena e processamento leve.} Com eventos de 46 bytes e processamento de
 cerca de 0,12~µs por evento, o experimento é dominado pelo transporte. Os resultados sobre
-o mecanismo interno valem para esse uso, e para o uso padrão das ferramentas: um evento
-por vez, sem lote. Mensagens maiores, processamento mais pesado ou leitura em lote podem
-favorecer o Channels ou o Pipelines.
+o mecanismo interno no primeiro cenário valem para esse uso, e para o uso padrão das
+ferramentas: um evento por vez, sem lote. O segundo cenário mostra um caso em que o
+processamento tem espera; mensagens maiores, processamento mais pesado ou leitura em lote
+também podem favorecer o Channels ou o Pipelines.
 
 \subsection{Validade de Conclusão}
 
@@ -1476,7 +1484,7 @@ em alta frequência utilizando .NET, combinando sistemas de mensageria distribu�
 (RabbitMQ e Kafka) com mecanismos de processamento concorrente interno (Channels e
 Pipelines), com um modo sem mecanismo interno como grupo de controle.
 
-Neste cenário, o broker decide o desempenho, e o mecanismo interno decide o custo.
+No cenário padrão, o broker decide o desempenho, e o mecanismo interno decide o custo.
 O RabbitMQ entrega a menor latência em carga baixa: a 10 mil eventos por segundo,
 a latência média é de 0,46~ms e o P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka. Mas
 satura perto de 60 mil, limitado pela CPU do broker, que chega a picos de 3,65 dos
