@@ -929,7 +929,11 @@ seguidas, uma por broker: o RabbitMQ das 01h23 às 06h49 e o Kafka das 06h49 às
 15h28, sem nenhuma falha técnica. Os valores a seguir são medianas das rodadas
 válidas e não descartadas de cada combinação. O uso de CPU é dado em núcleos:
 1,0 corresponde a um núcleo inteiro ocupado, e o broker dispõe de 4, o
-consumidor de 3 e o gerador de 4.
+consumidor de 3 e o gerador de 4. As Tabelas~\ref{tab:metricas-latencia} e
+\ref{tab:metricas-recursos}, no Apêndice~\ref{sec:apendice-metricas}, trazem
+todas as métricas de cada combinação do cenário padrão a 100~Hz: latência
+média, P50, P95, P99 e máxima, e CPU e memória médias e de pico do consumidor,
+do broker e do gerador.
 
 \subsection{Validade das Rodadas}
 
@@ -1302,6 +1306,55 @@ mecanismo interno compensa, portanto, quando o processamento espera algo e essa 
 é longa em relação ao custo do evento; o desacoplamento esconde a espera, e o custo em
 CPU fica pequeno perto do ganho.
 
+\subsection{Comparação com os Trabalhos Relacionados}
+\label{sec:comparacao}
+
+Os resultados sobre os brokers concordam com os trabalhos relacionados no sentido geral
+e acrescentam as condições em que cada conclusão vale. Umam et al.~\cite{umam:2026} e
+Dobbelaere e Esmaili~\cite{dobbelaere:2017} apontam o RabbitMQ para mensagens
+individuais com baixa latência e o Kafka para volumes altos e contínuos. Aqui, o
+RabbitMQ teve o menor P99 a 10 mil eventos por segundo e praticamente o mesmo do Kafka a
+20 mil, no cenário padrão, e o menor P99 até 40 mil, no ajustado. O Kafka sustentou pelo
+menos 5 vezes a carga do RabbitMQ (400 mil, contra 60 mil no padrão e 80 mil no
+ajustado), com cerca de um oitavo da CPU de broker na mesma carga. Os cenários de configuração mostram de onde vêm essas
+diferenças: o piso de latência do Kafka é a espera de formação de lotes, e cai de 3 para
+1~ms no P50 quando ela é reduzida; o limite do RabbitMQ é a CPU do broker, e parte dela
+é a gravação em disco antes de confirmar.
+
+Kamiński, Kłonica e Pańczyk~\cite{kaminski:2025} encontraram desempenho superior do
+Kafka em .NET. Os resultados deste trabalho confirmam isso para throughput e para
+latência em carga alta, mas não em carga baixa, onde o RabbitMQ foi mais rápido nos dois
+cenários de configuração. A diferença mostra que uma comparação de brokers em .NET
+depende da faixa de carga e da configuração avaliadas, como sugerem Dyjach e
+Plechawska-Wójcik~\cite{dyjach:2024} ao ligar a escolha do broker ao padrão de acesso.
+Com mensagens de 46 bytes, o custo fixo por mensagem domina e favorece quem agrupa em
+lote; no segundo cenário, a mudança da saída enriquecida para a resumida, que reduz o
+volume publicado a cerca de 1\%, mudou o resultado entre os modos.
+
+Ortiz et al.~\cite{ortiz:2023} mostram que a camada de processamento acoplada ao broker
+afeta a latência e a escalabilidade. Os dois cenários deste trabalho delimitam quando
+isso acontece: com o processamento apenas na memória, o mecanismo interno não mudou
+nenhuma medida de desempenho; quando o processamento passou a esperar a confirmação de
+uma republicação, o mecanismo decidiu o throughput máximo do Kafka. Raptis, Cicconetti e
+Passarella~\cite{raptis:2024} observam que configurações internas do Kafka afetam
+diretamente o desempenho, o que o cenário ajustado confirma com um único parâmetro: o
+\texttt{linger.ms} trocou latência mediana por CPU do broker e por cauda nas cargas
+altas.
+
+Cleary~\cite{cleary:2019} recomenda Channels e Pipelines para a comunicação
+produtor-consumidor, sem avaliá-los junto de sistemas de mensageria. As medições deste
+trabalho qualificam essa recomendação: sem espera a esconder, os dois só acrescentaram
+CPU, de 2,4 a 3,3 vezes no consumidor do Kafka; com a espera da republicação, sustentaram
+quatro vezes a carga do modo direto, com de 1,1 a 1,3 vez a CPU dele. Por fim, Fu, Zhang e
+Yu~\cite{fu:2021} defendem que uma comparação justa exige controlar o ambiente e a
+configuração. A calibração deste trabalho é um exemplo concreto: a posição dos clientes,
+a cota de CPU e a gravação de disco da máquina virtual produziram efeitos maiores que as
+diferenças entre as arquiteturas, e teriam sido atribuídos a elas sem o controle.
+
+Nenhum dos trabalhos relacionados mede o mecanismo interno contra um grupo de controle
+sem ele. É essa comparação que permite separar o efeito do broker do efeito do mecanismo
+e mostrar que o segundo depende de o processamento ter, ou não, uma espera própria.
+
 % ===================================================================
 
 \section{Ameaças à Validade}
@@ -1468,5 +1521,20 @@ entrada; e a variação da janela de confirmação do modo direto no segundo cen
 
 \bibliographystyle{sbc}
 \bibliography{sbc-template,referencias-novas}
+
+% ===================================================================
+
+\appendix
+
+\section{Métricas Completas do Cenário Padrão}
+\label{sec:apendice-metricas}
+
+As tabelas deste apêndice trazem, para cada combinação de broker, modo e carga do
+cenário padrão a 100~Hz, a mediana de cada métrica entre as rodadas válidas e não
+descartadas, as mesmas usadas na Seção~\ref{sec:resultados}. Os valores de cada rodada,
+inclusive das rodadas inválidas e descartadas, e os dos demais cenários estão nos
+arquivos de resultados do repositório.
+
+\input{tab_metricas}
 
 \end{document}
