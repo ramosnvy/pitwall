@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Figura 2</title>
+<!-- Figura 2 do TCC2: o caminho de um evento dentro do consumidor, numa faixa,
+     em cada modo. A cor diz em que thread cada passo roda; o que muda entre os
+     modos e a fila interna e quem processa. Mesmo estilo da Figura 1.
+     PDF e PNG: texto/figuras/exportar.ps1. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+<style>
+:root {
+  --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
+  --prod: #2B5797; --prod-bg: #E0E8F5;
+  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
+  --infra: #3A4550; --infra-bg: #EEF0EC;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+@page { size: 720px 262px; margin: 0; }
+html, body { margin: 0; padding: 0; background: var(--white); }
+svg { display: block; width: 720px; height: 262px; }
+.col { font: 500 10px var(--mono); letter-spacing: .05em; fill: var(--ink-2); text-anchor: middle; }
+.row { font: 700 16px var(--display); letter-spacing: .03em; text-transform: uppercase; fill: var(--ink); }
+.row-s { font: 10px var(--mono); fill: var(--ink-2); }
+.bx { stroke-width: 1.2; }
+.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.s { font: 10px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.note { font: italic 10px var(--sans); fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.ah { fill: var(--muted); }
+.sep { stroke: #D5D9DD; stroke-width: 1; }
+.brk { fill: var(--brk-bg); stroke: var(--brk); }
+.cli { fill: var(--cons-bg); stroke: var(--cons); }
+.wrk { fill: var(--prod-bg); stroke: var(--prod); }
+.fila { fill: var(--infra-bg); stroke: var(--infra); }
+.leg { font: 10px var(--mono); fill: var(--ink-2); dominant-baseline: central; }
+</style></head><body>
+<svg viewBox="0 0 720 262" role="img" aria-label="Figura 2: o caminho de um evento dentro do consumidor, numa faixa, nos modos Direct, Channels e Pipelines, com a thread em que cada passo roda.">
+<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+
+<!-- Cabeçalho das colunas -->
+<text class="col" x="128" y="16">BROKER</text>
+<text class="col" x="246" y="16">RECEPÇÃO</text>
+<text class="col" x="387" y="16">FILA INTERNA</text>
+<text class="col" x="521" y="16">LEITURA</text>
+<text class="col" x="654" y="16">PROCESSAMENTO</text>
+<line class="sep" x1="8" y1="26" x2="712" y2="26"/>
+
+<!-- Direct -->
+<text class="row" x="8" y="60">Direct</text>
+<text class="row-s" x="8" y="75">sem fila</text>
+<rect class="bx brk" x="92" y="42" width="72" height="40" rx="4"/><text class="t" x="128" y="55">Broker</text><text class="s" x="128" y="71">faixa i</text>
+<path class="ln" d="M164 62 H178" marker-end="url(#ah)"/>
+<rect class="bx cli" x="180" y="42" width="132" height="40" rx="4"/><text class="t" x="246" y="55">Callback</text><text class="s" x="246" y="71">recebe o evento</text>
+<path class="ln" d="M312 62 H594" marker-end="url(#ah)"/>
+<text class="note" x="454" y="52">na mesma thread, sem fila nem troca de thread</text>
+<rect class="bx cli" x="596" y="42" width="116" height="40" rx="4"/><text class="t" x="654" y="55">Processa</text><text class="s" x="654" y="71">mesmo código</text>
+<line class="sep" x1="8" y1="100" x2="712" y2="100"/>
+
+<!-- Channels -->
+<text class="row" x="8" y="134">Channels</text>
+<text class="row-s" x="8" y="149">fila: eventos</text>
+<rect class="bx brk" x="92" y="116" width="72" height="40" rx="4"/><text class="t" x="128" y="129">Broker</text><text class="s" x="128" y="145">faixa i</text>
+<path class="ln" d="M164 136 H178" marker-end="url(#ah)"/>
+<rect class="bx cli" x="180" y="116" width="132" height="40" rx="4"/><text class="t" x="246" y="129">Callback</text><text class="s" x="246" y="145">escreve o evento</text>
+<path class="ln" d="M312 136 H326" marker-end="url(#ah)"/>
+<rect class="bx fila" x="328" y="116" width="118" height="40" rx="4"/><text class="t" x="387" y="129">Channel</text><text class="s" x="387" y="145">10.000 eventos</text>
+<text class="note" x="387" y="167">cheio: o callback espera</text>
+<path class="ln" d="M446 136 H460" marker-end="url(#ah)"/>
+<rect class="bx wrk" x="462" y="116" width="118" height="40" rx="4"/><text class="t" x="521" y="129">Leitor</text><text class="s" x="521" y="145">lê do canal</text>
+<path class="ln" d="M580 136 H594" marker-end="url(#ah)"/>
+<rect class="bx wrk" x="596" y="116" width="116" height="40" rx="4"/><text class="t" x="654" y="129">Processa</text><text class="s" x="654" y="145">mesmo código</text>
+<line class="sep" x1="8" y1="178" x2="712" y2="178"/>
+
+<!-- Pipelines -->
+<text class="row" x="8" y="212">Pipelines</text>
+<text class="row-s" x="8" y="227">fila: bytes</text>
+<rect class="bx brk" x="92" y="194" width="72" height="40" rx="4"/><text class="t" x="128" y="207">Broker</text><text class="s" x="128" y="223">faixa i</text>
+<path class="ln" d="M164 214 H178" marker-end="url(#ah)"/>
+<rect class="bx cli" x="180" y="194" width="132" height="40" rx="4"/><text class="t" x="246" y="207">Callback</text><text class="s" x="246" y="223">copia os bytes</text>
+<path class="ln" d="M312 214 H326" marker-end="url(#ah)"/>
+<rect class="bx fila" x="328" y="194" width="118" height="40" rx="4"/><text class="t" x="387" y="207">Pipe</text><text class="s" x="387" y="223">até 460 KB</text>
+<text class="note" x="387" y="245">cheio: o callback espera</text>
+<path class="ln" d="M446 214 H460" marker-end="url(#ah)"/>
+<rect class="bx wrk" x="462" y="194" width="118" height="40" rx="4"/><text class="t" x="521" y="207">Leitor</text><text class="s" x="521" y="223">interpreta 46 B</text>
+<path class="ln" d="M580 214 H594" marker-end="url(#ah)"/>
+<rect class="bx wrk" x="596" y="194" width="116" height="40" rx="4"/><text class="t" x="654" y="207">Processa</text><text class="s" x="654" y="223">mesmo código</text>
+
+<!-- Legenda -->
+<rect class="bx cli" x="8" y="244" width="12" height="12" rx="2"/><text class="leg" x="25" y="250">thread do cliente</text>
+<rect class="bx wrk" x="146" y="244" width="12" height="12" rx="2"/><text class="leg" x="163" y="250">thread de trabalho</text>
+</svg>
+</body></html>

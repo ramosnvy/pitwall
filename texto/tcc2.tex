@@ -511,15 +511,17 @@ medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
 \texttt{cenario-ajustado-v1.1} e o segundo cenário, de republicação
 (Seção~\ref{sec:republicacao}), com a \texttt{cenario-republicacao-v1.1}.
 
-% Fonte da figura: arquitetura_geral.html (layout C do mapa da arquitetura,
-% só com o nome de cada passo); o PDF vetorial e o PNG saem dela pelo
-% navegador. Na largura da página, o texto da figura fica com cerca de 8 pt.
+% Fontes das Figuras 1 a 3: texto/figuras/{arquitetura,modos,segundo_cenario}.html;
+% o PDF vetorial e o PNG saem delas por texto/figuras/exportar.ps1. Na largura
+% da página, o texto das figuras fica com cerca de 8 pt.
 \begin{figure}[ht]
 \centering
-\includegraphics[width=\textwidth]{arquitetura_geral.pdf}
-\caption{Arquitetura da bancada experimental: as cinco
-etapas, os núcleos de processador exclusivos de cada uma e, dentro de cada etapa, os
-passos na ordem do fluxo.}
+\includegraphics[width=\textwidth]{fig_arquitetura.pdf}
+\caption{Arquitetura da bancada experimental: as cinco etapas, os núcleos de
+processador exclusivos de cada uma e, dentro de cada etapa, os passos na ordem do
+fluxo. Kafka e RabbitMQ, assim como os três modos de entrega, são alternativas: cada
+rodada usa um broker e um modo. O tracejado é o caminho acrescentado no segundo
+cenário (Seção~\ref{sec:republicacao}).}
 \label{fig:arquitetura_geral}
 \end{figure}
 
@@ -527,7 +529,8 @@ A etapa 1 acontece uma única vez, antes dos experimentos. As etapas 2 a 5 rodam
 em containers Docker, cada uma com núcleos de processador exclusivos, indicados
 no topo de cada etapa na figura (Seção~\ref{sec:metodologia}). Dentro de cada
 etapa, os passos se leem de cima para baixo, e as setas ligam o último passo de
-uma etapa ao primeiro da seguinte.
+uma etapa ao primeiro da seguinte. A palavra ``ou'' separa alternativas: numa
+rodada, o evento passa por um só broker e por um só modo de entrega.
 
 \subsection{Etapa 1: Dados}
 \label{sec:dados}
@@ -597,7 +600,19 @@ processamento. A configuração completa está na Seção~\ref{sec:configuracao}
 confirma o recebimento em lotes.
 
 \textbf{Um modo por rodada.} O consumidor entrega cada evento ao processamento por
-um de três modos, e cada rodada usa um só:
+um de três modos, e cada rodada usa um só. A Figura~\ref{fig:modos} mostra o caminho
+de um evento dentro do consumidor em cada modo; a cor indica em que thread cada passo
+roda:
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig_modos.pdf}
+\caption{Os três modos de entrega, numa das quatro faixas. No Direct, o evento é
+processado na própria thread que o recebe do broker. No Channels e no Pipelines, a
+recepção escreve numa fila interna limitada, de eventos ou de bytes, e uma thread de
+trabalho lê dela e processa. O código de processamento é o mesmo nos três modos.}
+\label{fig:modos}
+\end{figure}
 
 \begin{itemize}
   \item \textbf{Direct} (direto): o evento é processado no próprio retorno de
@@ -861,12 +876,23 @@ Duas saídas são medidas. A \textbf{enriquecida} publica uma mensagem de 64 byt
 evento de entrada, com o evento e o estado da janela do carro naquele instante; dobra o
 volume que passa pelo broker. A \textbf{resumida} publica uma mensagem de 38 bytes por
 janela fechada, cerca de 1\% da entrada. Os três modos tratam a espera de formas
-diferentes. O modo direto publica no próprio retorno do consumidor e, a cada 100 saídas,
-para e espera todas as confirmações antes de seguir. Channels e Pipelines separam
-recepção, processamento e publicação em três estágios, recebem as confirmações em
-paralelo e só param quando há 10 mil saídas sem confirmação. Nos três, a posição de
-entrada liberada para confirmação é a do maior prefixo contínuo de eventos com todas as
-saídas confirmadas.
+diferentes (Figura~\ref{fig:segundo-cenario}). O modo direto publica no próprio retorno
+do consumidor e, a cada 100 saídas, para e espera todas as confirmações antes de seguir.
+Channels e Pipelines separam recepção, processamento e publicação em três estágios,
+recebem as confirmações em paralelo e só param quando há 10 mil saídas sem
+confirmação. Nos três, a posição de entrada liberada para confirmação é a do maior
+prefixo contínuo de eventos com todas as saídas confirmadas.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig_segundo_cenario.pdf}
+\caption{Segundo cenário: como cada modo trata a espera pela confirmação da saída. O
+modo direto recebe, processa e publica na mesma thread e, a cada 100 saídas, para até
+receber todas as confirmações. Channels e Pipelines publicam num estágio próprio,
+recebem as confirmações em paralelo e confirmam a entrada até o ponto em que todas as
+saídas anteriores já foram confirmadas.}
+\label{fig:segundo-cenario}
+\end{figure}
 
 O painel mede a latência de ponta a ponta, do envio pelo gerador até a chegada da saída,
 com o mesmo relógio da máquina. Ele roda no núcleo 11, junto do banco e das métricas, e

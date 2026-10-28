@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Figura 1</title>
+<!-- Figura 1 do TCC2: visao geral da bancada, nas cinco etapas que o texto da
+     secao 4 segue. Os tres modos aparecem como alternativas (um por rodada), e
+     o caminho do segundo cenario, tracejado. O detalhe dos modos esta em
+     modos.html (Figura 2) e o do segundo cenario em segundo_cenario.html.
+     PDF e PNG: texto/figuras/exportar.ps1. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=block">
+<style>
+:root {
+  --ink: #17202A; --ink-2: #3A4550; --muted: #5E6872; --white: #FFFFFF;
+  --data: #5E6872; --prod: #2B5797; --prod-bg: #E0E8F5;
+  --brk: #A5620F; --brk-bg: #F5E9D6; --cons: #2D7552; --cons-bg: #E1EEE5;
+  --infra: #3A4550; --infra-bg: #EEF0EC;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+@page { size: 720px 398px; margin: 0; }
+html, body { margin: 0; padding: 0; background: var(--white); }
+svg { display: block; width: 720px; height: 398px; }
+.env { fill: none; stroke: var(--ink-2); stroke-width: 1.1; stroke-dasharray: 5 3; }
+.env-t { font: 500 10px var(--mono); letter-spacing: .05em; fill: var(--ink-2); }
+.strip { fill: none; stroke-width: 1.2; }
+.hd-t { font: 700 15px var(--display); letter-spacing: .03em; text-transform: uppercase; fill: var(--white); }
+.hd-c { font: 500 10px var(--mono); fill: var(--white); }
+.nb { fill: var(--white); }
+.nb-t { font: 600 11px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.bx { stroke-width: 1.2; }
+.t { font: 600 13px var(--sans); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+.s { font: 10px var(--mono); fill: var(--ink-2); text-anchor: middle; dominant-baseline: central; }
+.grp { fill: none; stroke: var(--cons); stroke-width: 1.1; stroke-dasharray: 3 3; }
+.grp-t { font: 500 10px var(--mono); fill: var(--ink-2); text-anchor: middle; }
+.ou { font: italic 11px var(--sans); fill: var(--muted); text-anchor: middle; dominant-baseline: central; }
+.ln { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.ln2 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.ah { fill: var(--muted); }
+.data { fill: var(--white); stroke: var(--data); stroke-dasharray: 4 3; }
+.prod { fill: var(--prod-bg); stroke: var(--prod); }
+.brk { fill: var(--brk-bg); stroke: var(--brk); }
+.cons { fill: var(--cons-bg); stroke: var(--cons); }
+.infra { fill: var(--infra-bg); stroke: var(--infra); }
+.alt { fill: var(--white); stroke-dasharray: 4 3; }
+.leg { font: 500 10px var(--mono); fill: var(--ink-2); }
+</style></head><body>
+<svg viewBox="0 0 720 398" role="img" aria-label="Figura 1: as cinco etapas da bancada experimental, com os núcleos exclusivos de cada uma, os três modos de entrega como alternativas e, tracejado, o caminho do segundo cenário até o painel.">
+<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker></defs>
+
+<rect class="env" x="139" y="6" width="578" height="386" rx="8"/>
+<text class="env-t" x="150" y="21">DOCKER · NÚCLEOS EXCLUSIVOS</text>
+<path class="ln2" d="M520 18 H548"/>
+<text class="leg" x="554" y="21">só no segundo cenário</text>
+
+<!-- 1 Dados -->
+<rect class="strip" style="stroke:var(--data)" x="8" y="30" width="118" height="344" rx="6"/>
+<path style="fill:var(--data)" d="M8 70 V36 Q8 30 14 30 H120 Q126 30 126 36 V70 Z"/>
+<circle class="nb" cx="24" cy="50" r="9"/><text class="nb-t" x="24" y="50">1</text>
+<text class="hd-t" x="38" y="56">Dados</text>
+<rect class="bx data" x="14" y="84" width="106" height="32" rx="4"/><text class="t" x="67" y="100">API OpenF1</text>
+<path class="ln" d="M67 116 V128" marker-end="url(#ah)"/>
+<rect class="bx data" x="14" y="130" width="106" height="32" rx="4"/><text class="t" x="67" y="146">Cópia local</text>
+
+<!-- 2 Ingestão -->
+<rect class="strip" style="stroke:var(--prod)" x="148" y="30" width="116" height="344" rx="6"/>
+<path style="fill:var(--prod)" d="M148 70 V36 Q148 30 154 30 H258 Q264 30 264 36 V70 Z"/>
+<circle class="nb" cx="164" cy="50" r="9"/><text class="nb-t" x="164" y="50">2</text>
+<text class="hd-t" x="178" y="48">Ingestão</text>
+<text class="hd-c" x="178" y="63">núcleos 0–3</text>
+<rect class="bx prod" x="154" y="84" width="104" height="32" rx="4"/><text class="t" x="206" y="100">Recorte</text>
+<path class="ln" d="M206 116 V128" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="130" width="104" height="32" rx="4"/><text class="t" x="206" y="146">Interpolação</text>
+<path class="ln" d="M206 162 V174" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="176" width="104" height="32" rx="4"/><text class="t" x="206" y="192">Multiplicação</text>
+<path class="ln" d="M206 208 V220" marker-end="url(#ah)"/>
+<rect class="bx prod" x="154" y="222" width="104" height="32" rx="4"/><text class="t" x="206" y="238">Publicação</text>
+
+<!-- 3 Mensageria -->
+<rect class="strip" style="stroke:var(--brk)" x="286" y="30" width="112" height="344" rx="6"/>
+<path style="fill:var(--brk)" d="M286 70 V36 Q286 30 292 30 H392 Q398 30 398 36 V70 Z"/>
+<circle class="nb" cx="302" cy="50" r="9"/><text class="nb-t" x="302" y="50">3</text>
+<text class="hd-t" x="316" y="48">Mensageria</text>
+<text class="hd-c" x="316" y="63">núcleos 4–7</text>
+<rect class="bx brk" x="292" y="84" width="100" height="44" rx="4"/><text class="t" x="342" y="99">Kafka</text><text class="s" x="342" y="116">4 partições</text>
+<text class="ou" x="342" y="145">ou</text>
+<rect class="bx brk" x="292" y="162" width="100" height="44" rx="4"/><text class="t" x="342" y="177">RabbitMQ</text><text class="s" x="342" y="194">4 filas</text>
+<rect class="bx brk alt" x="292" y="324" width="100" height="44" rx="4"/><text class="t" x="342" y="339">Saída</text><text class="s" x="342" y="356">mesmo broker</text>
+
+<!-- 4 Processamento -->
+<rect class="strip" style="stroke:var(--cons)" x="420" y="30" width="152" height="344" rx="6"/>
+<path style="fill:var(--cons)" d="M420 70 V36 Q420 30 426 30 H566 Q572 30 572 36 V70 Z"/>
+<circle class="nb" cx="436" cy="50" r="9"/><text class="nb-t" x="436" y="50">4</text>
+<text class="hd-t" x="450" y="48">Processamento</text>
+<text class="hd-c" x="450" y="63">núcleos 8–10</text>
+<rect class="bx cons" x="426" y="84" width="140" height="32" rx="4"/><text class="t" x="496" y="100">Consumidor</text>
+<path class="ln" d="M496 116 V128" marker-end="url(#ah)"/>
+<rect class="grp" x="426" y="130" width="140" height="132" rx="5"/>
+<text class="grp-t" x="496" y="145">um modo por rodada</text>
+<rect class="bx cons" x="438" y="153" width="116" height="24" rx="4"/><text class="t" x="496" y="165">Direct</text>
+<text class="ou" x="496" y="186">ou</text>
+<rect class="bx cons" x="438" y="195" width="116" height="24" rx="4"/><text class="t" x="496" y="207">Channels</text>
+<text class="ou" x="496" y="228">ou</text>
+<rect class="bx cons" x="438" y="237" width="116" height="24" rx="4"/><text class="t" x="496" y="249">Pipelines</text>
+<path class="ln" d="M496 262 V274" marker-end="url(#ah)"/>
+<rect class="bx cons" x="426" y="276" width="140" height="32" rx="4"/><text class="t" x="496" y="292">Janelas e detecção</text>
+<path class="ln2" d="M496 308 V322" marker-end="url(#ah)"/>
+<rect class="bx cons alt" x="426" y="324" width="140" height="44" rx="4"/><text class="t" x="496" y="339">Republicação</text><text class="s" x="496" y="356">espera a confirmação</text>
+
+<!-- 5 Persistência -->
+<rect class="strip" style="stroke:var(--infra)" x="594" y="30" width="118" height="344" rx="6"/>
+<path style="fill:var(--infra)" d="M594 70 V36 Q594 30 600 30 H706 Q712 30 712 36 V70 Z"/>
+<circle class="nb" cx="608" cy="50" r="9"/><text class="nb-t" x="608" y="50">5</text>
+<text class="hd-t" x="620" y="48">Persistência</text>
+<text class="hd-c" x="620" y="63">núcleo 11</text>
+<rect class="bx infra" x="600" y="84" width="106" height="32" rx="4"/><text class="t" x="653" y="100">PostgreSQL</text>
+<rect class="bx infra" x="600" y="130" width="106" height="58" rx="4"/><text class="t" x="653" y="146">Métricas</text><text class="s" x="653" y="163">Prometheus</text><text class="s" x="653" y="177">cAdvisor</text>
+<rect class="bx infra alt" x="600" y="324" width="106" height="44" rx="4"/><text class="t" x="653" y="339">Painel</text><text class="s" x="653" y="356">ponta a ponta</text>
+
+<!-- Entre as etapas: do último passo de uma ao primeiro da seguinte -->
+<path class="ln" d="M120 146 H137 V100 H152" marker-end="url(#ah)"/>
+<path class="ln" d="M258 238 H275 V106 H290" marker-end="url(#ah)"/>
+<path class="ln" d="M275 184 H290" marker-end="url(#ah)"/>
+<path class="ln" d="M392 106 H409"/>
+<path class="ln" d="M392 184 H409 V100 H424" marker-end="url(#ah)"/>
+<path class="ln" d="M566 292 H583 V100 H598" marker-end="url(#ah)"/>
+<!-- Segundo cenário: republica no mesmo broker, e o painel lê a saída -->
+<path class="ln2" d="M426 346 H394" marker-end="url(#ah)"/>
+<path class="ln2" d="M342 368 V382 H653 V370" marker-end="url(#ah)"/>
+</svg>
+</body></html>
