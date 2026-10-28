@@ -519,17 +519,16 @@ medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
 \label{fig:visao_geral}
 \end{figure}
 
-A Figura~\ref{fig:visao_geral} resume a bancada. Dados reais de telemetria
-(etapa~1) alimentam um gerador, que produz a carga numa taxa controlada (etapa~2) e
-a publica num broker, Kafka ou RabbitMQ (etapa~3). Um consumidor em .NET recebe os
-eventos e os processa num de três modos (etapa~4), e os resultados e as medições de
-cada rodada são gravados (etapa~5). Entre uma rodada e outra variam três fatores: a
-carga, o broker e o modo. No segundo cenário, indicado pelo tracejado, o consumidor
-também republica o resultado no broker.
+A Figura~\ref{fig:visao_geral} resume a bancada, da esquerda para a direita. Dados
+reais de telemetria da OpenF1 (etapa~1) alimentam um gerador (etapa~2), que produz a
+carga numa taxa controlada e a publica num broker, Kafka ou RabbitMQ (etapa~3). Um
+consumidor em .NET recebe os eventos e os processa num de três modos (etapa~4), e os
+resultados e as medições de cada rodada são gravados (etapa~5). Entre uma rodada e
+outra variam três fatores: a carga, o broker e o modo. No segundo cenário, indicado
+pelo tracejado, o consumidor também republica o resultado no broker
+(Seção~\ref{sec:republicacao}).
 
-A Figura~\ref{fig:arquitetura_geral} mostra a mesma bancada em mais detalhe: os
-componentes de cada etapa e onde cada um roda. As subseções a seguir seguem a
-numeração das etapas.
+A Figura~\ref{fig:arquitetura_geral} mostra a mesma bancada em mais detalhe.
 
 \begin{figure}[ht]
 \centering
@@ -538,21 +537,24 @@ numeração das etapas.
 \label{fig:arquitetura_geral}
 \end{figure}
 
-A etapa 1 acontece uma única vez, antes dos experimentos, fora dos containers. As
-etapas 2 a 5 rodam em containers Docker, cada uma com núcleos de processador
-exclusivos, indicados no pé de cada grupo na figura (Seção~\ref{sec:metodologia}).
-O broker entrega os eventos ao consumidor em quatro faixas, as quatro setas da
-figura, com uma instância do consumidor por faixa. Numa rodada, o evento passa por
-um só broker, Kafka ou RabbitMQ, e por um só modo de entrega, Direct, Channels ou
-Pipelines, antes de chegar ao processamento em janelas.
+Na Figura~\ref{fig:arquitetura_geral}, cada etapa é um grupo com os seus componentes.
+A etapa~1, à esquerda, acontece uma única vez, antes dos experimentos e fora dos
+containers: os dados da OpenF1 são baixados para uma cópia local. As etapas 2 a 5
+rodam em containers Docker, cada uma com núcleos de processador exclusivos, indicados
+no pé de cada grupo (Seção~\ref{sec:metodologia}). O gerador publica os eventos no
+broker, que os entrega ao consumidor em quatro faixas, as quatro setas da figura; há
+uma instância do consumidor por faixa, desenhada empilhada. No consumidor, cada evento
+passa por um dos três modos de entrega, a bifurcação, até o processamento em janelas,
+cujos resultados vão para o PostgreSQL; as métricas são coletadas ao lado. As
+subseções a seguir percorrem a figura nessa ordem, uma por etapa.
 
 \subsection{Etapa 1: Dados}
 \label{sec:dados}
 
 A API da OpenF1 não é, por si só, uma fonte de alta frequência: a telemetria tem
 cerca de 3,7~Hz por carro, o acesso gratuito limita as requisições e os dados ao
-vivo exigem assinatura (Seção~\ref{sec:fundamentacao}). Por isso, o passo
-\textit{API OpenF1} é feito uma única vez: um programa próprio baixa a telemetria
+vivo exigem assinatura (Seção~\ref{sec:fundamentacao}). Por isso, a
+\textit{OpenF1} é consultada uma única vez: um programa próprio baixa a telemetria
 e a posição na pista de nove corridas da temporada de 2024, cerca de 8,4 milhões
 de amostras, e grava uma \textit{Cópia local} em disco, em texto, com uma amostra
 por linha. A API não é chamada durante os experimentos, o que garante que todas as
@@ -562,7 +564,8 @@ corrida do Bahrein de 2024.
 \subsection{Etapa 2: Ingestão}
 \label{sec:workload}
 
-A ingestão transforma a cópia local numa carga controlada, em quatro passos.
+A ingestão é um único componente, o \textit{Gerador}, que transforma a cópia local
+numa carga controlada em quatro passos internos.
 
 \textbf{Recorte.} Os experimentos usam um trecho de 130~s da corrida, que começa
 no décimo minuto: o aquecimento, a medição e uma margem.
@@ -597,8 +600,9 @@ quase idêntico e favoreceriam artificialmente a compressão em lote do Kafka.
 \label{sec:mensageria}
 
 Cada rodada usa um dos dois brokers, \textit{Kafka} ou \textit{RabbitMQ}, com um
-único nó. A carga é dividida em quatro faixas: quatro partições no Kafka e quatro
-filas clássicas no RabbitMQ. O carro de cada evento define a faixa pela mesma
+único nó. A carga é dividida em quatro faixas, as quatro setas da
+Figura~\ref{fig:arquitetura_geral}: quatro partições no Kafka e quatro filas
+clássicas no RabbitMQ. O carro de cada evento define a faixa pela mesma
 função nos dois brokers (CRC32 da chave, a função padrão do cliente do Kafka), de
 modo que os eventos de um carro chegam sempre em ordem e à mesma faixa.
 
@@ -611,12 +615,15 @@ processamento. A configuração completa está na Seção~\ref{sec:configuracao}
 \label{sec:processamento}
 
 \textbf{Consumidor.} Um consumidor por faixa recebe as mensagens do broker e
-confirma o recebimento em lotes.
+confirma o recebimento em lotes. A biblioteca cliente de cada broker entrega cada
+mensagem chamando uma função do consumidor, o \textit{callback}, numa thread da
+própria biblioteca, aqui chamada de thread do cliente.
 
-\textbf{Um modo por rodada.} O consumidor entrega cada evento ao processamento por
-um de três modos, e cada rodada usa um só. A Figura~\ref{fig:modos} mostra o caminho
-de um evento dentro do consumidor em cada modo; a cor indica em que thread cada passo
-roda:
+\textbf{Um modo por rodada.} Entre o callback e o processamento fica o modo de
+entrega, a bifurcação da Figura~\ref{fig:arquitetura_geral}; cada rodada usa um só
+dos três. A Figura~\ref{fig:modos} detalha o caminho de um evento numa faixa, uma
+linha por modo. A cor indica onde cada passo roda: em verde, na thread do cliente; em
+azul, numa thread de trabalho; em cinza, a fila interna entre as duas.
 
 \begin{figure}[ht]
 \centering
@@ -626,18 +633,20 @@ roda:
 \end{figure}
 
 \begin{itemize}
-  \item \textbf{Direct} (direto): o evento é processado no próprio retorno de
-        chamada do consumidor, sem mecanismo interno;
-  \item \textbf{Channels}: o consumidor escreve o evento num canal limitado, de
-        10.000 eventos por faixa, e uma thread de trabalho por faixa lê e processa;
-  \item \textbf{Pipelines}: o consumidor escreve os bytes recebidos num
-        \texttt{Pipe}, e uma thread de trabalho por faixa lê o fluxo e interpreta os
+  \item \textbf{Direct} (direto): o callback chama o processamento ele mesmo, na
+        thread do cliente, sem fila nem troca de thread; é o modo sem mecanismo
+        interno;
+  \item \textbf{Channels}: o callback escreve o evento num \textit{Channel}
+        limitado, de 10.000 eventos por faixa, e um leitor, numa thread de trabalho
+        por faixa, lê do canal e processa;
+  \item \textbf{Pipelines}: o callback escreve os bytes recebidos num
+        \texttt{Pipe}, e o leitor, numa thread de trabalho por faixa, interpreta os
         registros direto do buffer, sem criar um objeto por evento. O
         \texttt{Pipe} pausa o escritor com 460.000 bytes pendentes, o mesmo volume
         do canal, e o retoma na metade.
 \end{itemize}
 
-Quando o canal ou o \texttt{Pipe} enche, o consumidor espera, e a contrapressão
+Quando o canal ou o \texttt{Pipe} enche, o callback espera, e a contrapressão
 chega ao broker, que deixa de entregar novas mensagens. O modo direto não estava
 previsto na proposta do TCC1. Ele foi incluído como grupo de controle: sem ele,
 uma diferença entre ``Kafka com Channels'' e ``RabbitMQ com Channels'' mostra que
@@ -876,8 +885,8 @@ desse tamanho, mas não sustenta conclusão sozinho.
 
 No primeiro cenário, o processamento termina na memória do consumidor e não espera
 nada; o mecanismo interno não tem espera a esconder. O segundo cenário acrescenta essa
-espera da forma mais comum em sistemas de eventos: o consumidor republica o resultado
-no mesmo broker, num tópico do Kafka ou numa \textit{exchange} do RabbitMQ, e um
+espera da forma mais comum em sistemas de eventos, o caminho tracejado da
+Figura~\ref{fig:visao_geral}: o consumidor republica o resultado no mesmo broker, num tópico do Kafka ou numa \textit{exchange} do RabbitMQ, e um
 consumidor final, o painel, lê esse resultado. A garantia passa a ser
 \textit{at-least-once} de ponta a ponta: o evento de entrada só é confirmado ao broker
 depois que todas as saídas geradas até ele foram confirmadas pelo broker. Assim, uma
@@ -886,13 +895,18 @@ queda do consumidor nunca perde uma saída, ao custo de esperar a confirmação.
 Duas saídas são medidas. A \textbf{enriquecida} publica uma mensagem de 64 bytes por
 evento de entrada, com o evento e o estado da janela do carro naquele instante; dobra o
 volume que passa pelo broker. A \textbf{resumida} publica uma mensagem de 38 bytes por
-janela fechada, cerca de 1\% da entrada. Os três modos tratam a espera de formas
-diferentes (Figura~\ref{fig:segundo-cenario}). O modo direto publica no próprio retorno
-do consumidor e, a cada 100 saídas, para e espera todas as confirmações antes de seguir.
-Channels e Pipelines separam recepção, processamento e publicação em três estágios,
-recebem as confirmações em paralelo e só param quando há 10 mil saídas sem
-confirmação. Nos três, a posição de entrada liberada para confirmação é a do maior
-prefixo contínuo de eventos com todas as saídas confirmadas.
+janela fechada, cerca de 1\% da entrada.
+
+Os três modos tratam a espera de formas diferentes, mostradas na
+Figura~\ref{fig:segundo-cenario} com as mesmas cores da Figura~\ref{fig:modos}. No modo
+direto, primeira linha, o callback recebe, processa e publica a saída, tudo na thread
+do cliente. A cada 100 saídas, ele para e espera todas as confirmações do broker, e
+enquanto espera não recebe nada (em vermelho); só então confirma a entrada. Channels e
+Pipelines, segunda linha, separam o trabalho em três estágios: o callback só recebe, e
+o processamento e a publicação rodam em threads de trabalho. As confirmações chegam em
+paralelo (tracejado), sem parar a recepção, que só para quando há 10 mil saídas sem
+confirmação. Nos três modos, a entrada é confirmada até o maior prefixo contínuo de
+eventos com todas as saídas já confirmadas.
 
 \begin{figure}[ht]
 \centering
