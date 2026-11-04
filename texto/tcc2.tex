@@ -58,9 +58,9 @@
 \newcommand{\tituloUppercase}{\MakeUppercase{\titulo}}
 \newcommand{\titulotraduzido}{Experimental Evaluation of Composite Architectures for High-Frequency Event Processing Using .NET}
 
-\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos gerados em alta frequência, e a arquitetura escolhida afeta diretamente latência, throughput e uso de recursos. Este trabalho avalia experimentalmente arquiteturas compostas de processamento de eventos em .NET, que combinam um sistema de mensageria distribuída (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines). Um terceiro modo, sem mecanismo interno, serve de grupo de controle, o que permite separar o efeito do broker do efeito do mecanismo. A carga vem de dados reais de telemetria da Fórmula~1 obtidos da API pública OpenF1, reproduzidos a 100~Hz por carro com uma frota multiplicada e um gerador em malha aberta. As seis combinações foram medidas em ambiente containerizado com núcleos de processador exclusivos, com dez repetições por nível de carga, critérios de validade e regra de descarte fixados antes da coleta. O RabbitMQ sustentou até 60 mil eventos por segundo e teve menor latência em carga baixa (média de 0,46~ms e P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka a 10 mil eventos por segundo), com a CPU do broker chegando a 3,65 dos 4 núcleos. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms, cerca de um sétimo da CPU de broker do RabbitMQ e, em troca, de 1,3 a 1,5~GB de memória no broker, contra 0,2~GB. Channels e Pipelines não reduziram a latência, as alocações nem a memória do consumidor em nenhuma combinação e multiplicaram por 2,4 a 3,3 a CPU do consumidor do Kafka, com picos de até 2,6 dos 3 núcleos. Um cenário ajustado, com a recomendação de cada fornecedor, mostrou que parte da diferença entre os brokers vem da configuração. Num segundo cenário, em que o consumidor republica o resultado com garantia de ponta a ponta, a conclusão sobre o mecanismo interno se inverteu no Kafka: o modo sem mecanismo parou em cerca de 64 mil eventos por segundo, enquanto Channels e Pipelines sustentaram 200 mil. Os resultados oferecem evidência quantitativa para a escolha de arquitetura em sistemas de processamento de eventos.}
+\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos gerados em alta frequência, e a arquitetura escolhida afeta diretamente latência, throughput e uso de recursos. Este trabalho avalia experimentalmente arquiteturas compostas de processamento de eventos em .NET, que combinam um sistema de mensageria distribuída (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines). Um terceiro modo, sem mecanismo interno, serve de grupo de controle, o que permite separar o efeito do broker do efeito do mecanismo. A carga vem de dados reais de telemetria da Fórmula~1 obtidos da API pública OpenF1, reproduzidos a 100~Hz por carro com uma frota multiplicada e um gerador em malha aberta. As seis combinações foram medidas em ambiente containerizado com núcleos de processador exclusivos, com dez repetições por nível de carga, critérios de validade e regra de descarte fixados antes da coleta. O RabbitMQ sustentou até 60 mil eventos por segundo e teve menor latência em carga baixa (média de 0,46~ms e P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka a 10 mil eventos por segundo), com a CPU do broker chegando a 3,65 dos 4 núcleos. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms, cerca de um sétimo da CPU de broker do RabbitMQ e, em troca, de 1,3 a 1,5~GB de memória no broker, contra 0,2~GB. Channels e Pipelines não reduziram a latência, as alocações nem a memória do consumidor em nenhuma combinação e multiplicaram por 2,4 a 3,3 a CPU do consumidor do Kafka, com picos de até 2,6 dos 3 núcleos. Um cenário ajustado, com a recomendação de cada fornecedor, mostrou que parte da diferença entre os brokers vem da configuração: com a espera de formação de lotes reduzida, a mediana da latência do Kafka caiu de 3 para 1~ms, e, sem a gravação em disco antes de confirmar, o RabbitMQ passou a sustentar 80 mil eventos por segundo. Os resultados oferecem evidência quantitativa para a escolha de arquitetura em sistemas de processamento de eventos.}
 
-\newcommand{\textoAbstract}{Telemetry, Internet of Things (IoT) and monitoring systems process large volumes of events generated at high frequency, and the chosen architecture directly affects latency, throughput and resource usage. This work experimentally evaluates composite event processing architectures in .NET, which combine a distributed messaging system (RabbitMQ or Kafka) with an internal concurrent processing mechanism (Channels or Pipelines). A third mode, without an internal mechanism, serves as a control group, which separates the effect of the broker from the effect of the mechanism. The workload comes from real Formula~1 telemetry obtained from the OpenF1 public API, replayed at 100~Hz per car with a multiplied fleet and an open-loop generator. The six combinations were measured in a containerized environment with dedicated processor cores, with ten repetitions per load level and with validity criteria and an outlier rule fixed before data collection. RabbitMQ sustained up to 60 thousand events per second and had lower latency at low load (mean of 0.46~ms and P99 of 2.3~ms, versus 3.0 and 5.8~ms for Kafka at 10 thousand events per second), with broker CPU reaching 3.65 of 4 cores. Kafka sustained 400 thousand, the highest load tested, with P99 between 5.5 and 6.7~ms, about one seventh of RabbitMQ's broker CPU and, in exchange, 1.3 to 1.5~GB of broker memory, versus 0.2~GB. Channels and Pipelines reduced neither latency, allocations nor consumer memory in any combination and multiplied Kafka's consumer CPU by 2.4 to 3.3, with peaks of up to 2.6 of 3 cores. A tuned scenario, with each vendor's recommendation, showed that part of the difference between the brokers comes from configuration. In a second scenario, in which the consumer republishes the result with an end-to-end guarantee, the conclusion about the internal mechanism was reversed on Kafka: the mode without a mechanism stopped at about 64 thousand events per second, while Channels and Pipelines sustained 200 thousand. The results provide quantitative evidence for architectural decisions in event processing systems.}
+\newcommand{\textoAbstract}{Telemetry, Internet of Things (IoT) and monitoring systems process large volumes of events generated at high frequency, and the chosen architecture directly affects latency, throughput and resource usage. This work experimentally evaluates composite event processing architectures in .NET, which combine a distributed messaging system (RabbitMQ or Kafka) with an internal concurrent processing mechanism (Channels or Pipelines). A third mode, without an internal mechanism, serves as a control group, which separates the effect of the broker from the effect of the mechanism. The workload comes from real Formula~1 telemetry obtained from the OpenF1 public API, replayed at 100~Hz per car with a multiplied fleet and an open-loop generator. The six combinations were measured in a containerized environment with dedicated processor cores, with ten repetitions per load level and with validity criteria and an outlier rule fixed before data collection. RabbitMQ sustained up to 60 thousand events per second and had lower latency at low load (mean of 0.46~ms and P99 of 2.3~ms, versus 3.0 and 5.8~ms for Kafka at 10 thousand events per second), with broker CPU reaching 3.65 of 4 cores. Kafka sustained 400 thousand, the highest load tested, with P99 between 5.5 and 6.7~ms, about one seventh of RabbitMQ's broker CPU and, in exchange, 1.3 to 1.5~GB of broker memory, versus 0.2~GB. Channels and Pipelines reduced neither latency, allocations nor consumer memory in any combination and multiplied Kafka's consumer CPU by 2.4 to 3.3, with peaks of up to 2.6 of 3 cores. A tuned scenario, with each vendor's recommendation, showed that part of the difference between the brokers comes from configuration: with a shorter batching wait, Kafka's median latency fell from 3 to 1~ms, and, without the disk write before confirming, RabbitMQ sustained 80 thousand events per second. The results provide quantitative evidence for architectural decisions in event processing systems.}
 
 \newcommand{\orientador}{Prof. Dr. Evandro K.}
 \newcommand{\coorientador}{---}
@@ -290,10 +290,8 @@ específicos são:
         fábrica e depois com a recomendação de cada fornecedor;
   \item Medir latência, throughput, uso de CPU e memória, alocações e coletas de lixo do .NET;
   \item Determinar o ponto de saturação de cada combinação sob níveis crescentes de carga;
-  \item Repetir a comparação num segundo cenário, em que o consumidor republica o
-        resultado no broker com garantia de ponta a ponta;
-  \item Identificar os trade-offs entre as abordagens e as condições em que o mecanismo
-        interno compensa o seu custo.
+  \item Identificar os trade-offs entre as abordagens e se o mecanismo interno compensa
+        o seu custo.
 \end{itemize}
 
 Para avaliar as arquiteturas, este trabalho utiliza dados reais de telemetria
@@ -304,8 +302,7 @@ trabalho não analisa as corridas: os dados servem apenas como carga, e a corre�
 processamento é verificada comparando o resultado entre as combinações avaliadas.
 
 As contribuições do trabalho são: (i) uma comparação de seis combinações sob o mesmo
-protocolo, com grupo de controle, em dois cenários de configuração e num segundo cenário
-de processamento, com republicação; (ii) um protocolo de medição com critérios de validade
+protocolo, com grupo de controle, em dois cenários de configuração; (ii) um protocolo de medição com critérios de validade
 e análise registrados antes da coleta; e (iii) uma bancada experimental aberta, com
 código, scripts e dados publicados\footnote{\url{https://github.com/ramosnvy/pitwall}}.
 
@@ -504,12 +501,11 @@ combinações avaliadas: dois brokers, RabbitMQ e Kafka, em três modos de
 processamento, direto, Channels e Pipelines. Todo o código, os scripts de execução e
 de análise e os resultados brutos estão disponíveis no repositório do
 projeto\footnote{\url{https://github.com/ramosnvy/pitwall}}. O cenário padrão é
-medido com a versão marcada como \texttt{cenario-padrao-v1.2}, o ajustado com a
-\texttt{cenario-ajustado-v1.1} e o segundo cenário, de republicação
-(Seção~\ref{sec:republicacao}), com a \texttt{cenario-republicacao-v1.1}.
+medido com a versão marcada como \texttt{cenario-padrao-v1.2} e o ajustado com a
+\texttt{cenario-ajustado-v1.1}.
 
-% Fontes das Figuras 1 a 4: texto/figuras/{visao_geral,arquitetura,modos,
-% segundo_cenario}.html; o PDF vetorial e o PNG saem delas por
+% Fontes das Figuras 1 a 3: texto/figuras/{visao_geral,arquitetura,modos}.html;
+% o PDF vetorial e o PNG saem delas por
 % texto/figuras/exportar.ps1. Na largura da página, o texto das figuras fica com
 % cerca de 8 pt.
 \begin{figure}[ht]
@@ -524,9 +520,7 @@ reais de telemetria da OpenF1 (etapa~1) alimentam um gerador (etapa~2), que prod
 carga numa taxa controlada e a publica num broker, Kafka ou RabbitMQ (etapa~3). Um
 consumidor em .NET recebe os eventos e os processa num de três modos (etapa~4), e os
 resultados e as medições de cada rodada são gravados (etapa~5). Entre uma rodada e
-outra variam três fatores: a carga, o broker e o modo. No segundo cenário, indicado
-pelo tracejado, o consumidor também republica o resultado no broker
-(Seção~\ref{sec:republicacao}).
+outra variam três fatores: a carga, o broker e o modo.
 
 A Figura~\ref{fig:arquitetura_geral} mostra a mesma bancada em mais detalhe.
 
@@ -838,8 +832,7 @@ segundo. São 240 rodadas, com as mesmas 10 repetições.
 
 \begin{itemize}
   \item \textbf{Latência}: percentis P50, P95 e P99, máxima e média, do envio ao fim do
-        processamento \cite{fu:2021}; no segundo cenário, também de ponta a ponta, do
-        envio à chegada da saída no painel;
+        processamento \cite{fu:2021};
   \item \textbf{Throughput}: número de eventos processados por segundo;
   \item \textbf{Ponto de saturação}: maior carga sustentada por cada combinação;
   \item \textbf{Uso de CPU}: médio e de pico, do consumidor, do broker e do gerador, em
@@ -879,64 +872,6 @@ Channels ou Pipelines e a do modo direto, no mesmo broker e carga. Diferenças a
 10\% no throughput ou de 20\% no P99 são reportadas como sem diferença relevante. O teste
 de Kruskal-Wallis \cite{kruskal:1952}, com nível de 5\%, acompanha as diferenças acima
 desse tamanho, mas não sustenta conclusão sozinho.
-
-\subsection{Segundo Cenário: Republicação}
-\label{sec:republicacao}
-
-No primeiro cenário, o processamento termina na memória do consumidor e não espera
-nada; o mecanismo interno não tem espera a esconder. O segundo cenário acrescenta essa
-espera da forma mais comum em sistemas de eventos, o caminho tracejado da
-Figura~\ref{fig:visao_geral}: o consumidor republica o resultado no mesmo broker, num tópico do Kafka ou numa \textit{exchange} do RabbitMQ, e um
-consumidor final, o painel, lê esse resultado. A garantia passa a ser
-\textit{at-least-once} de ponta a ponta: o evento de entrada só é confirmado ao broker
-depois que todas as saídas geradas até ele foram confirmadas pelo broker. Assim, uma
-queda do consumidor nunca perde uma saída, ao custo de esperar a confirmação.
-
-Duas saídas são medidas. A \textbf{enriquecida} publica uma mensagem de 64 bytes por
-evento de entrada, com o evento e o estado da janela do carro naquele instante; dobra o
-volume que passa pelo broker. A \textbf{resumida} publica uma mensagem de 38 bytes por
-janela fechada, cerca de 1\% da entrada.
-
-Os três modos tratam a espera de formas diferentes, mostradas na
-Figura~\ref{fig:segundo-cenario} com as mesmas cores da Figura~\ref{fig:modos}. No modo
-direto, primeira linha, o callback recebe, processa e publica a saída, tudo na thread
-do cliente. A cada 100 saídas, ele para e espera todas as confirmações do broker, e
-enquanto espera não recebe nada (em vermelho); só então confirma a entrada. Channels e
-Pipelines, segunda linha, separam o trabalho em três estágios: o callback só recebe, e
-o processamento e a publicação rodam em threads de trabalho. As confirmações chegam em
-paralelo (tracejado), sem parar a recepção, que só para quando há 10 mil saídas sem
-confirmação. Nos três modos, a entrada é confirmada até o maior prefixo contínuo de
-eventos com todas as saídas já confirmadas.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\textwidth]{fig_segundo_cenario.pdf}
-\caption{Segundo cenário: a espera pela confirmação da saída em cada modo.}
-\label{fig:segundo-cenario}
-\end{figure}
-
-O painel mede a latência de ponta a ponta, do envio pelo gerador até a chegada da saída,
-com o mesmo relógio da máquina. Ele roda no núcleo 11, junto do banco e das métricas, e
-confere o resultado com um digest próprio. Para que a medição não meça o limite do
-painel, uma carga em que ele ocupa mais de meio núcleo fica fora da matriz.
-
-\textbf{Protocolo.} Cenário padrão de configuração, 10~s de aquecimento e 60~s de
-medição, 10 repetições em ordem sorteada. As cargas saíram de uma varredura de
-calibração, pela regra registrada antes dela: na saída enriquecida, a mais baixa, duas
-no trecho em que algum modo ainda sustenta a carga e a primeira em que algum modo deixa
-de sustentá-la; na resumida, a carga com a maior diferença entre os modos dentro do
-limite do painel. Ficaram RabbitMQ em 10, 20, 30 e 40 mil e Kafka em 20, 50, 100 e 200
-mil eventos por segundo, na enriquecida, e 40 mil no RabbitMQ e 200 mil no Kafka, na
-resumida, num total de 300 rodadas.
-
-\textbf{Análise.} Valem as regras da Seção~\ref{sec:analise}, com três regras de
-validade a mais: existir a medição do painel, nenhuma saída ser recusada pelo broker e o
-digest do painel ser o de referência da carga e da saída (na resumida, também igual ao
-do consumidor). A latência principal passa a ser o P99 de ponta a ponta, usado também no
-ponto de saturação. As hipóteses, registradas antes de medir, são duas: na saída
-enriquecida, o modo direto sustenta menos carga ou tem P99 maior que Channels e
-Pipelines, porque para a cada espera de confirmação (H1); na resumida, sem espera
-frequente, os três modos empatam, como no primeiro cenário (H2).
 
 \subsection{Calibração do Protocolo}
 \label{sec:calibracao}
@@ -1153,9 +1088,9 @@ forma regular, não há espera a esconder. O modo direto processa o evento no
 próprio retorno do consumidor, mais rápido do que o broker entrega o próximo.
 Desacoplar a recepção do processamento só acrescenta a passagem pela fila
 interna e a troca de thread. O resultado vale para o uso padrão das
-ferramentas, um evento por vez. O desacoplamento tende a compensar quando o
-processamento tem espera própria, como uma gravação ou uma republicação no
-broker, o caso do segundo cenário (Seção~\ref{sec:res-republicacao}).
+ferramentas, um evento por vez, e para processamento sem espera própria. Quando o
+processamento espera algo, como uma gravação ou uma republicação no broker, o
+desacoplamento pode esconder essa espera; esse caso não foi medido.
 
 \subsection{Custo de Recursos no .NET}
 
@@ -1265,99 +1200,6 @@ e não do broker: o piso de latência do Kafka é o \texttt{linger.ms}, e parte 
 do RabbitMQ é a gravação em disco. Cada parâmetro troca latência por CPU do broker, e o
 melhor valor depende da faixa de carga.
 
-\subsection{Segundo Cenário: Republicação}
-\label{sec:res-republicacao}
-
-A matriz do segundo cenário foi executada em 27 e 28/10/2026, com a versão marcada como
-\texttt{cenario-republicacao-v1.1}. A sessão foi interrompida três vezes, por um
-desligamento do computador e por duas pausas, e retomada a partir da última rodada
-completa; as rodadas interrompidas foram refeitas do início. Das 300 rodadas, 295 foram
-válidas. As 5 inválidas foram por atraso de envio, todas no Kafka. Nenhuma saída foi
-recusada pelo broker, e o digest do painel foi o mesmo em todas as rodadas de cada carga
-e saída; na saída resumida, igual também ao do consumidor. A regra de Tukey descartou 18
-rodadas. O painel ocupou no máximo 0,42 núcleo, abaixo do limite de meio núcleo.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\textwidth]{fig_republicacao.pdf}
-\caption{Segundo cenário, saída enriquecida: P99 de ponta a ponta por carga oferecida,
-em escala logarítmica. Mediana das rodadas usadas. A linha pontilhada é o limite de
-50~ms.}
-\label{fig:republicacao}
-\end{figure}
-
-\begin{table}[ht]
-\centering
-\caption{Segundo cenário: throughput (mil ev/s) e P99 de ponta a ponta (ms), mediana das
-rodadas. Em negrito, as cargas sustentadas.}
-\label{tab:republicacao}
-\small
-\begin{tabular}{|l|l|r|c|c|c|c|c|c|}
-\hline
-\multirow{2}{*}{\textbf{Broker}} & \multirow{2}{*}{\textbf{Saída}} & \multirow{2}{*}{\textbf{Carga}} & \multicolumn{2}{c|}{\textbf{Direto}} & \multicolumn{2}{c|}{\textbf{Channels}} & \multicolumn{2}{c|}{\textbf{Pipelines}} \\
-\cline{4-9}
- & & & \textbf{Vazão} & \textbf{P99} & \textbf{Vazão} & \textbf{P99} & \textbf{Vazão} & \textbf{P99} \\
-\hline
-\multirow{5}{*}{RabbitMQ} & \multirow{4}{*}{enriquecida} & 10 & \textbf{10,0} & \textbf{8,4} & \textbf{10,0} & \textbf{8,4} & \textbf{10,0} & \textbf{8,2} \\
- & & 20 & \textbf{20,0} & \textbf{15,5} & \textbf{20,0} & \textbf{13,3} & \textbf{20,0} & \textbf{14,3} \\
- & & 30 & \textbf{30,0} & \textbf{37,3} & \textbf{30,0} & \textbf{32,4} & \textbf{30,0} & \textbf{36,6} \\
- & & 40 & 40,0 & 236 & 40,0 & 128 & 40,0 & 119 \\
-\cline{2-9}
- & resumida & 40 & \textbf{40,0} & \textbf{19,7} & \textbf{40,0} & \textbf{19,1} & \textbf{40,0} & \textbf{19,5} \\
-\hline
-\multirow{5}{*}{Kafka} & \multirow{4}{*}{enriquecida} & 20 & \textbf{20,0} & \textbf{15,5} & \textbf{20,0} & \textbf{11,7} & \textbf{20,0} & \textbf{11,7} \\
- & & 50 & \textbf{50,0} & \textbf{16,8} & \textbf{50,0} & \textbf{12,1} & \textbf{50,0} & \textbf{12,0} \\
- & & 100 & 64,0 & 38.027 & \textbf{100,0} & \textbf{12,2} & \textbf{100,0} & \textbf{12,2} \\
- & & 200 & 63,7 & 144.966 & \textbf{200,0} & \textbf{13,0} & \textbf{200,0} & \textbf{13,4} \\
-\cline{2-9}
- & resumida & 200 & \textbf{200,1} & \textbf{33,5} & \textbf{200,0} & \textbf{15,5} & \textbf{200,0} & \textbf{14,8} \\
-\hline
-\end{tabular}
-\end{table}
-
-\textbf{Kafka, saída enriquecida.} Aqui o mecanismo interno decide o resultado
-(Figura~\ref{fig:republicacao} e Tabela~\ref{tab:republicacao}). O modo direto tem um
-teto de cerca de 64 mil eventos por segundo: sustenta 50 mil, mas a 100 e a 200 mil
-entrega 64 mil, e a fila cresce até um P99 de 38 e 145 segundos. Channels e Pipelines
-sustentam 200 mil, a maior carga da matriz, com P99 de 13~ms. O teto do modo direto é o
-custo da espera. A 20 mil eventos por segundo, ele esperou a confirmação 14 mil vezes
-em 60~s, com cerca de 4,7~ms por espera; com o \texttt{linger.ms} de 5~ms, cada espera
-custa perto de um lote. Na saturação, a espera média foi de 5,8~ms: cem saídas a cada
-5,8~ms dão cerca de 17 mil eventos por segundo por faixa, ou 69 mil nas quatro faixas,
-perto do teto medido. Mesmo abaixo do teto, Channels e Pipelines tiveram P99 de 24\% a 28\% menor (12
-contra 16 a 17~ms), um efeito relevante, com Kruskal-Wallis significativo
-($p < 0{,}001$).
-
-\textbf{RabbitMQ, saída enriquecida.} O efeito do mecanismo é pequeno. Os três modos
-sustentam até 30 mil eventos por segundo e falham a 40 mil por latência, com o
-throughput ainda acompanhando a carga. Até 30 mil, a diferença no P99 foi de no máximo
-14\%, sem relevância; a 40 mil, Channels e Pipelines tiveram cerca de metade do P99 do
-modo direto (119 a 128 contra 236~ms), mas já acima do limite. No RabbitMQ, a confirmação
-chega rápido, em cerca de 1,3~ms por espera a 10 mil, e quem limita é a CPU do broker,
-que agora carrega o dobro de mensagens: ocupa de 3,2 a 3,6 dos 4 núcleos, e a saturação
-cai de 60 mil, no primeiro cenário, para 30 mil.
-
-\textbf{Saída resumida.} Com uma saída por janela, o volume publicado cai para cerca de
-1\% da entrada. No RabbitMQ a 40 mil eventos por segundo, carga que a saída enriquecida
-não sustenta, os três modos sustentam a carga e empatam no P99 (de 19,1 a 19,7~ms; menos
-de 4\% de diferença). No Kafka a 200 mil, os três sustentam a carga, mas o modo direto
-tem o dobro do P99 (33,5 contra 15~ms): ele ainda para cerca de 1.400 vezes por rodada, e
-cada parada no Kafka custa um lote, enquanto Channels e Pipelines quase nunca param.
-
-\textbf{Custo.} No Kafka, Channels e Pipelines custaram de 1,1 a 1,3 vezes a CPU do
-consumidor do modo direto nas cargas que ele sustenta (a 20 mil, 0,29 a 0,30 contra 0,23
-núcleo), bem menos que no primeiro cenário, porque o modo direto também paga a
-publicação. A 200 mil, ocupam 0,96 e 1,12 núcleo. No RabbitMQ, a CPU do consumidor foi a
-mesma nos três modos, de 1,0 a 1,3 núcleo.
-
-\textbf{Hipóteses.} A primeira se confirma no Kafka, onde o modo direto sustenta um
-quarto da carga dos outros modos, e só acima da saturação no RabbitMQ, onde o gargalo é
-o broker. A segunda se confirma no RabbitMQ e é refutada no Kafka: mesmo com saída
-pequena, a espera do modo direto custa um lote do Kafka, e isso dobra a cauda. O
-mecanismo interno compensa, portanto, quando o processamento espera algo e essa espera
-é longa em relação ao custo do evento; o desacoplamento esconde a espera, e o custo em
-CPU fica pequeno perto do ganho.
-
 \subsection{Comparação com os Trabalhos Relacionados}
 \label{sec:comparacao}
 
@@ -1380,14 +1222,12 @@ cenários de configuração. A diferença mostra que uma comparação de brokers
 depende da faixa de carga e da configuração avaliadas, como sugerem Dyjach e
 Plechawska-Wójcik~\cite{dyjach:2024} ao ligar a escolha do broker ao padrão de acesso.
 Com mensagens de 46 bytes, o custo fixo por mensagem domina e favorece quem agrupa em
-lote; no segundo cenário, a mudança da saída enriquecida para a resumida, que reduz o
-volume publicado a cerca de 1\%, mudou o resultado entre os modos.
+lote.
 
 Ortiz et al.~\cite{ortiz:2023} mostram que a camada de processamento acoplada ao broker
-afeta a latência e a escalabilidade. Os dois cenários deste trabalho delimitam quando
-isso acontece: com o processamento apenas na memória, o mecanismo interno não mudou
-nenhuma medida de desempenho; quando o processamento passou a esperar a confirmação de
-uma republicação, o mecanismo decidiu o throughput máximo do Kafka. Raptis, Cicconetti e
+afeta a latência e a escalabilidade. Aqui, com o processamento apenas na memória, o
+mecanismo interno não mudou nenhuma medida de desempenho, só o custo em CPU: o efeito
+da camada de processamento depende do que ela faz com cada evento. Raptis, Cicconetti e
 Passarella~\cite{raptis:2024} observam que configurações internas do Kafka afetam
 diretamente o desempenho, o que o cenário ajustado confirma com um único parâmetro: o
 \texttt{linger.ms} trocou latência mediana por CPU do broker e por cauda nas cargas
@@ -1395,9 +1235,8 @@ altas.
 
 Cleary~\cite{cleary:2019} recomenda Channels e Pipelines para a comunicação
 produtor-consumidor, sem avaliá-los junto de sistemas de mensageria. As medições deste
-trabalho qualificam essa recomendação: sem espera a esconder, os dois só acrescentaram
-CPU, de 2,4 a 3,3 vezes no consumidor do Kafka; com a espera da republicação, sustentaram
-quatro vezes a carga do modo direto, com de 1,1 a 1,3 vez a CPU dele. Por fim, Fu, Zhang e
+trabalho qualificam essa recomendação: com processamento leve e sem espera a esconder,
+os dois só acrescentaram CPU, de 2,4 a 3,3 vezes no consumidor do Kafka. Por fim, Fu, Zhang e
 Yu~\cite{fu:2021} defendem que uma comparação justa exige controlar o ambiente e a
 configuração. A calibração deste trabalho é um exemplo concreto: a posição dos clientes,
 a cota de CPU e a gravação de disco da máquina virtual produziram efeitos maiores que as
@@ -1405,7 +1244,7 @@ diferenças entre as arquiteturas, e teriam sido atribuídos a elas sem o contro
 
 Nenhum dos trabalhos relacionados mede o mecanismo interno contra um grupo de controle
 sem ele. É essa comparação que permite separar o efeito do broker do efeito do mecanismo
-e mostrar que o segundo depende de o processamento ter, ou não, uma espera própria.
+e mostrar que, com processamento leve e sem espera própria, o segundo é só custo.
 
 % ===================================================================
 
@@ -1457,19 +1296,6 @@ envio cobrem esse risco.
 rodadas, com os mesmos recursos em todas as combinações; os painéis de visualização
 ficam desligados.
 
-\textbf{Painel do segundo cenário.} O painel divide o núcleo 11 com o banco e as
-métricas. Se ele fosse o gargalo, a latência de ponta a ponta mediria o painel, e não a
-combinação. A regra de meio núcleo, fixada antes da matriz, tirou da matriz as cargas
-em que isso acontecia na varredura (60 mil no RabbitMQ e 300 mil no Kafka), e na
-matriz o painel ocupou no máximo 0,42 núcleo.
-
-\textbf{Janela de confirmação do modo direto.} No segundo cenário, o modo direto espera
-as confirmações a cada 100 saídas. Uma janela maior diminuiria o número de esperas, ao
-custo de mais eventos de entrada sem confirmação e de mais reprocessamento numa queda.
-O teto do modo direto no Kafka depende desse valor, que não foi variado; o que não
-depende dele é que, a cada espera, o modo direto para de consumir, enquanto Channels e
-Pipelines continuam.
-
 \subsection{Validade de Construto}
 
 \textbf{Carga interpolada.} A OpenF1 fornece 3,7~Hz por carro, enquanto um carro de
@@ -1485,10 +1311,10 @@ em produção, o Kafka costuma usar compressão.
 
 \textbf{Mensagem pequena e processamento leve.} Com eventos de 46 bytes e processamento de
 cerca de 0,12~µs por evento, o experimento é dominado pelo transporte. Os resultados sobre
-o mecanismo interno no primeiro cenário valem para esse uso, e para o uso padrão das
-ferramentas: um evento por vez, sem lote. O segundo cenário mostra um caso em que o
-processamento tem espera; mensagens maiores, processamento mais pesado ou leitura em lote
-também podem favorecer o Channels ou o Pipelines.
+o mecanismo interno valem para esse uso, e para o uso padrão das ferramentas: um evento
+por vez, sem lote. Processamento com espera própria, como uma gravação ou uma
+republicação no broker, mensagens maiores, processamento mais pesado ou leitura em lote
+podem favorecer o Channels ou o Pipelines.
 
 \subsection{Validade de Conclusão}
 
@@ -1505,11 +1331,9 @@ eventos por segundo. Acima disso, a bancada se aproxima do próprio limite: a
 atraso de envio. Cargas maiores não foram acrescentadas depois de ver os dados,
 conforme a análise registrada.
 
-\textbf{Matrizes reduzidas.} No cenário ajustado, Channels e Pipelines foram medidos em
-duas cargas por broker, e não em todas; a conclusão sobre eles nesse cenário vale para
-essas cargas. No segundo cenário, a carga de 30 mil no RabbitMQ foi um desvio da regra
-de escolha, registrado antes da matriz, para localizar a saturação entre 20 e 40 mil.
-Os dois cortes foram decididos antes de qualquer rodada da matriz correspondente.
+\textbf{Matriz ajustada reduzida.} No cenário ajustado, Channels e Pipelines foram
+medidos em duas cargas por broker, e não em todas; a conclusão sobre eles nesse cenário
+vale para essas cargas. O corte foi decidido antes de qualquer rodada da matriz.
 
 \textbf{Significância e relevância.} Com dispersão pequena, diferenças irrelevantes
 podem ser estatisticamente significativas. O tamanho de efeito relevante foi fixado
@@ -1555,18 +1379,11 @@ do RabbitMQ caiu de 43\% a 76\%, e a saturação subiu para 80 mil eventos por s
 Cada parâmetro troca latência por CPU do broker, e nenhum perfil é melhor em todas as
 cargas.
 
-O segundo cenário, em que o consumidor republica o resultado com garantia de ponta a
-ponta, inverteu a conclusão sobre o mecanismo interno no Kafka. Ali, o modo direto
-para a cada espera de confirmação e não passou de cerca de 64 mil eventos por segundo,
-enquanto Channels e Pipelines sustentaram 200 mil, com P99 de 13~ms e de 1,1 a 1,3
-vezes a CPU do consumidor do modo direto. No RabbitMQ, em que a confirmação é rápida e o
-gargalo é a CPU do broker, o ganho só apareceu acima da saturação.
-
 A recomendação prática é escolher o broker pela faixa de carga, o RabbitMQ para
 cargas baixas com latência mínima e o Kafka para cargas altas ou variáveis; ajustar a
 espera de lote do Kafka e a persistência do RabbitMQ conforme a latência que se quer
-pagar em CPU; e usar Channels ou Pipelines quando o processamento espera algo, como a
-confirmação de uma republicação, processando direto no consumidor nos demais casos.
+pagar em CPU; e processar direto no consumidor quando o processamento é leve e não
+espera nada, caso em que Channels e Pipelines só acrescentam CPU.
 
 Do ponto de vista metodológico, a calibração mostrou que, neste tipo de ambiente,
 efeitos de virtualização, de limitação de CPU e de configuração podem ser maiores que a
@@ -1576,8 +1393,9 @@ registrados antes da coleta.
 
 Como trabalhos futuros, ficam: a avaliação em vários nós, com replicação; as filas de
 quórum e os \textit{streams} do RabbitMQ; mensagens maiores e compressão; o uso de
-Channels e Pipelines em lote; a republicação num segundo broker, diferente do de
-entrada; e a variação da janela de confirmação do modo direto no segundo cenário.
+Channels e Pipelines em lote; e um cenário em que o processamento espera algo, como a
+republicação do resultado no broker com garantia de ponta a ponta, em que o
+desacoplamento pode esconder essa espera.
 
 % ===================================================================
 
