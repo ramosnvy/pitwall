@@ -21,6 +21,7 @@ from collections import defaultdict
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RES = os.path.join(ROOT, "results")
@@ -78,7 +79,25 @@ def series(broker, mode, field, scale=1.0):
     return [int(r["carga"]) / 1000 for r in rows], [num(r[field]) * scale for r in rows]
 
 
-def figure(field, ylabel, filename, scale=1.0, band=False, limit=None):
+def zoom(ax, broker, log=None, ylim=None, limit=None):
+    """Aproxima cada painel da faixa em que as linhas diferem: escala log onde a
+    latencia cresce uma ordem de grandeza, e limites justos onde ela e plana. Um
+    limite de 50 ms fora da escala vira uma nota no canto do painel."""
+    if log and broker in log:
+        ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+        ax.grid(axis="y", which="major")
+    if ylim and broker in ylim:
+        ax.set_ylim(*ylim[broker])
+        if limit is not None and ylim[broker][1] < limit:
+            ax.annotate(f"limite de {limit:g} ms acima da escala", xy=(0, 1), xycoords="axes fraction",
+                        xytext=(4, -3), textcoords="offset points", ha="left", va="top",
+                        fontsize=7, color="#52514e")
+            return False
+    return True
+
+
+def figure(field, ylabel, filename, scale=1.0, band=False, limit=None, log=None, ylim=None):
     fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
     for ax, (broker, title) in zip(axes, BROKERS):
         for mode, label, color, marker, dash in MODES:
@@ -89,16 +108,17 @@ def figure(field, ylabel, filename, scale=1.0, band=False, limit=None):
                 ax.fill_between(x, lo, hi, color=color, alpha=0.12, linewidth=0)
             ax.plot(x, y, color=color, linestyle=dash, linewidth=1.6, marker=marker,
                     markersize=4.5, markeredgecolor="white", markeredgewidth=0.6, label=label)
-        if limit is not None:
+        ax.set_title(title, loc="left", fontweight="bold")
+        ax.set_xlabel("carga oferecida (mil eventos/s)")
+        ax.grid(axis="y")
+        ax.set_axisbelow(True)
+        if not (log and broker in log) and not (ylim and broker in ylim):
+            ax.set_ylim(bottom=0)
+        if zoom(ax, broker, log, ylim, limit) and limit is not None:
             ax.axhline(limit, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
             ax.annotate(f"limite de {limit:g} ms", xy=(0, limit), xycoords=("axes fraction", "data"),
                         xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
                         fontsize=7, color="#52514e")
-        ax.set_title(title, loc="left", fontweight="bold")
-        ax.set_xlabel("carga oferecida (mil eventos/s)")
-        ax.set_ylim(bottom=0)
-        ax.grid(axis="y")
-        ax.set_axisbelow(True)
     axes[0].set_ylabel(ylabel)
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
@@ -109,8 +129,52 @@ def figure(field, ylabel, filename, scale=1.0, band=False, limit=None):
     print("escrito:", filename)
 
 
-figure("p99_ms", "latência P99 (ms)", "fig_p99.pdf", band=True, limit=50)
+figure("p99_ms", "latência P99 (ms)", "fig_p99.pdf", band=True, limit=50,
+       log={"rabbitmq"}, ylim={"rabbitmq": (1.5, 120), "kafka": (5, 9.5)})
 figure("cpu_consumidor", "CPU do consumidor (núcleos)", "fig_cpu_consumidor.pdf", scale=0.01)
+
+
+# --- efeito de cada mecanismo em relacao ao modo direto, por carga --------------
+
+def efeito(broker, mode, field):
+    base = {int(r["carga"]): num(r[field]) for r in resumo
+            if r["broker"] == broker and r["modo"] == "direct"}
+    rows = sorted((r for r in resumo if r["broker"] == broker and r["modo"] == mode),
+                  key=lambda r: int(r["carga"]))
+    return [int(r["carga"]) for r in rows], [(num(r[field]) / base[int(r["carga"])] - 1) * 100 for r in rows]
+
+
+fig, axes = plt.subplots(2, 2, figsize=(6.3, 4.2), constrained_layout=True)
+for col, (broker, title) in enumerate(BROKERS):
+    for row, (field, ylabel) in enumerate([("p99_ms", "P99 em relação\nao Direct (%)"),
+                                           ("cpu_consumidor", "CPU do consumidor em\nrelação ao Direct (%)")]):
+        ax = axes[row][col]
+        if row == 0:
+            ax.axhspan(-20, 20, color="#e4e3df", alpha=0.6, linewidth=0,
+                       label="sem diferença relevante (±20%)")
+        width = 0.38
+        for k, (mode, label, color, marker, dash) in enumerate(MODES[1:]):
+            loads, deltas = efeito(broker, mode, field)
+            pos = [i + (k - 0.5) * width for i in range(len(loads))]
+            ax.bar(pos, deltas, width=width, color=color, label=label, edgecolor="white", linewidth=0.4)
+        ax.axhline(0, color="#52514e", linewidth=0.8)
+        ax.set_xticks(range(len(loads)))
+        ax.set_xticklabels([f"{c // 1000}" for c in loads])
+        if row == 0:
+            ax.set_ylim(-25, 25)
+            ax.set_title(title, loc="left", fontweight="bold")
+        else:
+            ax.set_xlabel("carga oferecida (mil eventos/s)")
+        if col == 0:
+            ax.set_ylabel(ylabel)
+        ax.grid(axis="y")
+        ax.set_axisbelow(True)
+handles, labels = axes[0][0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
+fig.savefig(os.path.join(OUT, "fig_efeito_modos.pdf"))
+fig.savefig(os.path.join(OUT, "fig_efeito_modos.png"), dpi=200)
+plt.close(fig)
+print("escrito: fig_efeito_modos.pdf")
 
 
 # --- cenario ajustado: P99 do modo direto em cada perfil -----------------------
@@ -132,12 +196,15 @@ for ax, (broker, title) in zip(axes, BROKERS):
         ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r["p99_ms"]) for r in rows],
                 color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
                 markeredgecolor="white", markeredgewidth=0.6, label=label)
-    ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
     ax.set_title(title, loc="left", fontweight="bold")
     ax.set_xlabel("carga oferecida (mil eventos/s)")
-    ax.set_ylim(bottom=0)
     ax.grid(axis="y")
     ax.set_axisbelow(True)
+    if zoom(ax, broker, log={"rabbitmq"}, ylim={"rabbitmq": (0.4, 120), "kafka": (0, 25)}, limit=50):
+        ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+        ax.annotate("limite de 50 ms", xy=(0, 50), xycoords=("axes fraction", "data"),
+                    xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
+                    fontsize=7, color="#52514e")
 axes[0].set_ylabel("latência P99 (ms)")
 handles, labels = axes[1].get_legend_handles_labels()
 fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)

@@ -58,9 +58,9 @@
 \newcommand{\tituloUppercase}{\MakeUppercase{\titulo}}
 \newcommand{\titulotraduzido}{Experimental Evaluation of Composite Architectures for High-Frequency Event Processing Using .NET}
 
-\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos em alta frequência, e a arquitetura escolhida afeta latência, throughput e uso de recursos. Este trabalho avalia experimentalmente, em .NET, arquiteturas que combinam um sistema de mensageria (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines), com um modo sem mecanismo interno como grupo de controle. A carga vem de telemetria real da Fórmula~1, obtida da API pública OpenF1 e reproduzida a 100~Hz por carro com uma frota multiplicada. As seis combinações foram medidas em containers com núcleos de processador exclusivos, com dez repetições por carga e critérios de análise fixados antes da coleta. O RabbitMQ teve menor latência em carga baixa (P99 de 2,3~ms, contra 5,8~ms do Kafka, a 10 mil eventos por segundo), mas saturou em 60 mil, limitado pela CPU do broker. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms e cerca de um sétimo da CPU de broker do RabbitMQ, em troca de mais memória. Channels e Pipelines não reduziram a latência nem as alocações e multiplicaram por 2,4 a 3,3 a CPU do consumidor do Kafka. Um cenário com a configuração recomendada por cada fornecedor mostrou que parte da diferença entre os brokers vem da configuração.}
+\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos em alta frequência, e a arquitetura escolhida afeta latência, throughput e uso de recursos. Este trabalho avalia experimentalmente, em .NET, arquiteturas que combinam um sistema de mensageria (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines), com um modo sem mecanismo interno como grupo de controle. A carga vem de telemetria real da Fórmula~1, obtida da API pública OpenF1 e reproduzida a 100~Hz por carro com uma frota multiplicada. As seis combinações foram medidas em containers com núcleos de processador exclusivos, com dez repetições por carga e critérios de análise fixados antes da coleta. O RabbitMQ teve menor latência em carga baixa (P99 de 2,3~ms, contra 5,8~ms do Kafka, a 10 mil eventos por segundo), mas saturou em 60 mil, limitado pela CPU do broker. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms e cerca de um sétimo da CPU de broker do RabbitMQ, em troca de mais memória. Channels e Pipelines não reduziram a latência nem as alocações e multiplicaram por 1,9 a 3,3 a CPU do consumidor do Kafka. Um cenário com a configuração recomendada por cada fornecedor mostrou que parte da diferença entre os brokers vem da configuração.}
 
-\newcommand{\textoAbstract}{Telemetry, Internet of Things (IoT) and monitoring systems process large volumes of high-frequency events, and the chosen architecture affects latency, throughput and resource usage. This work experimentally evaluates, in .NET, architectures that combine a messaging system (RabbitMQ or Kafka) with an internal concurrent processing mechanism (Channels or Pipelines), with a mode without an internal mechanism as the control group. The workload comes from real Formula~1 telemetry, obtained from the OpenF1 public API and replayed at 100~Hz per car with a multiplied fleet. The six combinations were measured in containers with dedicated processor cores, with ten repetitions per load and analysis criteria fixed before data collection. RabbitMQ had lower latency at low load (P99 of 2.3~ms, versus 5.8~ms for Kafka, at 10 thousand events per second), but saturated at 60 thousand, limited by broker CPU. Kafka sustained 400 thousand, the highest load tested, with P99 between 5.5 and 6.7~ms and about one seventh of RabbitMQ's broker CPU, in exchange for more memory. Channels and Pipelines reduced neither latency nor allocations and multiplied Kafka's consumer CPU by 2.4 to 3.3. A scenario with each vendor's recommended configuration showed that part of the difference between the brokers comes from configuration.}
+\newcommand{\textoAbstract}{Telemetry, Internet of Things (IoT) and monitoring systems process large volumes of high-frequency events, and the chosen architecture affects latency, throughput and resource usage. This work experimentally evaluates, in .NET, architectures that combine a messaging system (RabbitMQ or Kafka) with an internal concurrent processing mechanism (Channels or Pipelines), with a mode without an internal mechanism as the control group. The workload comes from real Formula~1 telemetry, obtained from the OpenF1 public API and replayed at 100~Hz per car with a multiplied fleet. The six combinations were measured in containers with dedicated processor cores, with ten repetitions per load and analysis criteria fixed before data collection. RabbitMQ had lower latency at low load (P99 of 2.3~ms, versus 5.8~ms for Kafka, at 10 thousand events per second), but saturated at 60 thousand, limited by broker CPU. Kafka sustained 400 thousand, the highest load tested, with P99 between 5.5 and 6.7~ms and about one seventh of RabbitMQ's broker CPU, in exchange for more memory. Channels and Pipelines reduced neither latency nor allocations and multiplied Kafka's consumer CPU by 1.9 to 3.3. A scenario with each vendor's recommended configuration showed that part of the difference between the brokers comes from configuration.}
 
 \newcommand{\orientador}{Prof. Dr. Evandro K.}
 \newcommand{\coorientador}{---}
@@ -656,9 +656,10 @@ RabbitMQ.
 \centering
 \includegraphics[width=\textwidth]{fig_p99.pdf}
 \caption{Latência P99 por carga oferecida, no cenário padrão a 100~Hz. A linha é a
-mediana das rodadas usadas e a faixa vai do menor ao maior P99 entre elas. A
-linha pontilhada é o limite de 50~ms do critério de saturação. Os eixos de cada
-painel têm escalas próprias.}
+mediana das rodadas usadas e a faixa vai do menor ao maior P99 entre elas. O painel
+do RabbitMQ usa escala logarítmica, com o limite de 50~ms do critério de saturação
+pontilhado; o do Kafka mostra só a faixa de 5 a 9,5~ms, para que a diferença entre os
+modos fique visível.}
 \label{fig:p99}
 \end{figure}
 
@@ -706,25 +707,35 @@ relação a 100~Hz: a interpolação não muda as conclusões.
 
 \subsection{Efeito do Mecanismo Interno}
 
-Nenhuma combinação mostrou diferença relevante de latência ou de throughput entre
-Channels ou Pipelines e o modo direto. O maior efeito no P99 foi de 11\% (Kafka com
-Pipelines a 400 mil), abaixo do limite de 20\%. O teste de Kruskal-Wallis apontou
-diferença em seis das oito cargas do Kafka, mas com efeito de 0,5 a 6\%: com dispersão de
-centésimos de milissegundo entre as rodadas, até diferenças irrelevantes ficam
-detectáveis.
+A Figura~\ref{fig:efeito} mostra, para cada broker e carga, quanto Channels e Pipelines
+mudam o P99 e a CPU do consumidor em relação ao modo direto, o que permite ver em que
+momento cada mecanismo ajuda.
 
 \begin{figure}[ht]
 \centering
-\includegraphics[width=\textwidth]{fig_cpu_consumidor.pdf}
-\caption{CPU do consumidor por carga oferecida, em núcleos (1,0 = um núcleo
-inteiro), no cenário padrão a 100~Hz. Mediana das rodadas usadas. Os eixos de
-cada painel têm escalas próprias.}
-\label{fig:cpu}
+\includegraphics[width=\textwidth]{fig_efeito_modos.pdf}
+\caption{Efeito de Channels e Pipelines em relação ao modo direto, por carga, no
+cenário padrão a 100~Hz: diferença no P99 (em cima) e na CPU do consumidor (embaixo), em
+porcentagem da mediana do modo direto. A faixa cinza é a diferença tida como irrelevante
+na análise registrada antes da coleta. Os eixos da CPU têm escalas próprias.}
+\label{fig:efeito}
 \end{figure}
 
-O efeito aparece no custo (Figura~\ref{fig:cpu}). No Kafka, Channels e Pipelines
-multiplicam a CPU do consumidor por 2,4 a 3,3: a 400 mil, ocupam 1,57 e 1,69 núcleo,
-contra 0,63 do modo direto. A partir de 100 mil, o acréscimo é de 2,4 a 3,7~µs por
+\textbf{Latência.} Nenhuma combinação mostrou diferença relevante: todas as diferenças no
+P99 ficaram dentro da faixa de $\pm$20\%, e o throughput foi o mesmo nos três modos. No
+RabbitMQ, o único ganho aparece a 40 mil eventos por segundo, carga em que o broker começa
+a acumular fila: Channels e Pipelines tiveram P99 6\% menor que o do modo direto, mas
+abaixo do limite de relevância e sem significância estatística (Kruskal-Wallis,
+$p = 0{,}06$). Nas demais cargas, ficaram entre 2\% abaixo e 9\% acima. No Kafka, nenhum
+mecanismo ficou abaixo do modo direto em nenhuma carga; a diferença, desprezível até 200
+mil, cresce perto do limite da bancada, até 11\% a 400 mil. O teste de Kruskal-Wallis
+apontou diferença em seis das oito cargas do Kafka, mas com efeito de 0,5 a 6\%: com
+dispersão de centésimos de milissegundo entre as rodadas, até diferenças irrelevantes
+ficam detectáveis.
+
+\textbf{Custo.} No Kafka, Channels e Pipelines custam de 1,9 a 3,3 vezes a CPU do
+consumidor do modo direto, e o acréscimo cresce com a carga até 300 mil: a 400 mil, ocupam
+1,57 e 1,69 núcleo, contra 0,63 do modo direto. A partir de 100 mil, o acréscimo é de 2,4 a 3,7~µs por
 evento, a ordem de grandeza de acordar uma thread de trabalho a cada evento. No RabbitMQ,
 o acréscimo é de 4 a 9\%, porque o consumidor já ocupa perto de um núcleo em qualquer
 carga. A memória não depende do modo: a alocação foi de 952 a 975 bytes por evento no
@@ -736,9 +747,10 @@ ficou entre 87 e 117~MB.
 Com o processamento custando cerca de 0,12~µs por evento e a carga chegando de forma
 regular, não há espera a esconder: o modo direto processa o evento antes de o broker
 entregar o próximo, e desacoplar a recepção do processamento só acrescenta a fila interna
-e a troca de thread. Channels e Pipelines ficaram indistinguíveis entre si. O resultado
-vale para o uso padrão das ferramentas, um evento por vez, e para processamento sem espera
-própria.
+e a troca de thread. Channels e Pipelines ficaram indistinguíveis entre si. Em resumo,
+nenhum broker se beneficia de Channels ou de Pipelines no cenário padrão: o RabbitMQ chega
+perto disso só a 40 mil, e o Kafka só paga o custo. O resultado vale para o uso padrão das
+ferramentas, um evento por vez, e para processamento sem espera própria.
 
 \subsection{Cenário Ajustado}
 \label{sec:res-ajustado}
@@ -753,8 +765,8 @@ Tabela~\ref{tab:ajustado-res} comparam o modo direto nos dois cenários.
 \centering
 \includegraphics[width=\textwidth]{fig_ajustado.pdf}
 \caption{Latência P99 do modo direto por carga oferecida, no cenário padrão e no
-ajustado, a 100~Hz. Mediana das rodadas usadas. A linha pontilhada é o limite de 50~ms.
-Os eixos de cada painel têm escalas próprias.}
+ajustado, a 100~Hz. Mediana das rodadas usadas. O painel do RabbitMQ usa escala
+logarítmica, com o limite de 50~ms pontilhado; no do Kafka, o limite fica acima da escala.}
 \label{fig:ajustado}
 \end{figure}
 
@@ -876,7 +888,7 @@ segundo, contra 5,8~ms do Kafka, mas satura em 60 mil, limitado pela CPU do brok
 Kafka mantém o P99 perto de 5,5~ms de 10 mil a pelo menos 400 mil, com cerca de um sétimo
 da CPU de broker do RabbitMQ, em troca de um piso de latência dado pela formação de lotes e
 de mais memória no broker. Channels e Pipelines, no uso padrão e com processamento leve,
-não melhoraram nenhuma medida de desempenho e custaram de 2,4 a 3,3 vezes a CPU do
+não melhoraram nenhuma medida de desempenho e custaram de 1,9 a 3,3 vezes a CPU do
 consumidor do Kafka. O cenário ajustado mostrou que parte da diferença entre os brokers
 vem da configuração: o \texttt{linger.ms} de 1 reduziu o P50 do Kafka de 3 para 1~ms, à
 custa de CPU do broker e de cauda nas cargas altas, e a mensagem transitória reduziu o P99
