@@ -599,11 +599,31 @@ cada combinação estão no repositório.
 
 \subsection{Validade, Throughput e Saturação}
 
-Das 430 rodadas, 417 foram válidas. As 13 inválidas foram por atraso de envio acima de
+Das 430 rodadas, 417 foram válidas (Tabela~\ref{tab:validade}). As 13 inválidas foram por atraso de envio acima de
 50~ms, todas no Kafka a 200 mil eventos por segundo ou mais, nove delas a 400 mil. Nenhuma
 rodada divergiu no digest, teve registro incompleto ou descartou janelas: as seis
 combinações produziram o mesmo resultado em cada carga, sem perda, duplicação ou quebra de
 ordem. A regra de Tukey descartou 42 rodadas, cerca de 10\%.
+
+\begin{table}[ht]
+\centering
+\caption{Rodadas do cenário padrão a 100~Hz, por combinação, e ponto de saturação.}
+\label{tab:validade}
+\small
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Broker} & \textbf{Modo} & \textbf{Rodadas} & \textbf{Válidas} & \textbf{Descartadas (Tukey)} & \textbf{Saturação (mil ev/s)} \\
+\hline
+\multirow{3}{*}{RabbitMQ} & Direto & 50 & 50 & 2 & 60 \\
+ & Channels & 50 & 50 & 3 & 60 \\
+ & Pipelines & 50 & 50 & 6 & 60 \\
+\hline
+\multirow{3}{*}{Kafka} & Direto & 80 & 76 & 7 & $\geq$ 400 \\
+ & Channels & 80 & 76 & 6 & $\geq$ 400 \\
+ & Pipelines & 80 & 76 & 8 & $\geq$ 400 \\
+\hline
+\end{tabular}
+\end{table}
 
 O throughput acompanhou a carga em todas as combinações, com diferença abaixo de 0,1\%;
 quem decide a saturação é a latência. O RabbitMQ sustenta 60 mil eventos por segundo nos
@@ -715,8 +735,17 @@ própria.
 A matriz ajustada foi executada em 27/10/2026, sem falha técnica. Das 240 rodadas, 232
 foram válidas; as 8 inválidas foram de novo por atraso de envio, no Kafka a 200 mil
 eventos por segundo ou mais. O digest foi o mesmo em todas as rodadas de cada carga, e a
-regra de Tukey descartou 14 rodadas. A Tabela~\ref{tab:ajustado-res} compara o modo
-direto nos dois cenários.
+regra de Tukey descartou 14 rodadas. A Figura~\ref{fig:ajustado} e a
+Tabela~\ref{tab:ajustado-res} comparam o modo direto nos dois cenários.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{fig_ajustado.pdf}
+\caption{Latência P99 do modo direto por carga oferecida, no cenário padrão e no
+ajustado, a 100~Hz. Mediana das rodadas usadas. A linha pontilhada é o limite de 50~ms.
+Os eixos de cada painel têm escalas próprias.}
+\label{fig:ajustado}
+\end{figure}
 
 \begin{table}[ht]
 \centering
