@@ -822,6 +822,46 @@ RabbitMQ ajustado tem o menor P99 até 40 mil, e a 60 mil os dois ficam próximo
 e 8,3~ms. Parte da diferença do cenário padrão vinha, portanto, da configuração, e cada
 parâmetro troca latência por CPU do broker.
 
+\subsection{Síntese: Onde Cada Combinação se Sai Melhor}
+\label{sec:sintese}
+
+A Tabela~\ref{tab:sintese} reúne, para cada combinação do cenário padrão, a faixa de
+carga em que ela se sai melhor, o que ganha e o que custa. A escolha do broker decide a
+faixa de carga atendida e a latência; a do mecanismo interno decide só o custo. O RabbitMQ
+ganha em latência enquanto o broker tem folga de CPU, e o Kafka ganha em throughput e em
+eficiência, com latência estável em toda a faixa medida. Nenhum broker ganha desempenho com
+Channels ou Pipelines: no RabbitMQ, o mecanismo chega perto de ajudar só a 40 mil eventos
+por segundo, sem diferença relevante, e custa pouco, porque o consumidor já ocupa perto de
+um núcleo; no Kafka, ele nunca ajuda e custa caro. Entre os dois mecanismos, o Channels é
+o mais barato: no Kafka, o Pipelines usou de 3\% a 10\% mais CPU que ele em todas as
+cargas. No cenário ajustado, o quadro dos brokers muda, com o RabbitMQ à frente no P99 até
+40 mil, mas o dos mecanismos não.
+
+\begin{table}[ht]
+\centering
+\caption{Síntese por combinação, no cenário padrão a 100~Hz. CPU do mecanismo em
+múltiplos da CPU do consumidor no modo direto.}
+\label{tab:sintese}
+\small
+\begin{tabular}{|l|l|p{3.0cm}|p{4.1cm}|p{3.7cm}|}
+\hline
+\textbf{Broker} & \textbf{Modo} & \textbf{Onde se sai melhor} & \textbf{O que ganha} & \textbf{O que custa} \\
+\hline
+\multirow{3}{*}{RabbitMQ} & Direto & carga baixa: até 20 mil (P99) e 60 mil (P50) & a menor latência da bancada: P99 de 2,3~ms a 10 mil & broker no limite de CPU; satura em 60 mil \\
+\cline{2-5}
+ & Channels & 40 mil & P99 6\% menor que o direto, sem relevância & CPU do consumidor 1,04 a 1,07$\times$ \\
+\cline{2-5}
+ & Pipelines & 40 mil & P99 6\% menor que o direto, sem relevância & CPU do consumidor 1,06 a 1,09$\times$ \\
+\hline
+\multirow{3}{*}{Kafka} & Direto & carga alta: de 40 a 400 mil & P99 de 5,5 a 6,1~ms até 400 mil, com 0,4 a 0,5 núcleo de broker & P50 de 3~ms em qualquer carga; mais memória no broker \\
+\cline{2-5}
+ & Channels & nenhuma carga & nada: P99 de 0\% a 9\% acima do direto & CPU do consumidor 1,9 a 3,0$\times$ \\
+\cline{2-5}
+ & Pipelines & nenhuma carga & nada: P99 de 0\% a 11\% acima do direto & CPU do consumidor 2,0 a 3,3$\times$ \\
+\hline
+\end{tabular}
+\end{table}
+
 \subsection{Comparação com os Trabalhos Relacionados}
 \label{sec:comparacao}
 
