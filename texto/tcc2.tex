@@ -662,33 +662,7 @@ pontilhada é o limite de 50~ms do critério de saturação.}
 \label{fig:p99}
 \end{figure}
 
-\begin{table}[ht]
-\centering
-\caption{Latência no modo direto (mediana das rodadas, em ms). O P99 dos outros
-modos ficou a menos de 12\% destes valores.}
-\label{tab:latencia}
-\small
-\begin{tabular}{|r|c|c|c|c|}
-\hline
-\multirow{2}{*}{\textbf{Carga (mil ev/s)}} & \multicolumn{2}{c|}{\textbf{RabbitMQ}} & \multicolumn{2}{c|}{\textbf{Kafka}} \\
-\cline{2-5}
- & \textbf{P50} & \textbf{P99} & \textbf{P50} & \textbf{P99} \\
-\hline
-10 & 0,36 & 2,35 & 3,00 & 5,80 \\
-20 & 0,57 & 5,36 & 2,98 & 5,63 \\
-40 & 1,03 & 8,94 & 3,01 & 5,63 \\
-60 & 1,98 & 24,73 & 3,00 & 5,57 \\
-80 & 3,14 & 75,39 & --- & --- \\
-100 & --- & --- & 3,00 & 5,51 \\
-200 & --- & --- & 3,10 & 5,49 \\
-300 & --- & --- & 3,22 & 5,65 \\
-400 & --- & --- & 3,41 & 6,05 \\
-\hline
-\end{tabular}
-\end{table}
-
-A comparação de latência muda de sinal com a carga (Figura~\ref{fig:p99} e
-Tabela~\ref{tab:latencia}). A 10 mil eventos por segundo, o RabbitMQ é mais rápido: P50 de
+A comparação de latência muda de sinal com a carga (Figura~\ref{fig:p99}). A 10 mil eventos por segundo, o RabbitMQ é mais rápido: P50 de
 0,36~ms e P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka. As curvas se cruzam em pontos
 diferentes nos dois percentis: no P50, o RabbitMQ é mais rápido até 60 mil; no P99, só até
 20 mil, onde os dois praticamente se igualam. Acima disso, o P99 do RabbitMQ cresce com a
