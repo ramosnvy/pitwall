@@ -250,27 +250,51 @@ PROFILES = [
 ]
 fase7 = [r for r in read("analise-fase7-resumo.csv") if r["hz"] == "100" and r["modo"] == "direct"]
 
-fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
-for ax, (broker, title) in zip(axes, BROKERS):
-    for profile, label, color, marker, dash in PROFILES:
-        rows = sorted((r for r in fase7 if r["broker"] == broker and r["perfil"] == profile),
-                      key=lambda r: int(r["carga"]))
-        if not rows:
-            continue
-        ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r["p99_ms"]) for r in rows],
-                color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
-                markeredgecolor="white", markeredgewidth=0.6, label=label)
-    ax.set_title(title, loc="left", fontweight="bold")
-    ax.set_xlabel("carga oferecida (mil eventos/s)")
-    ax.grid(axis="y")
-    ax.set_axisbelow(True)
-    if zoom(ax, broker, log={"rabbitmq"}, ylim={"rabbitmq": (0.4, 120), "kafka": (0, 25)}, limit=50):
-        ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
-        ax.annotate("limite de 50 ms", xy=(0, 50), xycoords=("axes fraction", "data"),
-                    xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
-                    fontsize=7, color="#52514e")
-axes[0].set_ylabel("latência P99 (ms)")
-handles, labels = axes[1].get_legend_handles_labels()
+# Uma linha por broker e uma coluna por medida (P50, P99 e CPU do broker): a
+# figura substitui a tabela padrao x ajustado do texto.
+MEDIDAS = [("p50_ms", "P50 (ms)", 1.0), ("p99_ms", "P99 (ms)", 1.0),
+           ("cpu_broker", "CPU do broker", 0.01)]
+XTICKS = {"rabbitmq": [10, 20, 40, 80], "kafka": [10, 40, 100, 400]}
+YLOG = {("rabbitmq", "p50_ms"): [0.2, 0.5, 1, 2, 3], ("rabbitmq", "p99_ms"): [0.5, 1, 5, 10, 50, 100],
+        ("kafka", "p50_ms"): [0.5, 1, 2, 5, 10, 20], ("kafka", "p99_ms"): [2, 5, 10, 20, 50]}
+virgula = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}".replace(".", ","))
+
+fig, axes = plt.subplots(2, 3, figsize=(6.3, 3.9), constrained_layout=True)
+for i, (broker, title) in enumerate(BROKERS):
+    for j, (field, col_title, scale) in enumerate(MEDIDAS):
+        ax = axes[i][j]
+        for profile, label, color, marker, dash in PROFILES:
+            rows = sorted((r for r in fase7 if r["broker"] == broker and r["perfil"] == profile),
+                          key=lambda r: int(r["carga"]))
+            if not rows:
+                continue
+            ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r[field]) * scale for r in rows],
+                    color=color, linestyle=dash, linewidth=1.5, marker=marker, markersize=4,
+                    markeredgecolor="white", markeredgewidth=0.6, label=label)
+        if field == "p99_ms":
+            ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+        ax.set_xscale("log")
+        ax.set_xticks(XTICKS[broker])
+        ax.set_xticklabels([str(c) for c in XTICKS[broker]])
+        ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+        if (broker, field) in YLOG:
+            ticks = YLOG[(broker, field)]
+            ax.set_yscale("log")
+            ax.set_yticks(ticks)
+            ax.set_ylim(ticks[0] * 0.8, ticks[-1] * 1.25)
+            ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+        else:
+            ax.set_ylim(0, 4 if broker == "rabbitmq" else 1.4)
+        ax.yaxis.set_major_formatter(virgula)
+        if i == 0:
+            ax.set_title(col_title, loc="left", fontweight="bold")
+        else:
+            ax.set_xlabel("carga (mil eventos/s)")
+        if j == 0:
+            ax.set_ylabel(title, fontweight="bold", fontsize=9)
+        ax.grid(axis="y")
+        ax.set_axisbelow(True)
+handles, labels = axes[1][0].get_legend_handles_labels()
 fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
 fig.savefig(os.path.join(OUT, "fig_ajustado.pdf"))
 fig.savefig(os.path.join(OUT, "fig_ajustado.png"), dpi=200)

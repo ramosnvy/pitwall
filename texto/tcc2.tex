@@ -760,47 +760,18 @@ ferramentas, um evento por vez, e para processamento sem espera própria.
 A matriz ajustada foi executada em 27/10/2026, sem falha técnica. Das 240 rodadas, 232
 foram válidas; as 8 inválidas foram de novo por atraso de envio, no Kafka a 200 mil
 eventos por segundo ou mais. O digest foi o mesmo em todas as rodadas de cada carga, e a
-regra de Tukey descartou 14 rodadas. A Figura~\ref{fig:ajustado} e a
-Tabela~\ref{tab:ajustado-res} comparam o modo direto nos dois cenários.
+regra de Tukey descartou 14 rodadas. A Figura~\ref{fig:ajustado} compara o modo direto
+nos dois cenários: a latência P50 e P99 e a CPU do broker.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_ajustado.pdf}
-\caption{Latência P99 do modo direto por carga oferecida, no cenário padrão e no
-ajustado, a 100~Hz. Mediana das rodadas usadas. O painel do RabbitMQ usa escala
-logarítmica, com o limite de 50~ms pontilhado; no do Kafka, o limite fica acima da escala.}
+\caption{Modo direto no cenário padrão e nos perfis ajustados, a 100~Hz: latência P50 e
+P99 e CPU do broker, em núcleos, por carga oferecida (mediana das rodadas usadas). As
+latências e as cargas estão em escala logarítmica; a linha pontilhada é o limite de 50~ms
+do critério de saturação.}
 \label{fig:ajustado}
 \end{figure}
-
-\begin{table}[ht]
-\centering
-\caption{Modo direto, cenário padrão contra ajustado: latência (mediana das rodadas, em
-ms) e CPU do broker (núcleos).}
-\label{tab:ajustado-res}
-\small
-\begin{tabular}{|l|r|c|c|c|c|c|c|}
-\hline
-\multirow{2}{*}{\textbf{Broker}} & \multirow{2}{*}{\textbf{Carga (mil)}} & \multicolumn{2}{c|}{\textbf{P50}} & \multicolumn{2}{c|}{\textbf{P99}} & \multicolumn{2}{c|}{\textbf{CPU do broker}} \\
-\cline{3-8}
- & & \textbf{Padrão} & \textbf{Ajust.} & \textbf{Padrão} & \textbf{Ajust.} & \textbf{Padrão} & \textbf{Ajust.} \\
-\hline
-\multirow{5}{*}{RabbitMQ} & 10 & 0,36 & 0,24 & 2,35 & 0,65 & 2,80 & 1,91 \\
- & 20 & 0,57 & 0,21 & 5,36 & 1,30 & 3,06 & 2,75 \\
- & 40 & 1,03 & 0,29 & 8,94 & 3,70 & 3,22 & 3,41 \\
- & 60 & 1,98 & 0,41 & 24,73 & 10,40 & 3,27 & 3,67 \\
- & 80 & 3,14 & 0,61 & 75,39 & 42,78 & 3,52 & 3,68 \\
-\hline
-\multirow{8}{*}{Kafka} & 10 & 3,00 & 1,04 & 5,80 & 3,36 & 0,41 & 0,81 \\
- & 20 & 2,98 & 0,96 & 5,63 & 5,22 & 0,42 & 0,91 \\
- & 40 & 3,01 & 0,94 & 5,63 & 7,61 & 0,42 & 1,00 \\
- & 60 & 3,00 & 0,94 & 5,57 & 8,29 & 0,43 & 1,02 \\
- & 100 & 3,00 & 0,93 & 5,51 & 7,03 & 0,44 & 1,08 \\
- & 200 & 3,10 & 0,91 & 5,49 & 9,64 & 0,47 & 1,12 \\
- & 300 & 3,22 & 0,94 & 5,65 & 22,37 & 0,46 & 1,14 \\
- & 400 & 3,41 & 0,99 & 6,05 & 15,00 & 0,49 & 1,19 \\
-\hline
-\end{tabular}
-\end{table}
 
 \textbf{RabbitMQ.} Com a mensagem transitória e o \textit{prefetch} de 300, o P99 caiu de
 43\% a 76\% em todas as cargas, de 2,3 para 0,65~ms a 10 mil e de 25 para 10~ms a 60 mil,
