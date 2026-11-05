@@ -385,12 +385,13 @@ processamento, direto, Channels e Pipelines. O código, os scripts e os resultad
 estão no repositório do projeto, com o cenário padrão na versão
 \texttt{cenario-padrao-v1.2} e o ajustado na \texttt{cenario-ajustado-v1.1}.
 
-% Fontes das Figuras 1 e 2: texto/figuras/{arquitetura,modos}.html; o PDF
-% vetorial e o PNG saem delas por texto/figuras/exportar.ps1.
+% Fonte da Figura 1: texto/figuras/bancada.html, gerada por juntar_bancada.py a
+% partir de arquitetura.html e modos.html; PDF e PNG por exportar.ps1.
 \begin{figure}[ht]
 \centering
-\includegraphics[width=\textwidth]{fig_arquitetura.pdf}
-\caption{Arquitetura da bancada experimental.}
+\includegraphics[width=\textwidth]{fig_bancada.pdf}
+\caption{Arquitetura da bancada experimental e, no quadro de baixo, os três modos de
+entrega da etapa~4, numa das quatro faixas.}
 \label{fig:arquitetura_geral}
 \end{figure}
 
@@ -405,7 +406,8 @@ bifurcação, até o processamento em janelas. Os resultados vão para o Postgre
 medições de cada rodada são coletadas ao lado (etapa~5). As etapas 2 a 5 rodam em
 containers Docker, cada uma com núcleos de processador exclusivos, indicados no pé de cada
 grupo. Entre uma rodada e outra variam três fatores: a carga, o broker e o modo. As
-subseções a seguir percorrem a figura nessa ordem.
+subseções a seguir percorrem a figura nessa ordem, e o quadro de baixo, que amplia a
+etapa~4, é descrito na Seção~\ref{sec:processamento}.
 
 \subsection{Etapas 1 e 2: Dados e Ingestão}
 \label{sec:workload}
@@ -438,15 +440,10 @@ brokers (Seção~\ref{sec:configuracao}).
 Um consumidor por faixa recebe as mensagens. A biblioteca cliente de cada broker entrega
 cada mensagem chamando uma função do consumidor, o \textit{callback}, numa thread própria,
 aqui chamada de thread do cliente. Entre o callback e o processamento fica o modo de
-entrega, a bifurcação da Figura~\ref{fig:arquitetura_geral}; a Figura~\ref{fig:modos}
-detalha os três modos, e a cor indica onde cada passo roda.
-
-\begin{figure}[ht]
-\centering
-\includegraphics[width=\textwidth]{fig_modos.pdf}
-\caption{Os três modos de entrega, numa das quatro faixas.}
-\label{fig:modos}
-\end{figure}
+entrega, a bifurcação da Figura~\ref{fig:arquitetura_geral}. O quadro de baixo da
+figura amplia essa etapa numa das quatro faixas, uma linha por modo, e a cor indica onde
+cada passo roda: em verde, na thread do cliente; em azul, numa thread de trabalho; em
+cinza, a fila interna entre as duas.
 
 \begin{itemize}
   \item \textbf{Direct} (direto): o callback chama o processamento na própria thread do
