@@ -185,33 +185,56 @@ def efeito(broker, mode, field):
     return [int(r["carga"]) for r in rows], [(num(r[field]) / base[int(r["carga"])] - 1) * 100 for r in rows]
 
 
-fig, axes = plt.subplots(2, 2, figsize=(6.3, 4.2), constrained_layout=True)
+pct = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:+.0f}%".replace("+0%", "0%").replace("-", "−"))
+vezes = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}×".replace(".", ","))
+
+fig, axes = plt.subplots(2, 2, figsize=(6.3, 4.2), constrained_layout=True,
+                         gridspec_kw={"width_ratios": [5, 8]})
 for col, (broker, title) in enumerate(BROKERS):
-    for row, (field, ylabel) in enumerate([("p99_ms", "P99 em relação\nao Direct (%)"),
-                                           ("cpu_consumidor", "CPU do consumidor em\nrelação ao Direct (%)")]):
+    for row, field in enumerate(["p99_ms", "cpu_consumidor"]):
         ax = axes[row][col]
-        if row == 0:
-            ax.axhspan(-20, 20, color="#e4e3df", alpha=0.6, linewidth=0,
-                       label="sem diferença relevante (±20%)")
         width = 0.38
+        if row == 0:
+            # faixa de irrelevancia registrada antes da coleta
+            ax.axhspan(-20, 20, color="#eceae4", linewidth=0)
+            if broker == "kafka":
+                ax.text(0.98, 0.2, "faixa de ±20%: sem diferença relevante", transform=ax.transAxes,
+                        ha="right", va="bottom", fontsize=7, color="#52514e")
         for k, (mode, label, color, marker, dash) in enumerate(MODES[1:]):
             loads, deltas = efeito(broker, mode, field)
             pos = [i + (k - 0.5) * width for i in range(len(loads))]
-            ax.bar(pos, deltas, width=width, color=color, label=label, edgecolor="white", linewidth=0.4)
-        ax.axhline(0, color="#52514e", linewidth=0.8)
+            if row == 0:
+                ax.bar(pos, deltas, width=width, color=color, label=label,
+                       edgecolor="white", linewidth=0.4)
+            else:
+                # CPU como multiplo da do modo direto: barra a partir de 1x
+                ax.bar(pos, [d / 100 for d in deltas], bottom=1, width=width, color=color,
+                       label=label, edgecolor="white", linewidth=0.4)
+        if row == 0:
+            ax.axhline(0, color="#52514e", linewidth=0.8)
+            ax.set_ylim(-25, 25)
+            ax.set_yticks([-20, -10, 0, 10, 20])
+            ax.yaxis.set_major_formatter(pct)
+            ax.set_title(title, loc="left", fontweight="bold")
+            if broker == "rabbitmq":
+                i = loads.index(40000)
+                ax.annotate("único ganho:\n−6% a 40 mil", xy=(i, -6.5), xytext=(i, -19),
+                            ha="center", va="bottom", fontsize=7, color="#0b0b0b",
+                            arrowprops={"arrowstyle": "-", "color": "#52514e", "linewidth": 0.6})
+        else:
+            ax.axhline(1, color="#52514e", linewidth=0.8)
+            ax.set_ylim(1, 1.12 if broker == "rabbitmq" else 3.6)
+            ax.set_yticks([1, 1.05, 1.1] if broker == "rabbitmq" else [1, 2, 3])
+            ax.yaxis.set_major_formatter(vezes)
+            ax.set_xlabel("carga oferecida (mil eventos/s)")
         ax.set_xticks(range(len(loads)))
         ax.set_xticklabels([f"{c // 1000}" for c in loads])
-        if row == 0:
-            ax.set_ylim(-25, 25)
-            ax.set_title(title, loc="left", fontweight="bold")
-        else:
-            ax.set_xlabel("carga oferecida (mil eventos/s)")
-        if col == 0:
-            ax.set_ylabel(ylabel)
         ax.grid(axis="y")
         ax.set_axisbelow(True)
-handles, labels = axes[0][0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
+axes[0][0].set_ylabel("P99 em relação\nao Direct")
+axes[1][0].set_ylabel("CPU do consumidor\n(vezes a do Direct)")
+handles, labels = axes[0][1].get_legend_handles_labels()
+fig.legend(handles, labels, loc="outside upper center", ncol=2, frameon=False)
 fig.savefig(os.path.join(OUT, "fig_efeito_modos.pdf"))
 fig.savefig(os.path.join(OUT, "fig_efeito_modos.png"), dpi=200)
 plt.close(fig)
