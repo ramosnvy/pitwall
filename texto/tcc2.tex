@@ -655,11 +655,10 @@ RabbitMQ.
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_p99.pdf}
-\caption{Latência P99 por carga oferecida, no cenário padrão a 100~Hz. A linha é a
-mediana das rodadas usadas e a faixa vai do menor ao maior P99 entre elas. O painel
-do RabbitMQ usa escala logarítmica, com o limite de 50~ms do critério de saturação
-pontilhado; o do Kafka mostra só a faixa de 5 a 9,5~ms, para que a diferença entre os
-modos fique visível.}
+\caption{Latência P50 e P99 do RabbitMQ e do Kafka por carga oferecida, no modo direto
+e no cenário padrão a 100~Hz (mediana das rodadas usadas; os outros modos ficaram a
+menos de 12\% destes valores). Os dois eixos estão em escala logarítmica; a linha
+pontilhada é o limite de 50~ms do critério de saturação.}
 \label{fig:p99}
 \end{figure}
 
@@ -690,9 +689,11 @@ modos ficou a menos de 12\% destes valores.}
 
 A comparação de latência muda de sinal com a carga (Figura~\ref{fig:p99} e
 Tabela~\ref{tab:latencia}). A 10 mil eventos por segundo, o RabbitMQ é mais rápido: P50 de
-0,36~ms e P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka. A 20 mil, os P99 praticamente se
-igualam; acima disso, o do RabbitMQ cresce com a carga, até 25~ms a 60 mil e 75~ms a 80
-mil, enquanto o do Kafka fica entre 5,5 e 6,7~ms até 400 mil, em todos os modos.
+0,36~ms e P99 de 2,3~ms, contra 3,0 e 5,8~ms do Kafka. As curvas se cruzam em pontos
+diferentes nos dois percentis: no P50, o RabbitMQ é mais rápido até 60 mil; no P99, só até
+20 mil, onde os dois praticamente se igualam. Acima disso, o P99 do RabbitMQ cresce com a
+carga, até 25~ms a 60 mil e 75~ms a 80 mil, enquanto o do Kafka fica entre 5,5 e 6,7~ms
+até 400 mil, em todos os modos.
 
 O Kafka tem um piso de latência: P50 perto de 3~ms e P99 perto de 5,5~ms em qualquer
 carga. Ele coincide com a espera padrão do produtor para formar lotes, o

@@ -129,9 +129,50 @@ def figure(field, ylabel, filename, scale=1.0, band=False, limit=None, log=None,
     print("escrito:", filename)
 
 
-figure("p99_ms", "latência P99 (ms)", "fig_p99.pdf", band=True, limit=50,
-       log={"rabbitmq"}, ylim={"rabbitmq": (1.5, 120), "kafka": (5, 9.5)})
 figure("cpu_consumidor", "CPU do consumidor (núcleos)", "fig_cpu_consumidor.pdf", scale=0.01)
+
+
+# --- latencia: os dois brokers no mesmo painel, modo direto ---------------------
+# A comparacao da secao de latencia e entre brokers; a dos modos esta em
+# fig_efeito_modos. Escalas log nos dois eixos, para que as cargas baixas, em que o
+# RabbitMQ e mais rapido, nao fiquem espremidas.
+
+BROKER_STYLE = {"rabbitmq": ("RabbitMQ", "#eb6834", "s", "--"),
+                "kafka": ("Kafka", "#2a78d6", "o", "-")}
+CARGAS = [10, 20, 40, 80, 200, 400]
+YTICKS = {"p50_ms": [0.3, 0.5, 1, 2, 3, 5], "p99_ms": [2, 5, 10, 20, 50, 100]}
+
+fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
+for ax, (field, title) in zip(axes, [("p50_ms", "P50"), ("p99_ms", "P99")]):
+    for broker, (label, color, marker, dash) in BROKER_STYLE.items():
+        x, y = series(broker, "direct", field)
+        ax.plot(x, y, color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
+                markeredgecolor="white", markeredgewidth=0.6, label=label)
+    if field == "p99_ms":
+        ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+        ax.annotate("limite de 50 ms", xy=(1, 50), xycoords=("axes fraction", "data"),
+                    xytext=(-4, 3), textcoords="offset points", ha="right", va="bottom",
+                    fontsize=7, color="#52514e")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xticks(CARGAS)
+    ax.set_xticklabels([str(c) for c in CARGAS])
+    ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    ax.set_yticks(YTICKS[field])
+    ax.set_ylim(YTICKS[field][0] * 0.85, YTICKS[field][-1] * 1.15)
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}".replace(".", ",")))
+    ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    ax.set_title(title, loc="left", fontweight="bold")
+    ax.set_xlabel("carga oferecida (mil eventos/s)")
+    ax.grid(axis="y", which="major")
+    ax.set_axisbelow(True)
+axes[0].set_ylabel("latência (ms)")
+handles, labels = axes[0].get_legend_handles_labels()
+fig.legend(handles, labels, loc="outside upper center", ncol=2, frameon=False)
+fig.savefig(os.path.join(OUT, "fig_p99.pdf"))
+fig.savefig(os.path.join(OUT, "fig_p99.png"), dpi=200)
+plt.close(fig)
+print("escrito: fig_p99.pdf")
 
 
 # --- efeito de cada mecanismo em relacao ao modo direto, por carga --------------
