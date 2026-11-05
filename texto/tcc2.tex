@@ -793,20 +793,25 @@ RabbitMQ ajustado tem o menor P99 até 40 mil, e a 60 mil os dois ficam próximo
 e 8,3~ms. Parte da diferença do cenário padrão vinha, portanto, da configuração, e cada
 parâmetro troca latência por CPU do broker.
 
-\subsection{Síntese: Onde Cada Combinação se Sai Melhor}
+\subsection{Onde Cada Broker e Cada Mecanismo Ganha}
 \label{sec:sintese}
 
 A Tabela~\ref{tab:sintese} reúne, para cada combinação do cenário padrão, a faixa de
 carga em que ela se sai melhor, o que ganha e o que custa. A escolha do broker decide a
-faixa de carga atendida e a latência; a do mecanismo interno decide só o custo. O RabbitMQ
-ganha em latência enquanto o broker tem folga de CPU, e o Kafka ganha em throughput e em
-eficiência, com latência estável em toda a faixa medida. Nenhum broker ganha desempenho com
-Channels ou Pipelines: no RabbitMQ, o mecanismo chega perto de ajudar só a 40 mil eventos
-por segundo, sem diferença relevante, e custa pouco, porque o consumidor já ocupa perto de
-um núcleo; no Kafka, ele nunca ajuda e custa caro. Entre os dois mecanismos, o Channels é
-o mais barato: no Kafka, o Pipelines usou de 3\% a 10\% mais CPU que ele em todas as
-cargas. No cenário ajustado, o quadro dos brokers muda, com o RabbitMQ à frente no P99 até
-40 mil, mas o dos mecanismos não.
+faixa de carga atendida e a latência; a do mecanismo interno decide só o custo.
+
+\textbf{Por broker.} O RabbitMQ ganha em latência enquanto o broker tem folga de CPU: tem a
+menor latência da bancada até 20 mil eventos por segundo no P99 e até 60 mil no P50. O
+Kafka ganha em throughput e em eficiência: a partir de 40 mil, tem o menor P99, estável até
+400 mil, com cerca de um sétimo da CPU de broker. No cenário ajustado, o RabbitMQ passa à
+frente no P99 até 40 mil.
+
+\textbf{Por mecanismo.} Nenhum broker ganha desempenho com Channels ou Pipelines. No
+RabbitMQ, o mecanismo chega perto de ajudar só a 40 mil eventos por segundo, sem diferença
+relevante, e custa pouco, porque o consumidor já ocupa perto de um núcleo; no Kafka, ele
+nunca ajuda e custa caro. Entre os dois, o Channels é o mais barato: no Kafka, o Pipelines
+usou de 3\% a 10\% mais CPU que ele em todas as cargas. O cenário ajustado não muda esse
+quadro.
 
 \begin{table}[ht]
 \centering
