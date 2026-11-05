@@ -797,21 +797,35 @@ parâmetro troca latência por CPU do broker.
 \label{sec:sintese}
 
 A Tabela~\ref{tab:sintese} reúne, para cada combinação do cenário padrão, a faixa de
-carga em que ela se sai melhor, o que ganha e o que custa. A escolha do broker decide a
-faixa de carga atendida e a latência; a do mecanismo interno decide só o custo.
+carga em que ela se sai melhor, o que ganha e o que custa. Entre os brokers, o RabbitMQ
+ganha em latência até 20 mil eventos por segundo no P99 e até 60 mil no P50, e o Kafka
+ganha a partir daí, em latência, throughput e CPU. Dentro de cada broker, o que cada
+mecanismo traz é o seguinte.
 
-\textbf{Por broker.} O RabbitMQ ganha em latência enquanto o broker tem folga de CPU: tem a
-menor latência da bancada até 20 mil eventos por segundo no P99 e até 60 mil no P50. O
-Kafka ganha em throughput e em eficiência: a partir de 40 mil, tem o menor P99, estável até
-400 mil, com cerca de um sétimo da CPU de broker. No cenário ajustado, o RabbitMQ passa à
-frente no P99 até 40 mil.
+\textbf{RabbitMQ.} O modo direto é a melhor escolha em todas as cargas. Channels e
+Pipelines só chegam perto de uma vantagem a 40 mil eventos por segundo, quando o broker
+começa a acumular fila: o P99 ficou 6\% menor que o do direto, abaixo do limite de
+relevância; nas outras cargas, ficou entre 2\% abaixo e 9\% acima. Em compensação, o custo
+é baixo, de 4\% a 9\% de CPU no consumidor, porque o consumidor do RabbitMQ já ocupa perto
+de um núcleo em qualquer carga, e o mecanismo acrescenta pouco a isso. Entre os dois, o
+Channels é o mais barato. Nenhum compensa neste cenário, mas, pelo custo baixo, o RabbitMQ
+é o broker em que um mecanismo exigiria menos ganho para compensar, por exemplo se o
+processamento tivesse uma espera própria, caso que não foi medido.
 
-\textbf{Por mecanismo.} Nenhum broker ganha desempenho com Channels ou Pipelines. No
-RabbitMQ, o mecanismo chega perto de ajudar só a 40 mil eventos por segundo, sem diferença
-relevante, e custa pouco, porque o consumidor já ocupa perto de um núcleo; no Kafka, ele
-nunca ajuda e custa caro. Entre os dois, o Channels é o mais barato: no Kafka, o Pipelines
-usou de 3\% a 10\% mais CPU que ele em todas as cargas. O cenário ajustado não muda esse
-quadro.
+\textbf{Kafka.} O modo direto é a melhor escolha em todas as cargas, e a desvantagem dos
+mecanismos cresce com a carga. Channels e Pipelines nunca reduziram o P99, que ficou de
+0\% a 11\% acima do direto, e custaram de 1,9 a 3,3 vezes a CPU do consumidor. O motivo é
+a proporção entre o trabalho e o desacoplamento: processar um evento custa cerca de
+0,12~µs, e passá-lo para uma thread de trabalho custa de 2,4 a 3,7~µs. Como o cliente do
+Kafka entrega as mensagens de uma fila local, o modo direto termina cada evento antes de
+pedir o próximo, e não há espera para o mecanismo esconder. O Pipelines é o mais caro, de
+3\% a 10\% acima do Channels, o que é compatível com a cópia dos bytes de cada mensagem
+para o buffer do \texttt{Pipe} antes de interpretá-los. Para compensar no Kafka, o
+processamento precisaria esperar por algo de duração bem maior que esse custo, caso que
+também não foi medido.
+
+O cenário ajustado muda a comparação entre os brokers, com o RabbitMQ à frente no P99 até
+40 mil, mas não a dos mecanismos.
 
 \begin{table}[ht]
 \centering
