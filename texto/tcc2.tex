@@ -394,14 +394,18 @@ estão no repositório do projeto, com o cenário padrão na versão
 \label{fig:arquitetura_geral}
 \end{figure}
 
-A Figura~\ref{fig:arquitetura_geral} mostra a bancada da esquerda para a direita, com
-cada etapa num grupo. A etapa~1 acontece uma única vez, fora dos containers; as etapas 2
-a 5 rodam em containers Docker, com os núcleos de processador exclusivos indicados no pé de
-cada grupo. O gerador publica os eventos no broker, que os entrega ao consumidor em quatro
-faixas, as quatro setas, com uma instância do consumidor por faixa. No consumidor, cada
-evento passa por um dos três modos, a bifurcação, até o processamento em janelas, cujos
-resultados vão para o PostgreSQL. Entre uma rodada e outra variam a carga, o broker e o
-modo.
+A Figura~\ref{fig:arquitetura_geral} mostra a bancada da esquerda para a direita, em
+cinco etapas, cada uma num grupo. Dados reais de telemetria da OpenF1 (etapa~1) são
+baixados uma única vez, antes dos experimentos e fora dos containers, para uma cópia
+local. A partir dela, um gerador (etapa~2) produz a carga numa taxa controlada e a publica
+num broker, Kafka ou RabbitMQ (etapa~3), que a entrega ao consumidor em quatro faixas, as
+quatro setas da figura; há uma instância do consumidor por faixa, desenhada empilhada. O
+consumidor em .NET (etapa~4) passa cada evento por um dos três modos de entrega, a
+bifurcação, até o processamento em janelas. Os resultados vão para o PostgreSQL, e as
+medições de cada rodada são coletadas ao lado (etapa~5). As etapas 2 a 5 rodam em
+containers Docker, cada uma com núcleos de processador exclusivos, indicados no pé de cada
+grupo. Entre uma rodada e outra variam três fatores: a carga, o broker e o modo. As
+subseções a seguir percorrem a figura nessa ordem.
 
 \subsection{Etapas 1 e 2: Dados e Ingestão}
 \label{sec:workload}
