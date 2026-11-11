@@ -1,41 +1,46 @@
 """Figuras de resultados do TCC2, a partir da analise pre-registrada.
 
-Le results/analise-v3-resumo.csv (medianas por combinacao) e
-results/analise-v3-rodadas.csv (cada rodada, para a faixa entre o menor e o
-maior P99 das rodadas usadas) e escreve, em texto/:
+Todas as figuras usam o mesmo formato, pedido pelo orientador (audios de
+09/11/2026): linhas, com todas as combinacoes no mesmo painel, uma cor por
+broker e um traco e marcador por modo; o eixo horizontal e sempre a carga
+oferecida, em escala logaritmica, com as mesmas marcas.
 
-  fig_p99.pdf               P99 por carga, um painel por broker, uma linha por modo
-  fig_cpu_consumidor.pdf    CPU do consumidor (nucleos) por carga, idem
-  fig_ajustado.pdf          P99 do modo direto por carga, uma linha por perfil
-                            (results/analise-fase7-resumo.csv)
-  fig_republicacao.pdf      P99 de ponta a ponta na saida enriquecida, por carga
-                            e modo, em escala logaritmica
-                            (results/analise-republicacao-resumo.csv)
+Le results/analise-v3-resumo.csv e results/analise-fase7-resumo.csv (medianas
+por combinacao) e escreve, em texto/:
+
+  fig_latencia_throughput.pdf   P50, P99 e throughput das seis combinacoes
+  fig_recursos.pdf              CPU e memoria do consumidor e do broker, idem
+  fig_ajustado.pdf              modo direto no cenario padrao e nos ajustados:
+                                P50, P99 e CPU do broker
+
+As figuras de versoes anteriores do texto (fig_p99, fig_efeito_modos,
+fig_cpu_consumidor, fig_republicacao) ficaram no repositorio, mas nao sao mais
+geradas aqui; o script que as gerava esta no historico do git.
 
 Uso, na raiz do repositorio:  python texto/figuras/graficos.py
 """
 import csv
 import os
-from collections import defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.lines
 import matplotlib.ticker
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RES = os.path.join(ROOT, "results")
 OUT = os.path.join(ROOT, "texto")
 
-# Paleta categorica validada (tres primeiras posicoes da paleta de referencia,
-# aprovadas em todos os pares para daltonismo) e marcador proprio por modo,
+# Cor por broker (pares aprovados para daltonismo); traco e marcador por modo,
 # para a figura continuar legivel impressa em tons de cinza.
-MODES = [
-    ("direct", "Direct", "#2a78d6", "o", "-"),
-    ("channels", "Channels", "#eb6834", "s", "--"),
-    ("pipelines", "Pipelines", "#1baf7a", "^", ":"),
-]
-BROKERS = [("rabbitmq", "RabbitMQ"), ("kafka", "Kafka")]
+BROKERS = [("rabbitmq", "RabbitMQ", "#eb6834"), ("kafka", "Kafka", "#2a78d6")]
+MODES = [("direct", "Direct", "o", "-"), ("channels", "Channels", "s", "--"),
+         ("pipelines", "Pipelines", "^", ":")]
+PROFILES = [("padrao", "padrão", "o", "-"), ("ajustado", "ajustado", "s", "--"),
+            ("ajustado-vazao", "ajustado para vazão", "^", ":")]
+CARGAS = [10, 20, 40, 80, 200, 400]
+CINZA = "#52514e"
 
 
 def num(text):
@@ -48,13 +53,7 @@ def read(name):
 
 
 resumo = [r for r in read("analise-v3-resumo.csv") if r["hz"] == "100"]
-rodadas = [r for r in read("analise-v3-rodadas.csv") if r["hz"] == "100"]
-
-# Faixa: rodadas validas e nao descartadas por Tukey, as mesmas da mediana.
-faixa = defaultdict(list)
-for r in rodadas:
-    if r["valid"] == "True" and r["tukey"] == "False":
-        faixa[(r["broker"], r["mode"], int(r["rate"]))].append(num(r["p99"]))
+fase7 = [r for r in read("analise-fase7-resumo.csv") if r["hz"] == "100" and r["modo"] == "direct"]
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -64,269 +63,114 @@ plt.rcParams.update({
     "legend.fontsize": 8,
     "axes.spines.top": False,
     "axes.spines.right": False,
-    "axes.edgecolor": "#52514e",
+    "axes.edgecolor": CINZA,
     "axes.labelcolor": "#0b0b0b",
-    "xtick.color": "#52514e",
-    "ytick.color": "#52514e",
+    "xtick.color": CINZA,
+    "ytick.color": CINZA,
     "grid.color": "#e4e3df",
     "grid.linewidth": 0.6,
 })
 
-
-def series(broker, mode, field, scale=1.0):
-    rows = sorted((r for r in resumo if r["broker"] == broker and r["modo"] == mode),
-                  key=lambda r: int(r["carga"]))
-    return [int(r["carga"]) / 1000 for r in rows], [num(r[field]) * scale for r in rows]
+virgula = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}".replace(".", ","))
 
 
-def zoom(ax, broker, log=None, ylim=None, limit=None):
-    """Aproxima cada painel da faixa em que as linhas diferem: escala log onde a
-    latencia cresce uma ordem de grandeza, e limites justos onde ela e plana. Um
-    limite de 50 ms fora da escala vira uma nota no canto do painel."""
-    if log and broker in log:
-        ax.set_yscale("log")
-        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
-        ax.grid(axis="y", which="major")
-    if ylim and broker in ylim:
-        ax.set_ylim(*ylim[broker])
-        if limit is not None and ylim[broker][1] < limit:
-            ax.annotate(f"limite de {limit:g} ms acima da escala", xy=(0, 1), xycoords="axes fraction",
-                        xytext=(4, -3), textcoords="offset points", ha="left", va="top",
-                        fontsize=7, color="#52514e")
-            return False
-    return True
-
-
-def figure(field, ylabel, filename, scale=1.0, band=False, limit=None, log=None, ylim=None):
-    fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
-    for ax, (broker, title) in zip(axes, BROKERS):
-        for mode, label, color, marker, dash in MODES:
-            x, y = series(broker, mode, field, scale)
-            if band:
-                lo = [min(faixa[(broker, mode, int(v * 1000))]) for v in x]
-                hi = [max(faixa[(broker, mode, int(v * 1000))]) for v in x]
-                ax.fill_between(x, lo, hi, color=color, alpha=0.12, linewidth=0)
-            ax.plot(x, y, color=color, linestyle=dash, linewidth=1.6, marker=marker,
-                    markersize=4.5, markeredgecolor="white", markeredgewidth=0.6, label=label)
-        ax.set_title(title, loc="left", fontweight="bold")
-        ax.set_xlabel("carga oferecida (mil eventos/s)")
-        ax.grid(axis="y")
-        ax.set_axisbelow(True)
-        if not (log and broker in log) and not (ylim and broker in ylim):
-            ax.set_ylim(bottom=0)
-        if zoom(ax, broker, log, ylim, limit) and limit is not None:
-            ax.axhline(limit, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
-            ax.annotate(f"limite de {limit:g} ms", xy=(0, limit), xycoords=("axes fraction", "data"),
-                        xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
-                        fontsize=7, color="#52514e")
-    axes[0].set_ylabel(ylabel)
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
-    fig.savefig(os.path.join(OUT, filename))
-    # PNG ao lado, so para conferir a figura sem compilar o texto.
-    fig.savefig(os.path.join(OUT, filename.replace(".pdf", ".png")), dpi=200)
-    plt.close(fig)
-    print("escrito:", filename)
-
-
-figure("cpu_consumidor", "CPU do consumidor (núcleos)", "fig_cpu_consumidor.pdf", scale=0.01)
-
-
-# --- latencia: os dois brokers no mesmo painel, modo direto ---------------------
-# A comparacao da secao de latencia e entre brokers; a dos modos esta em
-# fig_efeito_modos. Escalas log nos dois eixos, para que as cargas baixas, em que o
-# RabbitMQ e mais rapido, nao fiquem espremidas.
-
-BROKER_STYLE = {"rabbitmq": ("RabbitMQ", "#eb6834", "s", "--"),
-                "kafka": ("Kafka", "#2a78d6", "o", "-")}
-CARGAS = [10, 20, 40, 80, 200, 400]
-YTICKS = {"p50_ms": [0.3, 0.5, 1, 2, 3, 5], "p99_ms": [2, 5, 10, 20, 50, 100]}
-
-fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.5), constrained_layout=True)
-for ax, (field, title) in zip(axes, [("p50_ms", "P50"), ("p99_ms", "P99")]):
-    for broker, (label, color, marker, dash) in BROKER_STYLE.items():
-        x, y = series(broker, "direct", field)
-        ax.plot(x, y, color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
-                markeredgecolor="white", markeredgewidth=0.6, label=label)
-    if field == "p99_ms":
-        ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
-        ax.annotate("limite de 50 ms", xy=(1, 50), xycoords=("axes fraction", "data"),
-                    xytext=(-4, 3), textcoords="offset points", ha="right", va="bottom",
-                    fontsize=7, color="#52514e")
+def painel(ax, titulo, yticks=None, ylim=None, xlabel=True):
+    """Eixos iguais em todas as figuras: carga em log, mesmas marcas."""
     ax.set_xscale("log")
-    ax.set_yscale("log")
     ax.set_xticks(CARGAS)
     ax.set_xticklabels([str(c) for c in CARGAS])
     ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-    ax.set_yticks(YTICKS[field])
-    ax.set_ylim(YTICKS[field][0] * 0.85, YTICKS[field][-1] * 1.15)
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}".replace(".", ",")))
-    ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-    ax.set_title(title, loc="left", fontweight="bold")
-    ax.set_xlabel("carga oferecida (mil eventos/s)")
-    ax.grid(axis="y", which="major")
+    ax.set_xlim(8, 500)
+    if yticks:  # escala logaritmica com marcas explicitas
+        ax.set_yscale("log")
+        ax.set_yticks(yticks)
+        ax.set_ylim(yticks[0] * 0.8, yticks[-1] * 1.25)
+        ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    if ylim:
+        ax.set_ylim(*ylim)
+    ax.yaxis.set_major_formatter(virgula)
+    ax.set_title(titulo, loc="left", fontweight="bold")
+    if xlabel:
+        ax.set_xlabel("carga oferecida (mil eventos/s)")
+    ax.grid(axis="y")
     ax.set_axisbelow(True)
-axes[0].set_ylabel("latência (ms)")
-handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="outside upper center", ncol=2, frameon=False)
-fig.savefig(os.path.join(OUT, "fig_p99.pdf"))
-fig.savefig(os.path.join(OUT, "fig_p99.png"), dpi=200)
-plt.close(fig)
-print("escrito: fig_p99.pdf")
 
 
-# --- efeito de cada mecanismo em relacao ao modo direto, por carga --------------
-
-def efeito(broker, mode, field):
-    base = {int(r["carga"]): num(r[field]) for r in resumo
-            if r["broker"] == broker and r["modo"] == "direct"}
-    rows = sorted((r for r in resumo if r["broker"] == broker and r["modo"] == mode),
-                  key=lambda r: int(r["carga"]))
-    return [int(r["carga"]) for r in rows], [(num(r[field]) / base[int(r["carga"])] - 1) * 100 for r in rows]
-
-
-pct = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:+.0f}%".replace("+0%", "0%").replace("-", "−"))
-vezes = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}×".replace(".", ","))
-
-fig, axes = plt.subplots(2, 2, figsize=(6.3, 4.2), constrained_layout=True,
-                         gridspec_kw={"width_ratios": [5, 8]})
-for col, (broker, title) in enumerate(BROKERS):
-    for row, field in enumerate(["p99_ms", "cpu_consumidor"]):
-        ax = axes[row][col]
-        width = 0.38
-        if row == 0:
-            # faixa de irrelevancia registrada antes da coleta
-            ax.axhspan(-20, 20, color="#eceae4", linewidth=0)
-            if broker == "kafka":
-                ax.text(0.98, 0.2, "faixa de ±20%: sem diferença relevante", transform=ax.transAxes,
-                        ha="right", va="bottom", fontsize=7, color="#52514e")
-        for k, (mode, label, color, marker, dash) in enumerate(MODES[1:]):
-            loads, deltas = efeito(broker, mode, field)
-            pos = [i + (k - 0.5) * width for i in range(len(loads))]
-            if row == 0:
-                ax.bar(pos, deltas, width=width, color=color, label=label,
-                       edgecolor="white", linewidth=0.4)
-            else:
-                # CPU como multiplo da do modo direto: barra a partir de 1x
-                ax.bar(pos, [d / 100 for d in deltas], bottom=1, width=width, color=color,
-                       label=label, edgecolor="white", linewidth=0.4)
-        if row == 0:
-            ax.axhline(0, color="#52514e", linewidth=0.8)
-            ax.set_ylim(-25, 25)
-            ax.set_yticks([-20, -10, 0, 10, 20])
-            ax.yaxis.set_major_formatter(pct)
-            ax.set_title(title, loc="left", fontweight="bold")
-            if broker == "rabbitmq":
-                i = loads.index(40000)
-                ax.annotate("único ganho:\n−6% a 40 mil", xy=(i, -6.5), xytext=(i, -19),
-                            ha="center", va="bottom", fontsize=7, color="#0b0b0b",
-                            arrowprops={"arrowstyle": "-", "color": "#52514e", "linewidth": 0.6})
-        else:
-            ax.axhline(1, color="#52514e", linewidth=0.8)
-            ax.set_ylim(1, 1.12 if broker == "rabbitmq" else 3.6)
-            ax.set_yticks([1, 1.05, 1.1] if broker == "rabbitmq" else [1, 2, 3])
-            ax.yaxis.set_major_formatter(vezes)
-            ax.set_xlabel("carga oferecida (mil eventos/s)")
-        ax.set_xticks(range(len(loads)))
-        ax.set_xticklabels([f"{c // 1000}" for c in loads])
-        ax.grid(axis="y")
-        ax.set_axisbelow(True)
-axes[0][0].set_ylabel("P99 em relação\nao Direct")
-axes[1][0].set_ylabel("CPU do consumidor\n(vezes a do Direct)")
-handles, labels = axes[0][1].get_legend_handles_labels()
-fig.legend(handles, labels, loc="outside upper center", ncol=2, frameon=False)
-fig.savefig(os.path.join(OUT, "fig_efeito_modos.pdf"))
-fig.savefig(os.path.join(OUT, "fig_efeito_modos.png"), dpi=200)
-plt.close(fig)
-print("escrito: fig_efeito_modos.pdf")
-
-
-# --- cenario ajustado: P99 do modo direto em cada perfil -----------------------
-
-PROFILES = [
-    ("padrao", "padrão", "#2a78d6", "o", "-"),
-    ("ajustado", "ajustado", "#eb6834", "s", "--"),
-    ("ajustado-vazao", "ajustado para vazão", "#1baf7a", "^", ":"),
-]
-fase7 = [r for r in read("analise-fase7-resumo.csv") if r["hz"] == "100" and r["modo"] == "direct"]
-
-# Uma linha por broker e uma coluna por medida (P50, P99 e CPU do broker): a
-# figura substitui a tabela padrao x ajustado do texto.
-MEDIDAS = [("p50_ms", "P50 (ms)", 1.0), ("p99_ms", "P99 (ms)", 1.0),
-           ("cpu_broker", "CPU do broker", 0.01)]
-XTICKS = {"rabbitmq": [10, 20, 40, 80], "kafka": [10, 40, 100, 400]}
-YLOG = {("rabbitmq", "p50_ms"): [0.2, 0.5, 1, 2, 3], ("rabbitmq", "p99_ms"): [0.5, 1, 5, 10, 50, 100],
-        ("kafka", "p50_ms"): [0.5, 1, 2, 5, 10, 20], ("kafka", "p99_ms"): [2, 5, 10, 20, 50]}
-virgula = matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}".replace(".", ","))
-
-fig, axes = plt.subplots(2, 3, figsize=(6.3, 3.9), constrained_layout=True)
-for i, (broker, title) in enumerate(BROKERS):
-    for j, (field, col_title, scale) in enumerate(MEDIDAS):
-        ax = axes[i][j]
-        for profile, label, color, marker, dash in PROFILES:
-            rows = sorted((r for r in fase7 if r["broker"] == broker and r["perfil"] == profile),
+def linhas(ax, rows_of, field, scale=1.0, estilos=MODES, chave="modo"):
+    """Uma linha por broker e por modo (ou perfil), sempre com o mesmo estilo."""
+    for broker, nome, cor in BROKERS:
+        for valor, rotulo, marcador, traco in estilos:
+            rows = sorted((r for r in rows_of if r["broker"] == broker and r[chave] == valor),
                           key=lambda r: int(r["carga"]))
             if not rows:
                 continue
             ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r[field]) * scale for r in rows],
-                    color=color, linestyle=dash, linewidth=1.5, marker=marker, markersize=4,
-                    markeredgecolor="white", markeredgewidth=0.6, label=label)
-        if field == "p99_ms":
-            ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
-        ax.set_xscale("log")
-        ax.set_xticks(XTICKS[broker])
-        ax.set_xticklabels([str(c) for c in XTICKS[broker]])
-        ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-        if (broker, field) in YLOG:
-            ticks = YLOG[(broker, field)]
-            ax.set_yscale("log")
-            ax.set_yticks(ticks)
-            ax.set_ylim(ticks[0] * 0.8, ticks[-1] * 1.25)
-            ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
-        else:
-            ax.set_ylim(0, 4 if broker == "rabbitmq" else 1.4)
-        ax.yaxis.set_major_formatter(virgula)
-        if i == 0:
-            ax.set_title(col_title, loc="left", fontweight="bold")
-        else:
-            ax.set_xlabel("carga (mil eventos/s)")
-        if j == 0:
-            ax.set_ylabel(title, fontweight="bold", fontsize=9)
-        ax.grid(axis="y")
-        ax.set_axisbelow(True)
-handles, labels = axes[1][0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
-fig.savefig(os.path.join(OUT, "fig_ajustado.pdf"))
-fig.savefig(os.path.join(OUT, "fig_ajustado.png"), dpi=200)
-plt.close(fig)
-print("escrito: fig_ajustado.pdf")
+                    color=cor, linestyle=traco, linewidth=1.4, marker=marcador, markersize=4,
+                    markeredgecolor="white", markeredgewidth=0.5, label=f"{nome} {rotulo}")
 
 
-# --- segundo cenario: P99 de ponta a ponta, saida enriquecida -------------------
-
-rep = [r for r in read("analise-republicacao-resumo.csv") if r["saida"] == "enriquecida"]
-
-fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.6), constrained_layout=True)
-for ax, (broker, title) in zip(axes, BROKERS):
-    for mode, label, color, marker, dash in MODES:
-        rows = sorted((r for r in rep if r["broker"] == broker and r["modo"] == mode),
-                      key=lambda r: int(r["carga"]))
-        ax.plot([int(r["carga"]) / 1000 for r in rows], [num(r["p99_ms"]) for r in rows],
-                color=color, linestyle=dash, linewidth=1.6, marker=marker, markersize=4.5,
-                markeredgecolor="white", markeredgewidth=0.6, label=label)
-    ax.axhline(50, color="#52514e", linewidth=0.8, linestyle=(0, (1, 2)))
+def limite_50ms(ax):
+    ax.axhline(50, color=CINZA, linewidth=0.8, linestyle=(0, (1, 2)))
     ax.annotate("limite de 50 ms", xy=(0, 50), xycoords=("axes fraction", "data"),
-                xytext=(4, 3), textcoords="offset points", ha="left", va="bottom",
-                fontsize=7, color="#52514e")
-    ax.set_yscale("log")
-    ax.set_title(title, loc="left", fontweight="bold")
-    ax.set_xlabel("carga oferecida (mil eventos/s)")
-    ax.grid(axis="y", which="major")
-    ax.set_axisbelow(True)
-axes[0].set_ylabel("P99 de ponta a ponta (ms, log)")
-handles, labels = axes[0].get_legend_handles_labels()
-fig.legend(handles, labels, loc="outside upper center", ncol=3, frameon=False)
-fig.savefig(os.path.join(OUT, "fig_republicacao.pdf"))
-fig.savefig(os.path.join(OUT, "fig_republicacao.png"), dpi=200)
-plt.close(fig)
-print("escrito: fig_republicacao.pdf")
+                xytext=(3, 2), textcoords="offset points", ha="left", va="bottom",
+                fontsize=6.5, color=CINZA)
+
+
+def salva(fig, ax_legenda, nome, ncol=3):
+    handles, labels = ax_legenda.get_legend_handles_labels()
+    # Uma linha da legenda por broker: a legenda e preenchida por colunas, entao
+    # as entradas sao intercaladas, com um espaco vazio onde um broker tem menos.
+    por_broker = [[(h, l) for h, l in zip(handles, labels) if l.startswith(nome)]
+                  for _, nome, _ in BROKERS]
+    vazio = (matplotlib.lines.Line2D([], [], linestyle="none"), "")
+    for linha in por_broker:
+        linha.extend([vazio] * (ncol - len(linha)))
+    pares = [linha[c] for c in range(ncol) for linha in por_broker]
+    handles, labels = [h for h, _ in pares], [l for _, l in pares]
+    fig.legend(handles, labels, loc="outside upper center", ncol=ncol, frameon=False,
+               columnspacing=1.4, handlelength=2.6)
+    fig.savefig(os.path.join(OUT, nome + ".pdf"))
+    # PNG ao lado, so para conferir a figura sem compilar o texto.
+    fig.savefig(os.path.join(OUT, nome + ".png"), dpi=200)
+    plt.close(fig)
+    print("escrito:", nome + ".pdf")
+
+
+# --- latencia e throughput: as seis combinacoes ---------------------------------
+
+fig, axes = plt.subplots(1, 3, figsize=(6.3, 2.75), constrained_layout=True)
+linhas(axes[0], resumo, "p50_ms")
+painel(axes[0], "Latência P50 (ms)", yticks=[0.1, 0.3, 1, 3, 10, 30, 100])
+linhas(axes[1], resumo, "p99_ms")
+painel(axes[1], "Latência P99 (ms)", yticks=[0.1, 0.3, 1, 3, 10, 30, 100])
+limite_50ms(axes[1])
+linhas(axes[2], resumo, "vazao_mediana", scale=0.001)
+painel(axes[2], "Throughput (mil ev/s)", yticks=[10, 20, 40, 80, 200, 400])
+salva(fig, axes[0], "fig_latencia_throughput")
+
+
+# --- recursos: CPU e memoria do consumidor e do broker --------------------------
+
+fig, axes = plt.subplots(2, 2, figsize=(6.3, 4.1), constrained_layout=True)
+linhas(axes[0][0], resumo, "cpu_consumidor", scale=0.01)
+painel(axes[0][0], "CPU do consumidor (núcleos)", ylim=(0, 2), xlabel=False)
+linhas(axes[0][1], resumo, "cpu_broker", scale=0.01)
+painel(axes[0][1], "CPU do broker (núcleos)", ylim=(0, 4), xlabel=False)
+linhas(axes[1][0], resumo, "mem_consumidor_mb")
+painel(axes[1][0], "Memória do consumidor (MB)", ylim=(0, 150))
+linhas(axes[1][1], resumo, "mem_broker_mb", scale=0.001)
+painel(axes[1][1], "Memória do broker (GB)", ylim=(0, 2))
+salva(fig, axes[0][0], "fig_recursos")
+
+
+# --- cenario ajustado: modo direto, padrao contra ajustado ----------------------
+
+fig, axes = plt.subplots(1, 3, figsize=(6.3, 2.75), constrained_layout=True)
+linhas(axes[0], fase7, "p50_ms", estilos=PROFILES, chave="perfil")
+painel(axes[0], "Latência P50 (ms)", yticks=[0.1, 0.3, 1, 3, 10, 30, 100])
+linhas(axes[1], fase7, "p99_ms", estilos=PROFILES, chave="perfil")
+painel(axes[1], "Latência P99 (ms)", yticks=[0.1, 0.3, 1, 3, 10, 30, 100])
+limite_50ms(axes[1])
+linhas(axes[2], fase7, "cpu_broker", scale=0.01, estilos=PROFILES, chave="perfil")
+painel(axes[2], "CPU do broker (núcleos)", ylim=(0, 4))
+salva(fig, axes[1], "fig_ajustado")
