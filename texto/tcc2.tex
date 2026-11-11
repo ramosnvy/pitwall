@@ -244,24 +244,24 @@ Keywords: event processing; .NET; messaging; Kafka; RabbitMQ; Channels; Pipeline
 
 Sistemas de telemetria, Internet das Coisas (IoT), monitoramento e sistemas financeiros
 processam grandes volumes de eventos gerados em alta frequência, e a arquitetura escolhida
-afeta diretamente latência, throughput e uso de recursos. No ecossistema .NET, essa
+afeta diretamente latência, \textit{throughput} e uso de recursos. No ecossistema .NET, essa
 arquitetura costuma combinar duas camadas: um sistema de mensageria distribuída, como
 RabbitMQ ou Kafka, que oferece desacoplamento e resiliência \cite{dobbelaere:2017}, e um
 mecanismo de processamento concorrente interno, como
 Channels\footnote{\url{https://learn.microsoft.com/en-us/dotnet/core/extensions/channels}}
 ou
 Pipelines\footnote{\url{https://learn.microsoft.com/en-us/dotnet/standard/io/pipelines}},
-que distribui o trabalho entre threads com pouco overhead \cite{cleary:2019}. O
-consumidor recebe do broker e entrega ao mecanismo interno; essa composição é o objeto
+que distribui o trabalho entre \textit{threads} com pouco \textit{overhead} \cite{cleary:2019}. O
+consumidor recebe do \textit{broker} e entrega ao mecanismo interno; essa composição é o objeto
 deste trabalho.
 
 Estudá-la importa por três razões. As comparações entre RabbitMQ e Kafka costumam avaliar
-os brokers isoladamente, muitas vezes em Java \cite{dobbelaere:2017,kaminski:2025},
+os \textit{brokers} isoladamente, muitas vezes em Java \cite{dobbelaere:2017,kaminski:2025},
 enquanto numa aplicação .NET o desempenho percebido é o da cadeia inteira. Channels e
 Pipelines são as ferramentas da plataforma para comunicação produtor-consumidor
 \cite{microsoft:channels,microsoft:pipelines}, mas acrescentam uma fila e uma troca de
-thread a cada evento, e, sem medição, não se sabe se isso reduz a latência ou só custa
-recursos. E uma comparação entre brokers só é justa com ambiente e carga controlados
+\textit{thread} a cada evento, e, sem medição, não se sabe se isso reduz a latência ou só custa
+recursos. E uma comparação entre \textit{brokers} só é justa com ambiente e carga controlados
 \cite{fu:2021}: sem isso, a diferença medida pode ser da configuração ou da máquina, e não
 da arquitetura.
 
@@ -271,15 +271,15 @@ sistemas de mensageria e mecanismos de processamento concorrente interno. Os obj
 específicos são:
 
 \begin{itemize}
-  \item implementar consumidores para RabbitMQ e Kafka em três modos: direto, sem
-        mecanismo interno (grupo de controle), com Channels e com Pipelines;
+  \item implementar consumidores para RabbitMQ e Kafka em três modos: \textit{i)} direto, sem
+        mecanismo interno (grupo de controle), \textit{ii)} com Channels e \textit{iii)} com Pipelines;
   \item construir um gerador de carga reproduzível, em malha aberta, a partir de dados
         históricos da OpenF1;
-  \item configurar os brokers de forma equivalente, com os valores de fábrica e com a
+  \item configurar os \textit{brokers} de forma equivalente, com os valores de fábrica e com a
         recomendação de cada fornecedor;
-  \item medir latência, throughput, uso de CPU e memória e o custo do .NET, e determinar
+  \item medir latência, \textit{throughput}, uso de CPU e memória e o custo do .NET, e determinar
         o ponto de saturação de cada combinação;
-  \item identificar os trade-offs entre as abordagens e se o mecanismo interno compensa
+  \item identificar os \textit{trade-offs} entre as abordagens e se o mecanismo interno compensa
         o seu custo.
 \end{itemize}
 
@@ -291,6 +291,14 @@ grupo de controle, em dois cenários de configuração; (ii) um protocolo de med
 critérios de validade e análise registrados antes da coleta; e (iii) uma bancada
 experimental aberta, com código, scripts e dados
 publicados\footnote{\url{https://github.com/ramosnvy/pitwall}}.
+
+O restante deste artigo está estruturado da seguinte forma: na Seção~\ref{sec:fundamentacao}
+é apresentada a fundamentação teórica. Na Seção~\ref{sec:relacionados} são discutidos os
+trabalhos relacionados. Na Seção~\ref{sec:implementacao} são descritas a arquitetura e a
+implementação da bancada experimental. Na Seção~\ref{sec:metodologia} é apresentada a
+metodologia, e na Seção~\ref{sec:resultados}, os resultados e a discussão. Na
+Seção~\ref{sec:ameacas} são tratadas as ameaças à validade, e na
+Seção~\ref{sec:conclusao}, as considerações finais.
 
 % ===================================================================
 
@@ -380,8 +388,8 @@ mecanismo interno contra um grupo de controle sem ele.
 \section{Arquitetura e Implementação}
 \label{sec:implementacao}
 
-A bancada compara seis combinações: dois brokers, RabbitMQ e Kafka, em três modos de
-processamento, direto, Channels e Pipelines. O código, os scripts e os resultados brutos
+A bancada compara seis combinações: dois brokers (RabbitMQ e Kafka) em três modos de
+processamento: direto, Channels e Pipelines. O código, os scripts e os resultados brutos
 estão no repositório do projeto, com o cenário padrão na versão
 \texttt{cenario-padrao-v1.2} e o ajustado na \texttt{cenario-ajustado-v1.1}.
 
@@ -390,13 +398,12 @@ estão no repositório do projeto, com o cenário padrão na versão
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_bancada.pdf}
-\caption{Arquitetura da bancada experimental e, no quadro de baixo, os três modos de
-entrega da etapa~4, numa das quatro faixas.}
+\caption{Arquitetura da bancada experimental (quadro superior) e os três modos de
+entrega da etapa~4 (quadro inferior).}
 \label{fig:arquitetura_geral}
 \end{figure}
 
-A Figura~\ref{fig:arquitetura_geral} mostra a bancada da esquerda para a direita, em
-cinco etapas, cada uma num grupo. Dados reais de telemetria da OpenF1 (etapa~1) são
+A Figura~\ref{fig:arquitetura_geral} mostra a bancada composta de cinco etapas, cada uma num grupo. Dados reais de telemetria da OpenF1 (etapa~1) são
 baixados uma única vez, antes dos experimentos e fora dos containers, para uma cópia
 local. A partir dela, um gerador (etapa~2) produz a carga numa taxa controlada e a publica
 num broker, Kafka ou RabbitMQ (etapa~3), que a entrega ao consumidor em quatro faixas, as
