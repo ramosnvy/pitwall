@@ -58,7 +58,7 @@
 \newcommand{\tituloUppercase}{\MakeUppercase{\titulo}}
 \newcommand{\titulotraduzido}{Experimental Evaluation of Composite Architectures for High-Frequency Event Processing Using .NET}
 
-\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos em alta frequência, e a arquitetura escolhida afeta latência, throughput e uso de recursos. Este trabalho avalia experimentalmente, em .NET, arquiteturas que combinam um sistema de mensageria (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines), com um modo sem mecanismo interno como grupo de controle. A carga vem de telemetria real da Fórmula~1, obtida da API pública OpenF1 e reproduzida a 100~Hz por carro com uma frota multiplicada. As seis combinações foram medidas em containers com núcleos de processador exclusivos, com dez repetições por carga e critérios de análise fixados antes da coleta. O RabbitMQ teve menor latência em carga baixa (P99 de 2,3~ms, contra 5,8~ms do Kafka, a 10 mil eventos por segundo), mas saturou em 60 mil, limitado pela CPU do broker. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms e cerca de um sétimo da CPU de broker do RabbitMQ, em troca de mais memória. Channels e Pipelines não reduziram a latência nem as alocações e multiplicaram por 1,9 a 3,3 a CPU do consumidor do Kafka. Um cenário com a configuração recomendada por cada fornecedor mostrou que parte da diferença entre os brokers vem da configuração.}
+\newcommand{\textoResumo}{Sistemas de telemetria, Internet das Coisas (IoT) e monitoramento processam grandes volumes de eventos em alta frequência, e a arquitetura escolhida afeta latência, \textit{throughput} e uso de recursos. Este trabalho avalia experimentalmente, em .NET, arquiteturas que combinam um sistema de mensageria (RabbitMQ ou Kafka) com um mecanismo de processamento concorrente interno (Channels ou Pipelines), com um modo sem mecanismo interno como grupo de controle. A carga vem de telemetria real da Fórmula~1, obtida da API pública OpenF1 e reproduzida a 100~Hz por carro com uma frota multiplicada. As seis combinações foram medidas em \textit{containers} com núcleos de processador exclusivos, com dez repetições por carga e critérios de análise fixados antes da coleta. O RabbitMQ teve menor latência em carga baixa (P99 de 2,3~ms, contra 5,8~ms do Kafka, a 10 mil eventos por segundo), mas saturou em 60 mil, limitado pela CPU do \textit{broker}. O Kafka sustentou 400 mil, a maior carga testada, com P99 entre 5,5 e 6,7~ms e cerca de um sétimo da CPU de \textit{broker} do RabbitMQ, em troca de mais memória. Channels e Pipelines não reduziram a latência nem as alocações e multiplicaram por 1,9 a 3,3 a CPU do consumidor do Kafka. Um cenário com a configuração recomendada por cada fornecedor mostrou que parte da diferença entre os \textit{brokers} vem da configuração.}
 
 \newcommand{\textoAbstract}{Telemetry, Internet of Things (IoT) and monitoring systems process large volumes of high-frequency events, and the chosen architecture affects latency, throughput and resource usage. This work experimentally evaluates, in .NET, architectures that combine a messaging system (RabbitMQ or Kafka) with an internal concurrent processing mechanism (Channels or Pipelines), with a mode without an internal mechanism as the control group. The workload comes from real Formula~1 telemetry, obtained from the OpenF1 public API and replayed at 100~Hz per car with a multiplied fleet. The six combinations were measured in containers with dedicated processor cores, with ten repetitions per load and analysis criteria fixed before data collection. RabbitMQ had lower latency at low load (P99 of 2.3~ms, versus 5.8~ms for Kafka, at 10 thousand events per second), but saturated at 60 thousand, limited by broker CPU. Kafka sustained 400 thousand, the highest load tested, with P99 between 5.5 and 6.7~ms and about one seventh of RabbitMQ's broker CPU, in exchange for more memory. Channels and Pipelines reduced neither latency nor allocations and multiplied Kafka's consumer CPU by 1.9 to 3.3. A scenario with each vendor's recommended configuration showed that part of the difference between the brokers comes from configuration.}
 
@@ -309,39 +309,39 @@ Seção~\ref{sec:conclusao}, as considerações finais.
 
 Processar eventos em alta frequência é ingerir, processar e responder a grandes volumes de
 eventos em tempo próximo ao real \cite{luckham:2011,cugola:2012}, e esses sistemas são
-avaliados por latência, throughput e uso de recursos \cite{jain:1991,fu:2021}. A latência
+avaliados por latência, \textit{throughput} e uso de recursos \cite{jain:1991,fu:2021}. A latência
 é analisada por percentis, porque o que limita esses sistemas é a cauda da distribuição: o
 P99 é o valor abaixo do qual ficam 99\% dos eventos \cite{fu:2021}. Medir a cauda exige um
 gerador em malha aberta, que emite cada evento no instante previsto; um gerador em malha
 fechada desacelera quando o sistema satura e deixa de registrar justamente os eventos mais
 atrasados, a \textit{coordinated omission} \cite{tene:2015}. O \textbf{ponto de
 saturação} é a maior carga que o sistema sustenta antes de as filas e a latência crescerem
-sem limite \cite{jain:1991}. Benchmarks de processamento de fluxos, como o Linear Road
+sem limite \cite{jain:1991}. \textit{Benchmarks} de processamento de fluxos, como o Linear Road
 \cite{arasu:2004} e o DEBS 2013 Grand Challenge \cite{mutschler:2013}, usam operações de
 referência como a agregação em janela por chave e a detecção de padrões sobre eventos
 consecutivos.
 
 \subsection{Sistemas de Mensageria Distribuída}
 
-O \textbf{Kafka} é uma plataforma de streaming baseada em log, projetada para alta taxa
+O \textbf{Kafka} é uma plataforma de \textit{streaming} baseada em log, projetada para alta taxa
 de transferência \cite{kreps:2011}. A ordem é garantida dentro de cada partição, escolhida
 pela chave da mensagem, e as mensagens são gravadas no cache de páginas do sistema
 operacional, com a durabilidade a cargo da replicação entre nós \cite{kafka:docs}. O
-\textbf{RabbitMQ} é um broker de uso geral baseado no protocolo AMQP, com roteamento por
+\textbf{RabbitMQ} é um \textit{broker} de uso geral baseado no protocolo AMQP, com roteamento por
 \textit{exchanges} e filas \cite{videla:2012}; uma mensagem persistente só é confirmada ao
 produtor depois de gravada em disco \cite{rabbitmq:docs}. Na entrega
 \textit{at-least-once}, nenhuma mensagem se perde, mas uma mensagem pode chegar mais de
-uma vez: o broker confirma ao produtor que recebeu a mensagem (\texttt{acks=all} no Kafka,
-\textit{publisher confirms} no RabbitMQ), e o consumidor confirma ao broker só depois de
+uma vez: o \textit{broker} confirma ao produtor que recebeu a mensagem (\texttt{acks=all} no Kafka,
+\textit{publisher confirms} no RabbitMQ), e o consumidor confirma ao \textit{broker} só depois de
 tratá-la \cite{kafka:docs,rabbitmq:docs}. Uma comparação justa exige a mesma garantia nos
-dois brokers.
+dois \textit{brokers}.
 
 \subsection{Mecanismos de Processamento Concorrente no .NET}
 
-\textbf{Channels} são filas thread-safe para comunicação produtor-consumidor dentro de um
+\textbf{Channels} são filas \textit{thread-safe} para comunicação produtor-consumidor dentro de um
 processo \cite{microsoft:channels}. Um canal limitado faz o escritor esperar quando está
 cheio, o que propaga a contrapressão até a origem. \textbf{System.IO.Pipelines} é uma API
-para fluxos de bytes que minimiza alocações com buffers reaproveitados
+para fluxos de bytes que minimiza alocações com \textit{buffers} reaproveitados
 \cite{microsoft:pipelines}: enquanto o Channels transporta objetos, o Pipelines transporta
 bytes, e o leitor interpreta os registros sem copiá-los. Cleary \cite{cleary:2019}
 discute as duas abstrações no contexto de sistemas de alta concorrência em C\#.
@@ -364,9 +364,9 @@ original é compensada na reprodução da carga (Seção~\ref{sec:workload}).
 
 Esta seção apresenta os cinco trabalhos mais próximos deste.
 \textbf{Kamiński, Kłonica e Pańczyk} \cite{kaminski:2025} comparam RabbitMQ e Kafka em
-Spring Boot e ASP.NET, medindo throughput e latência sob cargas variadas, e encontram
+Spring Boot e ASP.NET, medindo \textit{throughput} e latência sob cargas variadas, e encontram
 desempenho superior do Kafka em .NET, mas não avaliam mecanismos de processamento
-interno. \textbf{Umam et al.} \cite{umam:2026} comparam os dois brokers em testes de
+interno. \textbf{Umam et al.} \cite{umam:2026} comparam os dois \textit{brokers} em testes de
 escalabilidade e de estresse, com as mesmas métricas deste trabalho, e concluem que o
 RabbitMQ é mais eficiente para mensagens individuais com baixa latência e o Kafka para
 cargas extremas e contínuas. \textbf{Dobbelaere e Esmaili} \cite{dobbelaere:2017}, num
@@ -376,9 +376,9 @@ metodologia de comparação justa entre filas de mensagens, com repetição, equ
 configuração e percentis de latência, que orienta a metodologia deste trabalho.
 \textbf{Ortiz et al.} \cite{ortiz:2023} integram um motor de eventos complexos ao
 RabbitMQ e ao Kafka em cenários de IoT e mostram que a camada de processamento acoplada ao
-broker afeta a latência e a escalabilidade.
+\textit{broker} afeta a latência e a escalabilidade.
 
-Esses trabalhos avaliam os brokers isoladamente ou fora do .NET, e Channels e Pipelines
+Esses trabalhos avaliam os \textit{brokers} isoladamente ou fora do .NET, e Channels e Pipelines
 aparecem só como recomendação de uso \cite{cleary:2019}. Nenhum combina RabbitMQ e Kafka
 com Channels e Pipelines numa avaliação experimental unificada, nem mede o efeito do
 mecanismo interno contra um grupo de controle sem ele.
@@ -388,7 +388,7 @@ mecanismo interno contra um grupo de controle sem ele.
 \section{Arquitetura e Implementação}
 \label{sec:implementacao}
 
-A bancada compara seis combinações: dois brokers (RabbitMQ e Kafka) em três modos de
+A bancada compara seis combinações: dois \textit{brokers} (RabbitMQ e Kafka) em três modos de
 processamento: direto, Channels e Pipelines. O código, os scripts e os resultados brutos
 estão no repositório do projeto, com o cenário padrão na versão
 \texttt{cenario-padrao-v1.2} e o ajustado na \texttt{cenario-ajustado-v1.1}.
@@ -404,15 +404,15 @@ entrega da etapa~4 (quadro inferior).}
 \end{figure}
 
 A Figura~\ref{fig:arquitetura_geral} mostra a bancada composta de cinco etapas, cada uma num grupo. Dados reais de telemetria da OpenF1 (etapa~1) são
-baixados uma única vez, antes dos experimentos e fora dos containers, para uma cópia
+baixados uma única vez, antes dos experimentos e fora dos \textit{containers}, para uma cópia
 local. A partir dela, um gerador (etapa~2) produz a carga numa taxa controlada e a publica
-num broker, Kafka ou RabbitMQ (etapa~3), que a entrega ao consumidor em quatro faixas, as
+num \textit{broker}, Kafka ou RabbitMQ (etapa~3), que a entrega ao consumidor em quatro faixas, as
 quatro setas da figura; há uma instância do consumidor por faixa, desenhada empilhada. O
 consumidor em .NET (etapa~4) passa cada evento por um dos três modos de entrega, a
 bifurcação, até o processamento em janelas. Os resultados vão para o PostgreSQL, e as
 medições de cada rodada são coletadas ao lado (etapa~5). As etapas 2 a 5 rodam em
-containers Docker, cada uma com núcleos de processador exclusivos, indicados no pé de cada
-grupo. Entre uma rodada e outra variam três fatores: a carga, o broker e o modo. As
+\textit{containers} Docker, cada uma com núcleos de processador exclusivos, indicados no pé de cada
+grupo. Entre uma rodada e outra variam três fatores: a carga, o \textit{broker} e o modo. As
 subseções a seguir percorrem a figura nessa ordem, e o quadro de baixo, que amplia a
 etapa~4, é descrito na Seção~\ref{sec:processamento}.
 
@@ -435,43 +435,43 @@ Cada evento é um registro binário de 46 bytes, de tamanho fixo.
 \subsection{Etapa 3: Mensageria}
 \label{sec:mensageria}
 
-Cada rodada usa um dos brokers, com um único nó. A carga é dividida em quatro faixas,
+Cada rodada usa um dos \textit{brokers}, com um único nó. A carga é dividida em quatro faixas,
 quatro partições no Kafka e quatro filas clássicas no RabbitMQ, e o carro define a faixa
 pela mesma função nos dois (CRC32 da chave, a função padrão do cliente do Kafka), de modo
 que os eventos de cada carro chegam em ordem. A entrega é \textit{at-least-once} nos dois
-brokers (Seção~\ref{sec:configuracao}).
+\textit{brokers} (Seção~\ref{sec:configuracao}).
 
 \subsection{Etapa 4: Processamento}
 \label{sec:processamento}
 
-Um consumidor por faixa recebe as mensagens. A biblioteca cliente de cada broker entrega
-cada mensagem chamando uma função do consumidor, o \textit{callback}, numa thread própria,
-aqui chamada de thread do cliente. Entre o callback e o processamento fica o modo de
+Um consumidor por faixa recebe as mensagens. A biblioteca cliente de cada \textit{broker} entrega
+cada mensagem chamando uma função do consumidor, o \textit{callback}, numa \textit{thread} própria,
+aqui chamada de \textit{thread} do cliente. Entre o \textit{callback} e o processamento fica o modo de
 entrega, a bifurcação da Figura~\ref{fig:arquitetura_geral}. O quadro de baixo da
 figura amplia essa etapa numa das quatro faixas, uma linha por modo, e a cor indica onde
-cada passo roda: em verde, na thread do cliente; em azul, numa thread de trabalho; em
+cada passo roda: em verde, na \textit{thread} do cliente; em azul, numa \textit{thread} de trabalho; em
 cinza, a fila interna entre as duas.
 
 \begin{itemize}
-  \item \textbf{Direct} (direto): o callback chama o processamento na própria thread do
-        cliente, sem fila nem troca de thread. É o grupo de controle: sem ele, uma
+  \item \textbf{Direct} (direto): o \textit{callback} chama o processamento na própria \textit{thread} do
+        cliente, sem fila nem troca de \textit{thread}. É o grupo de controle: sem ele, uma
         diferença entre ``Kafka com Channels'' e ``RabbitMQ com Channels'' mostraria que
-        o broker importa, mas não se o Channels ajudou ou atrapalhou;
-  \item \textbf{Channels}: o callback escreve o evento num \textit{Channel} limitado a
-        10.000 eventos por faixa, e um leitor, numa thread de trabalho, lê e processa;
-  \item \textbf{Pipelines}: o callback escreve os bytes num \texttt{Pipe}, e o leitor
-        interpreta os registros direto do buffer, sem criar um objeto por evento; o
+        o \textit{broker} importa, mas não se o Channels ajudou ou atrapalhou;
+  \item \textbf{Channels}: o \textit{callback} escreve o evento num \textit{Channel} limitado a
+        10.000 eventos por faixa, e um leitor, numa \textit{thread} de trabalho, lê e processa;
+  \item \textbf{Pipelines}: o \textit{callback} escreve os bytes num \texttt{Pipe}, e o leitor
+        interpreta os registros direto do \textit{buffer}, sem criar um objeto por evento; o
         \texttt{Pipe} pausa o escritor com 460.000 bytes pendentes, o mesmo volume do
         canal.
 \end{itemize}
 
-Quando a fila interna enche, o callback espera, e a contrapressão chega ao broker. Os três
+Quando a fila interna enche, o \textit{callback} espera, e a contrapressão chega ao \textit{broker}. Os três
 modos chamam o mesmo código de processamento, que segue as operações de referência dos
-benchmarks \cite{arasu:2004,mutschler:2013}: agregação em janelas de 1~s por carro, em
+\textit{benchmarks} \cite{arasu:2004,mutschler:2013}: agregação em janelas de 1~s por carro, em
 tempo do evento, e detecção de frenagens e trocas de marcha sobre eventos consecutivos do
 mesmo carro. Assim, a diferença entre os modos vem só da forma de entrega. O resultado de
 cada rodada é resumido num \textit{digest}; como todas as combinações processam a mesma
-entrada em cada carga, todas precisam produzir o mesmo digest, e uma divergência indica
+entrada em cada carga, todas precisam produzir o mesmo \textit{digest}, e uma divergência indica
 perda de evento, duplicação ou quebra de ordem.
 
 \subsection{Etapa 5: Persistência e Métricas}
@@ -480,11 +480,11 @@ perda de evento, duplicação ou quebra de ordem.
 Os resultados das janelas são gravados no PostgreSQL~17 em lote, por \texttt{COPY}
 binário e em tabelas \texttt{UNLOGGED}, para que o banco não seja o gargalo; a latência
 termina antes da gravação, e uma rodada em que a gravação descarta janelas é inválida. O
-Prometheus, com o cAdvisor, lê a CPU e a memória de cada container. Para a latência, o
+Prometheus, com o cAdvisor, lê a CPU e a memória de cada \textit{container}. Para a latência, o
 gerador grava na mensagem o instante da publicação, lido de um relógio monotônico, e o
 consumidor o compara com o mesmo relógio ao fim do processamento; como os dois rodam na
 mesma máquina, não é preciso sincronizar relógios. As latências vão para histogramas
-HdrHistogram, e as alocações e coletas de lixo vêm dos contadores do runtime do .NET.
+HdrHistogram, e as alocações e coletas de lixo vêm dos contadores do \textit{runtime} do .NET.
 
 % ===================================================================
 
@@ -498,20 +498,20 @@ registrada antes de ver os dados.
 
 \subsection{Ambiente}
 
-Os experimentos rodaram num Intel Core i5-12400F (6 núcleos e 12 threads) com 16~GB de
+Os experimentos rodaram num Intel Core i5-12400F (6 núcleos e 12 \textit{threads}) com 16~GB de
 memória, Windows~11 e Docker Desktop~4.91 sobre WSL2, com 12 núcleos lógicos e 8~GB na
-máquina virtual. Cada componente tem núcleos exclusivos: gerador nos núcleos 0 a 3, broker
-nos 4 a 7, consumidor nos 8 a 10, e banco e métricas no 11; os brokers têm 3~GB de memória.
-Durante as medições, só o broker medido fica ligado e o computador não é usado. O software
+máquina virtual. Cada componente tem núcleos exclusivos: gerador nos núcleos 0 a 3, \textit{broker}
+nos 4 a 7, consumidor nos 8 a 10, e banco e métricas no 11; os \textit{brokers} têm 3~GB de memória.
+Durante as medições, só o \textit{broker} medido fica ligado e o computador não é usado. O software
 é .NET~10, Confluent.Kafka~2.15.1, RabbitMQ.Client~7.2.2, Npgsql~10.0.3 e
 HdrHistogram~2.5.0.
 
-\subsection{Configuração dos Brokers}
+\subsection{Configuração dos \textit{Brokers}}
 \label{sec:configuracao}
 
 A comparação usa dois cenários de configuração. O \textbf{cenário padrão} usa os valores
 de fábrica, conferidos na fonte de cada versão, exceto onde eles impedem a equivalência
-entre os brokers (Tabela~\ref{tab:configuracao}). Uma diferença de garantia permanece: com
+entre os \textit{brokers} (Tabela~\ref{tab:configuracao}). Uma diferença de garantia permanece: com
 a mensagem persistente, o RabbitMQ grava em disco antes de confirmar, e o Kafka confirma
 com a mensagem no cache do sistema, como ele próprio recomenda \cite{kafka:docs}; na
 calibração, essa gravação custou 48\% no P99 do RabbitMQ a 40 mil eventos por segundo.
@@ -529,7 +529,7 @@ Ambos & 4 faixas, carro por CRC32; compressão desligada & ordem por carro; o co
 \hline
 Ambos & até 100 mil mensagens sem confirmação no produtor & limite equivalente; é o padrão do Kafka \\
 \hline
-Kafka & \texttt{acks=all}; offset guardado só depois da entrega ao processamento; 1 nó & \textit{at-least-once}; máquina única \\
+Kafka & \texttt{acks=all}; \textit{offset} guardado só depois da entrega ao processamento; 1 nó & \textit{at-least-once}; máquina única \\
 \hline
 RabbitMQ & \textit{publisher confirms} em lotes de 12.500, dois em voo por faixa; mensagem persistente & equivalente ao \texttt{acks=all} \\
 \hline
@@ -550,35 +550,35 @@ antes da coleta: com ele, o P50 do Kafka passou de 400~ms já a 10 mil eventos p
 \subsection{Protocolo e Análise}
 \label{sec:analise}
 
-Os fatores são o broker, o modo e a carga: RabbitMQ em 10, 20, 40, 60 e 80 mil eventos
+Os fatores são o \textit{broker}, o modo e a carga: RabbitMQ em 10, 20, 40, 60 e 80 mil eventos
 por segundo e Kafka em 10, 20, 40, 60, 100, 200, 300 e 400 mil, faixas tiradas de
 varreduras de saturação, com ao menos uma carga acima do ponto de saturação de cada
-broker. Cada rodada tem 10~s de aquecimento, descartados, e 90~s de medição. Cada
-combinação tem 10 repetições, em ordem sorteada dentro de cada broker, e o tópico ou as
+\textit{broker}. Cada rodada tem 10~s de aquecimento, descartados, e 90~s de medição. Cada
+combinação tem 10 repetições, em ordem sorteada dentro de cada \textit{broker}, e o tópico ou as
 filas são recriados a cada rodada. Uma bateria de sensibilidade mede o modo direto a
-3,7~Hz, sem interpolação, em duas cargas por broker. São 390 rodadas, mais 40 de
+3,7~Hz, sem interpolação, em duas cargas por \textit{broker}. São 390 rodadas, mais 40 de
 sensibilidade. O cenário ajustado usa uma matriz reduzida, decidida antes de medir: o modo
-direto em todas as cargas e Channels e Pipelines em duas por broker, já que o efeito do
+direto em todas as cargas e Channels e Pipelines em duas por \textit{broker}, já que o efeito do
 mecanismo foi medido no cenário padrão; o perfil de vazão só no modo direto, de 200 a 400
 mil. São 240 rodadas.
 
 As métricas são três grupos, apresentados nesta mesma ordem na
 Seção~\ref{sec:resultados}, sempre para as seis combinações: a \textbf{latência}, do envio
-ao fim do processamento, pelos percentis P50 e P99; o \textbf{throughput}, em eventos
+ao fim do processamento, pelos percentis P50 e P99; o \textbf{\textit{throughput}}, em eventos
 processados por segundo, e a maior carga sustentada; e o \textbf{uso de recursos}: CPU do
-consumidor, do broker e do gerador, em núcleos (1,0 é um núcleo inteiro ocupado), memória
-de pico do consumidor e do broker, e o custo do .NET, em bytes alocados por evento e
+consumidor, do \textit{broker} e do gerador, em núcleos (1,0 é um núcleo inteiro ocupado), memória
+de pico do consumidor e do \textit{broker}, e o custo do .NET, em bytes alocados por evento e
 coletas de lixo.
 
 As regras de análise foram registradas antes da coleta. Uma rodada é inválida se o atraso
-máximo de envio passar de 50~ms, se o digest divergir do de referência, se houver registro
+máximo de envio passar de 50~ms, se o \textit{digest} divergir do de referência, se houver registro
 incompleto no \texttt{Pipe} ou se a persistência descartar janelas; rodadas inválidas não
 são repetidas. Em cada combinação, sai a rodada cujo P99 fica fora de
 $[Q_1 - 1{,}5\,\mathrm{IQR};\; Q_3 + 1{,}5\,\mathrm{IQR}]$, a regra de Tukey
 \cite{tukey:1977}, e a combinação é resumida pela mediana das demais. Uma carga é
-sustentada quando a maioria das rodadas é válida, o throughput chega a 99\% da carga e o
+sustentada quando a maioria das rodadas é válida, o \textit{throughput} chega a 99\% da carga e o
 P99 fica abaixo de 50~ms; o ponto de saturação é a maior carga sustentada com todas as
-menores também sustentadas. Diferenças entre modos abaixo de 10\% no throughput ou de 20\%
+menores também sustentadas. Diferenças entre modos abaixo de 10\% no \textit{throughput} ou de 20\%
 no P99 são tratadas como sem relevância, e o teste de Kruskal-Wallis
 \cite{kruskal:1952}, a 5\%, só acompanha as diferenças maiores.
 
@@ -587,11 +587,11 @@ no P99 são tratadas como sem relevância, e o teste de Kruskal-Wallis
 
 Três baterias exploratórias, uma primeira matriz de 165 rodadas, um experimento fatorial
 2$\times$2 e varreduras de saturação, mostraram efeitos do ambiente maiores que as
-diferenças entre as arquiteturas. Com gerador e consumidor fora dos containers, o Kafka
-tinha latência bimodal em 43\% das rodadas de carga baixa. Com cota de CPU, o broker
+diferenças entre as arquiteturas. Com gerador e consumidor fora dos \textit{containers}, o Kafka
+tinha latência bimodal em 43\% das rodadas de carga baixa. Com cota de CPU, o \textit{broker}
 RabbitMQ era estrangulado, e núcleos exclusivos reduziram o P99 dele de 40\% a 64\%. Uma
 auditoria contra os valores de fábrica encontrou três defeitos de configuração e três
-assimetrias entre os brokers. A partir de 100 mil eventos por segundo, o Kafka teve
+assimetrias entre os \textit{brokers}. A partir de 100 mil eventos por segundo, o Kafka teve
 episódios de 200~ms a 2~s sem confirmar nem entregar, que coincidem com a gravação
 periódica das páginas do Kafka no disco virtual: logo depois de uma parada da máquina
 virtual por espera de disco, a chance de a latência passar de 50~ms foi 126 vezes maior.
@@ -605,9 +605,9 @@ análise.
 
 A matriz do cenário padrão foi executada em 22/10/2026, em duas sessões seguidas, sem
 nenhuma falha técnica. Os resultados seguem a ordem das métricas da
-Seção~\ref{sec:analise}: validade das rodadas, latência e throughput, e uso de recursos;
+Seção~\ref{sec:analise}: validade das rodadas, latência e \textit{throughput}, e uso de recursos;
 depois vêm o cenário ajustado e uma síntese. Todas as figuras têm o mesmo formato: cada
-linha é uma combinação, a cor indica o broker, e o traço e o marcador indicam o modo; o
+linha é uma combinação, a cor indica o \textit{broker}, e o traço e o marcador indicam o modo; o
 eixo horizontal é sempre a carga oferecida, em escala logarítmica. Os valores são medianas
 das rodadas válidas e não descartadas, e as métricas completas estão no repositório.
 
@@ -617,7 +617,7 @@ A Tabela~\ref{tab:validade} resume as rodadas a 100~Hz de cada combinação. Tod
 rodadas inválidas são do Kafka, a 200 mil eventos por segundo ou mais, e foram invalidadas
 pelo atraso de envio: o gerador atrasou mais de 50~ms em relação à taxa pedida, o que
 coincide com os episódios de disco descritos na calibração. Nenhuma rodada falhou na
-conferência do resultado: em cada carga, as seis combinações produziram o mesmo digest,
+conferência do resultado: em cada carga, as seis combinações produziram o mesmo \textit{digest},
 sem perda, duplicação ou quebra de ordem. A regra de Tukey descartou 32 rodadas, cerca de
 8\%. Na bateria a 3,7~Hz, 39 das 40 rodadas foram válidas.
 
@@ -629,7 +629,7 @@ validade; descartadas: fora da regra de Tukey; usadas: as que entram nas mediana
 \small
 \begin{tabular}{|l|l|r|r|r|r|}
 \hline
-\textbf{Broker} & \textbf{Modo} & \textbf{Rodadas} & \textbf{Inválidas} & \textbf{Descartadas} & \textbf{Usadas} \\
+\textbf{\textit{Broker}} & \textbf{Modo} & \textbf{Rodadas} & \textbf{Inválidas} & \textbf{Descartadas} & \textbf{Usadas} \\
 \hline
 \multirow{3}{*}{RabbitMQ} & Direct & 50 & 0 & 2 & 48 \\
  & Channels & 50 & 0 & 3 & 47 \\
@@ -644,33 +644,33 @@ validade; descartadas: fora da regra de Tukey; usadas: as que entram nas mediana
 \end{tabular}
 \end{table}
 
-\subsection{Latência e Throughput}
+\subsection{Latência e \textit{Throughput}}
 \label{sec:res-latencia}
 
-A Figura~\ref{fig:latencia} mostra a latência P50 e P99 e o throughput das seis
+A Figura~\ref{fig:latencia} mostra a latência P50 e P99 e o \textit{throughput} das seis
 combinações.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\textwidth]{fig_latencia_throughput.pdf}
-\caption{Latência P50 e P99 e throughput das seis combinações por carga oferecida, no
+\caption{Latência P50 e P99 e \textit{throughput} das seis combinações por carga oferecida, no
 cenário padrão a 100~Hz (mediana das rodadas usadas). Os eixos estão em escala
 logarítmica; a linha pontilhada é o limite de 50~ms do critério de saturação.}
 \label{fig:latencia}
 \end{figure}
 
-\textbf{Entre os brokers}, a comparação de latência muda de sinal com a carga. A 10 mil
+\textbf{Entre os \textit{brokers}}, a comparação de latência muda de sinal com a carga. A 10 mil
 eventos por segundo, o RabbitMQ é mais rápido: P50 de 0,36~ms e P99 de 2,3~ms, contra 3,0
 e 5,8~ms do Kafka. As curvas se cruzam em pontos diferentes: no P50, o RabbitMQ é mais
 rápido até 60 mil; no P99, só até 20 mil. Acima disso, o P99 do RabbitMQ cresce com a
 carga, até 25~ms a 60 mil e 75~ms a 80 mil, enquanto o do Kafka fica entre 5,5 e 6,7~ms
 até 400 mil. O Kafka tem um piso de latência, com P50 perto de 3~ms em qualquer carga, que
 coincide com a espera padrão do produtor para formar lotes, o \texttt{linger.ms} de 5~ms:
-ele troca alguns milissegundos de latência por lotes maiores e menos CPU no broker. O
-RabbitMQ não tem essa espera, mas, com o broker perto do limite de CPU, acumula fila, e a
+ele troca alguns milissegundos de latência por lotes maiores e menos CPU no \textit{broker}. O
+RabbitMQ não tem essa espera, mas, com o \textit{broker} perto do limite de CPU, acumula fila, e a
 cauda cresce.
 
-\textbf{Entre os modos}, as três linhas de cada broker ficam praticamente sobrepostas:
+\textbf{Entre os modos}, as três linhas de cada \textit{broker} ficam praticamente sobrepostas:
 nenhuma combinação teve diferença relevante de latência em relação ao modo direto. A maior
 diferença no P99 foi de 11\% (Kafka com Pipelines a 400 mil), abaixo do limite de 20\%. No
 RabbitMQ, Channels e Pipelines só ficaram abaixo do direto a 40 mil, com P99 6\% menor,
@@ -678,21 +678,21 @@ sem significância estatística (Kruskal-Wallis, $p = 0{,}06$); no Kafka, nunca 
 abaixo. Na bateria a 3,7~Hz, o P99 mudou menos de 10\% em relação a 100~Hz: a interpolação
 não muda as conclusões.
 
-\textbf{Throughput.} As seis linhas coincidem. Como o gerador é de malha aberta, toda
+\textbf{\textit{Throughput}.} As seis linhas coincidem. Como o gerador é de malha aberta, toda
 combinação processa exatamente a carga oferecida enquanto a sustenta, com diferença abaixo
-de 0,1\%, e o throughput medido não distingue as combinações. O que as distingue é a maior
+de 0,1\%, e o \textit{throughput} medido não distingue as combinações. O que as distingue é a maior
 carga sustentada, decidida pela latência. O RabbitMQ sustenta 60 mil eventos por segundo
 nos três modos, ou 5,4 milhões de eventos nos 90~s de cada rodada, e falha a 80 mil, com
 P99 acima do limite de 50~ms. O Kafka sustenta 400 mil, a maior carga testada, também nos
 três modos: 36 milhões de eventos por rodada. O limite dele fica acima do alcance da
 bancada, e a margem a 400 mil é pequena, com só 6 rodadas do modo direto e 5 do Pipelines,
-em 10, cumprindo sozinhas as três condições. Em nenhum broker o modo mudou a carga
+em 10, cumprindo sozinhas as três condições. Em nenhum \textit{broker} o modo mudou a carga
 sustentada.
 
 \subsection{Uso de Recursos}
 \label{sec:res-recursos}
 
-A Figura~\ref{fig:recursos} mostra a CPU e a memória do consumidor e do broker nas seis
+A Figura~\ref{fig:recursos} mostra a CPU e a memória do consumidor e do \textit{broker} nas seis
 combinações.
 
 \begin{figure}[ht]
@@ -700,7 +700,7 @@ combinações.
 \includegraphics[width=\textwidth]{fig_recursos.pdf}
 \caption{Uso de recursos das seis combinações por carga oferecida, no cenário padrão a
 100~Hz (mediana das rodadas usadas): CPU do consumidor, que dispõe de 3 núcleos, CPU do
-broker, que dispõe de 4, e memória de pico de cada um.}
+\textit{broker}, que dispõe de 4, e memória de pico de cada um.}
 \label{fig:recursos}
 \end{figure}
 
@@ -708,10 +708,10 @@ broker, que dispõe de 4, e memória de pico de cada um.}
 direto ocupa de 0,09 a 0,63 núcleo, e Channels e Pipelines, de 0,17 a 1,69: de 1,9 a 3,3
 vezes mais, com o Pipelines sempre um pouco acima do Channels. A partir de 100 mil eventos
 por segundo, o acréscimo é de 2,4 a 3,7~µs por evento, a ordem de grandeza de acordar uma
-thread de trabalho a cada evento. No RabbitMQ, o consumidor ocupa perto de um núcleo em
+\textit{thread} de trabalho a cada evento. No RabbitMQ, o consumidor ocupa perto de um núcleo em
 qualquer carga, e os mecanismos acrescentam só de 4\% a 9\%.
 
-\textbf{CPU do broker.} É o que separa os brokers e explica a saturação. O RabbitMQ
+\textbf{CPU do \textit{broker}.} É o que separa os \textit{brokers} e explica a saturação. O RabbitMQ
 ocupa de 2,8 a 3,5 dos 4 núcleos e esgota a CPU primeiro; o Kafka ocupa de 0,4 a 0,5
 núcleo até 400 mil. O RabbitMQ trata cada mensagem individualmente: roteia, confirma e,
 com a mensagem persistente, grava em disco antes de confirmar. O Kafka trata lotes: agrupa
@@ -720,17 +720,17 @@ padrão aparece no gerador, que ocupa 3,1 núcleos para publicar no RabbitMQ a 6
 contra 1,1 no Kafka.
 
 \textbf{Memória.} Não depende do modo. O consumidor fica entre 87 e 117~MB em todas as
-combinações. No broker, a relação se inverte: o Kafka usa de 1,4 a 1,7~GB, contra 0,2 a
+combinações. No \textit{broker}, a relação se inverte: o Kafka usa de 1,4 a 1,7~GB, contra 0,2 a
 0,3~GB do RabbitMQ. A alocação do consumidor também é igual nos três modos, de 952 a 975
 bytes por evento no Kafka e de 720 a 834 no RabbitMQ, cerca de 20 vezes o tamanho da
 mensagem, porque quem aloca é a biblioteca cliente, antes de o evento chegar ao mecanismo;
 as coletas de lixo de geração 2 foram no máximo uma por rodada.
 
-Juntando as duas seções, Channels e Pipelines não mudaram a latência nem o throughput e
+Juntando as duas seções, Channels e Pipelines não mudaram a latência nem o \textit{throughput} e
 custaram CPU. Com o processamento custando cerca de 0,12~µs por evento e a carga chegando
 de forma regular, não há espera a esconder: o modo direto processa o evento antes de o
-broker entregar o próximo, e desacoplar a recepção do processamento só acrescenta a fila
-interna e a troca de thread. O resultado vale para o uso padrão das ferramentas, um evento
+\textit{broker} entregar o próximo, e desacoplar a recepção do processamento só acrescenta a fila
+interna e a troca de \textit{thread}. O resultado vale para o uso padrão das ferramentas, um evento
 por vez, e para processamento sem espera própria.
 
 \subsection{Cenário Ajustado}
@@ -738,7 +738,7 @@ por vez, e para processamento sem espera própria.
 
 A matriz ajustada foi executada em 27/10/2026, sem falha técnica. Das 240 rodadas, 232
 foram válidas; as 8 inválidas foram de novo por atraso de envio, no Kafka a 200 mil
-eventos por segundo ou mais. O digest foi o mesmo em todas as rodadas de cada carga, e a
+eventos por segundo ou mais. O \textit{digest} foi o mesmo em todas as rodadas de cada carga, e a
 regra de Tukey descartou 14 rodadas. A Figura~\ref{fig:ajustado} compara, no mesmo
 formato, o modo direto no cenário padrão e nos perfis ajustados.
 
@@ -746,36 +746,36 @@ formato, o modo direto no cenário padrão e nos perfis ajustados.
 \centering
 \includegraphics[width=\textwidth]{fig_ajustado.pdf}
 \caption{Modo direto no cenário padrão e nos perfis ajustados, a 100~Hz: latência P50 e
-P99 e CPU do broker por carga oferecida (mediana das rodadas usadas). A cor indica o
-broker, e o traço e o marcador, o perfil de configuração.}
+P99 e CPU do \textit{broker} por carga oferecida (mediana das rodadas usadas). A cor indica o
+\textit{broker}, e o traço e o marcador, o perfil de configuração.}
 \label{fig:ajustado}
 \end{figure}
 
 \textbf{RabbitMQ.} Com a mensagem transitória e o \textit{prefetch} de 300, o P99 caiu de
 43\% a 76\% em todas as cargas, de 2,3 para 0,65~ms a 10 mil e de 25 para 10~ms a 60 mil,
 e a carga sustentada subiu para 80 mil, com P99 de 43~ms. Sem a gravação em disco, o
-broker gasta menos CPU em carga baixa e, em carga alta, usa a CPU liberada para entregar
+\textit{broker} gasta menos CPU em carga baixa e, em carga alta, usa a CPU liberada para entregar
 mais rápido.
 
 \textbf{Kafka.} Com o \texttt{linger.ms} de 1, o P50 caiu de cerca de 3 para 1~ms em todas
 as cargas, o que confirma que o piso vinha da formação de lotes. O P99, porém, só caiu a
 10 mil; a partir de 40 mil subiu de 28\% a 296\%, até 22~ms a 300 mil, porque, com lotes
-menores, o broker recebe mais requisições, e a CPU dele dobrou. A carga sustentada
+menores, o \textit{broker} recebe mais requisições, e a CPU dele dobrou. A carga sustentada
 continuou em 400 mil. Com o \texttt{linger.ms} de 20, o efeito é o inverso: P99 de cerca
-de 21~ms e CPU do broker cerca de 30\% menor.
+de 21~ms e CPU do \textit{broker} cerca de 30\% menor.
 
 Channels e Pipelines continuaram sem efeito relevante de latência (maior diferença de
 18\%, com Kruskal-Wallis sem diferença, $p > 0{,}7$) e custando de 1,9 a 2,3 vezes a CPU
-do consumidor do modo direto no Kafka. O ajuste aproximou os brokers nas cargas médias: o
+do consumidor do modo direto no Kafka. O ajuste aproximou os \textit{brokers} nas cargas médias: o
 RabbitMQ ajustado tem o menor P99 até 40 mil, e a 60 mil os dois ficam próximos, com 10,4
 e 8,3~ms. Parte da diferença do cenário padrão vinha, portanto, da configuração, e cada
-parâmetro troca latência por CPU do broker.
+parâmetro troca latência por CPU do \textit{broker}.
 
-\subsection{Onde Cada Broker e Cada Mecanismo Ganha}
+\subsection{Onde Cada \textit{Broker} e Cada Mecanismo Ganha}
 \label{sec:sintese}
 
 A Tabela~\ref{tab:sintese} reúne, para cada combinação do cenário padrão, a faixa de
-carga em que ela se sai melhor, o que ganha e o que custa. Entre os brokers, o RabbitMQ
+carga em que ela se sai melhor, o que ganha e o que custa. Entre os \textit{brokers}, o RabbitMQ
 ganha em latência até 20 mil eventos por segundo no P99 e até 60 mil no P50, e o Kafka
 ganha a partir daí, em latência, carga sustentada e CPU.
 
@@ -787,15 +787,15 @@ múltiplos da CPU do consumidor no modo direto.}
 \small
 \begin{tabular}{|l|l|p{3.0cm}|p{4.1cm}|p{3.7cm}|}
 \hline
-\textbf{Broker} & \textbf{Modo} & \textbf{Onde se sai melhor} & \textbf{O que ganha} & \textbf{O que custa} \\
+\textbf{\textit{Broker}} & \textbf{Modo} & \textbf{Onde se sai melhor} & \textbf{O que ganha} & \textbf{O que custa} \\
 \hline
-\multirow{3}{*}{RabbitMQ} & Direct & carga baixa: até 20 mil (P99) e 60 mil (P50) & a menor latência da bancada: P99 de 2,3~ms a 10 mil & broker no limite de CPU; satura em 60 mil \\
+\multirow{3}{*}{RabbitMQ} & Direct & carga baixa: até 20 mil (P99) e 60 mil (P50) & a menor latência da bancada: P99 de 2,3~ms a 10 mil & \textit{broker} no limite de CPU; satura em 60 mil \\
 \cline{2-5}
  & Channels & 40 mil & P99 6\% menor que o direto, sem relevância & CPU do consumidor 1,04 a 1,07$\times$ \\
 \cline{2-5}
  & Pipelines & 40 mil & P99 6\% menor que o direto, sem relevância & CPU do consumidor 1,06 a 1,09$\times$ \\
 \hline
-\multirow{3}{*}{Kafka} & Direct & carga alta: de 40 a 400 mil & P99 de 5,5 a 6,1~ms até 400 mil, com 0,4 a 0,5 núcleo de broker & P50 de 3~ms em qualquer carga; mais memória no broker \\
+\multirow{3}{*}{Kafka} & Direct & carga alta: de 40 a 400 mil & P99 de 5,5 a 6,1~ms até 400 mil, com 0,4 a 0,5 núcleo de \textit{broker} & P50 de 3~ms em qualquer carga; mais memória no \textit{broker} \\
 \cline{2-5}
  & Channels & nenhuma carga & nada: P99 de 0\% a 9\% acima do direto & CPU do consumidor 1,9 a 3,0$\times$ \\
 \cline{2-5}
@@ -806,7 +806,7 @@ múltiplos da CPU do consumidor no modo direto.}
 
 \textbf{RabbitMQ.} O \textit{Direct} se encaixa no processamento leve por evento, o caso
 medido: tem a mesma latência dos outros modos e a menor CPU. O \textit{Channels} se
-encaixa nas cargas intermediárias, quando o broker começa a acumular fila: a 40 mil, foi o
+encaixa nas cargas intermediárias, quando o \textit{broker} começa a acumular fila: a 40 mil, foi o
 único caso medido com P99 abaixo do direto, a um custo de só 4\% a 7\% de CPU. Por esse
 custo baixo, é o candidato natural quando o processamento tem uma espera própria, como
 gravar ou chamar outro serviço. O \textit{Pipelines} se comportou como o Channels, com um
@@ -816,7 +816,7 @@ em lote, o uso para o qual foi projetado.
 \textbf{Kafka.} O \textit{Direct} se encaixa em toda a faixa medida: o cliente entrega as
 mensagens de uma fila local, o processamento termina antes de o próximo evento ser pedido,
 e o P99 fica estável até 400 mil com a menor CPU. O \textit{Channels} não teve cenário
-favorável na bancada, porque passar cada evento a uma thread de trabalho custa de vinte a
+favorável na bancada, porque passar cada evento a uma \textit{thread} de trabalho custa de vinte a
 trinta vezes o processamento; ele se encaixa quando o processamento por evento é bem mais
 longo que esse custo ou espera por algo. O \textit{Pipelines} foi o mais caro, de 3\% a
 10\% acima do Channels, e se encaixa só quando o processamento trabalha sobre bytes em
@@ -824,7 +824,7 @@ lote.
 
 Os cenários de Channels e Pipelines fora da bancada são deduzidos do custo medido e do
 propósito de cada ferramenta \cite{microsoft:channels,microsoft:pipelines}, e não foram
-medidos. O cenário ajustado muda a comparação entre os brokers, mas não a dos mecanismos.
+medidos. O cenário ajustado muda a comparação entre os \textit{brokers}, mas não a dos mecanismos.
 
 \subsection{Comparação com os Trabalhos Relacionados}
 \label{sec:comparacao}
@@ -834,15 +834,15 @@ Esmaili~\cite{dobbelaere:2017}, que apontam o RabbitMQ para mensagens individuai
 baixa latência e o Kafka para volumes altos, e acrescentam as condições em que isso vale: o
 RabbitMQ teve o menor P99 até 20 mil eventos por segundo no cenário padrão e até 40 mil no
 ajustado, e o Kafka sustentou pelo menos 5 vezes a carga dele, com cerca de um sétimo da
-CPU de broker. Confirmam também o desempenho superior do Kafka em .NET encontrado por
+CPU de \textit{broker}. Confirmam também o desempenho superior do Kafka em .NET encontrado por
 Kamiński, Kłonica e Pańczyk~\cite{kaminski:2025}, mas só em carga alta: em carga baixa, o
 RabbitMQ foi mais rápido nos dois cenários de configuração. Ortiz et al.~\cite{ortiz:2023}
-mostram que a camada de processamento acoplada ao broker afeta a latência; aqui, com
+mostram que a camada de processamento acoplada ao \textit{broker} afeta a latência; aqui, com
 processamento leve na memória, o mecanismo interno mudou só o custo em CPU. Como defendem
 Fu, Zhang e Yu~\cite{fu:2021}, a comparação exigiu controlar o ambiente: a posição dos
 clientes, a cota de CPU e o disco da máquina virtual produziram efeitos maiores que as
 diferenças entre as arquiteturas. Nenhum desses trabalhos mede o mecanismo interno contra
-um grupo de controle, e é essa comparação que separa o efeito do broker do efeito do
+um grupo de controle, e é essa comparação que separa o efeito do \textit{broker} do efeito do
 mecanismo.
 
 % ===================================================================
@@ -874,10 +874,10 @@ conclusão; por isso, as dez repetições, a mediana e as regras fixadas antes d
 tamanho de efeito relevante também foi fixado antes, porque, com dispersão pequena,
 diferenças irrelevantes ficam estatisticamente significativas. O ponto de saturação do
 Kafka não foi localizado, só limitado por baixo pela carga de 400 mil, e, no cenário
-ajustado, Channels e Pipelines foram medidos em duas cargas por broker.
+ajustado, Channels e Pipelines foram medidos em duas cargas por \textit{broker}.
 
 \textbf{Validade externa.} Os resultados valem para Kafka~4.1.0, RabbitMQ~4.3.6 com filas
-clássicas e .NET~10, para um nó de cada broker e para o hardware descrito.
+clássicas e .NET~10, para um nó de cada \textit{broker} e para o hardware descrito.
 
 % ===================================================================
 
@@ -888,19 +888,19 @@ Este trabalho avaliou experimentalmente arquiteturas compostas de processamento 
 em alta frequência em .NET, combinando RabbitMQ e Kafka com Channels e Pipelines e com um
 modo sem mecanismo interno como grupo de controle.
 
-No cenário padrão, o broker decide o desempenho, e o mecanismo interno decide o custo. O
+No cenário padrão, o \textit{broker} decide o desempenho, e o mecanismo interno decide o custo. O
 RabbitMQ tem a menor latência em carga baixa, com P99 de 2,3~ms a 10 mil eventos por
-segundo, contra 5,8~ms do Kafka, mas satura em 60 mil, limitado pela CPU do broker. O
+segundo, contra 5,8~ms do Kafka, mas satura em 60 mil, limitado pela CPU do \textit{broker}. O
 Kafka mantém o P99 perto de 5,5~ms de 10 mil a pelo menos 400 mil, com cerca de um sétimo
-da CPU de broker do RabbitMQ, em troca de um piso de latência dado pela formação de lotes e
-de mais memória no broker. Channels e Pipelines, no uso padrão e com processamento leve,
+da CPU de \textit{broker} do RabbitMQ, em troca de um piso de latência dado pela formação de lotes e
+de mais memória no \textit{broker}. Channels e Pipelines, no uso padrão e com processamento leve,
 não melhoraram nenhuma medida de desempenho e custaram de 1,9 a 3,3 vezes a CPU do
-consumidor do Kafka. O cenário ajustado mostrou que parte da diferença entre os brokers
+consumidor do Kafka. O cenário ajustado mostrou que parte da diferença entre os \textit{brokers}
 vem da configuração: o \texttt{linger.ms} de 1 reduziu o P50 do Kafka de 3 para 1~ms, à
-custa de CPU do broker e de cauda nas cargas altas, e a mensagem transitória reduziu o P99
+custa de CPU do \textit{broker} e de cauda nas cargas altas, e a mensagem transitória reduziu o P99
 do RabbitMQ de 43\% a 76\% e elevou a saturação para 80 mil.
 
-A recomendação prática é escolher o broker pela faixa de carga, o RabbitMQ para cargas
+A recomendação prática é escolher o \textit{broker} pela faixa de carga, o RabbitMQ para cargas
 baixas com latência mínima e o Kafka para cargas altas; ajustar a espera de lote do Kafka
 e a persistência do RabbitMQ conforme a latência que se quer pagar em CPU; e processar
 direto no consumidor quando o processamento é leve e não espera nada. Do ponto de vista
@@ -911,7 +911,7 @@ exclusivos, configurações auditadas e análise registrada antes da coleta.
 Como trabalhos futuros, ficam a avaliação em vários nós, com replicação; as filas de
 quórum e os \textit{streams} do RabbitMQ; mensagens maiores; o uso de Channels e
 Pipelines em lote; e um cenário em que o processamento espera algo, como a republicação do
-resultado no broker, em que o desacoplamento pode esconder essa espera.
+resultado no \textit{broker}, em que o desacoplamento pode esconder essa espera.
 
 % ===================================================================
 
