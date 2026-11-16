@@ -649,8 +649,6 @@ validade; descartadas: fora da regra de Tukey; usadas: as que entram nas mediana
 \subsection{Latência e \textit{Throughput}}
 \label{sec:res-latencia}
 
-A Figura~\ref{fig:latencia} mostra a latência P50 e P99 e o \textit{throughput} das seis
-combinações.
 
 \begin{figure}[ht]
 \centering
@@ -661,8 +659,9 @@ logarítmica; a linha pontilhada é o limite de 50~ms do critério de saturaçã
 \label{fig:latencia}
 \end{figure}
 
+A Figura~\ref{fig:latencia} mostra a latência P50 e P99 e o \textit{throughput} das seis combinações.
 \textbf{Entre os \textit{brokers}}, a comparação de latência muda de sinal com a carga. A 10 mil
-eventos por segundo, o RabbitMQ é mais rápido: P50 de 0,36~ms e P99 de 2,3~ms, contra 3,0
+eventos por segundo, o RabbitMQ é mais rápido: P50 de 0,36~ms e P99 de 2,3~ms, contra 3,0~ms
 e 5,8~ms do Kafka. As curvas se cruzam em pontos diferentes: no P50, o RabbitMQ é mais
 rápido até 60 mil; no P99, só até 20 mil. Acima disso, o P99 do RabbitMQ cresce com a
 carga, até 25~ms a 60 mil e 75~ms a 80 mil, enquanto o do Kafka fica entre 5,5 e 6,7~ms
