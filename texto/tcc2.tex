@@ -926,12 +926,19 @@ efeitos de virtualização, de limitação de CPU e de configuração foram maio
 diferença entre as arquiteturas, e uma comparação justa exigiu núcleos exclusivos,
 configurações auditadas e análise registrada antes da coleta.
 
-Como trabalhos futuros, ficam a avaliação em vários nós, com replicação; as filas de
-quórum e os \textit{streams} do RabbitMQ; mensagens maiores; o uso de Channels e
-Pipelines em lote; e uma carga de processamento mais pesada, com um cálculo mais longo por
-evento ou com uma espera, como a republicação do resultado no \textit{broker}, e com mais de um
-leitor por faixa, caso em que o paralelismo local de Channels e Pipelines pode fazer
+Esse resultado vale para a carga de trabalho avaliada, e um estudo preliminar indica que
+ele muda em outras. Nesse estudo, que não faz parte deste texto e está disponível no
+repositório, o consumidor passou a republicar o resultado no \textit{broker} e a esperar a
+confirmação antes de seguir. No Kafka, o modo Direct não passou de cerca de 64 mil eventos
+por segundo, enquanto Channels e Pipelines sustentaram 200 mil, a maior carga testada; no
+RabbitMQ, em que o limite continuou sendo o \textit{broker}, os três modos ficaram equivalentes.
+Quando o processamento local espera algo, portanto, o mecanismo interno pode fazer
 diferença.
+
+Como trabalhos futuros, ficam aprofundar esse estudo, com cargas de processamento mais
+pesadas por evento e mais de um leitor por faixa; a avaliação em vários nós, com
+replicação; as filas de quórum e os \textit{streams} do RabbitMQ; mensagens maiores; e o uso de
+Channels e Pipelines em lote.
 
 % ===================================================================
 
