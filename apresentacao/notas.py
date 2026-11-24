@@ -133,15 +133,16 @@ CPU e memória vêm do Prometheus com o cAdvisor, por container.
 [se der tempo] E os resultados vão para o PostgreSQL em lote. A latência termina antes da gravação, então o banco não entra na medida e não é gargalo.""",
 
 # 8 --- metodologia
-"""[1:20]
+"""[1:45]
 
 [caixas de cima]
 Usei dois cenários de configuração.
 No cenário padrão, os valores de fábrica, conferidos no código-fonte de cada versão. Só mudei o que impedia a equivalência entre os dois.
 Uma diferença ficou de propósito, porque é o padrão de cada um: o RabbitMQ, com mensagem persistente, grava em disco antes de confirmar. O Kafka confirma com a mensagem no cache do sistema, como a documentação dele recomenda. Isso favorece o Kafka, e está declarado.
 O cenário ajustado aplica a recomendação de cada fornecedor, e com isso a garantia fica igual nos dois.
-[se der tempo] No Kafka, mudei o linger.ms. É quanto tempo o gerador espera juntando mensagens antes de enviar o lote, como um ônibus que espera encher. O padrão é 5 ms; testei 1 ms, para latência, e 20 ms, para volume.
-[se der tempo] No RabbitMQ, a mensagem passou a ser transitória: o broker confirma sem esperar gravar no disco, igual ao Kafka. E limitei a 300 as mensagens que ele manda ao consumidor sem confirmação. Isso é o prefetch.
+No Kafka, mudei o linger.ms. É quanto tempo o gerador espera juntando mensagens antes de enviar o lote, como um ônibus que espera encher. O padrão é 5 ms; testei 1 ms, para latência, e 20 ms, para volume.
+No RabbitMQ, a mensagem passou a ser transitória: o broker confirma sem esperar gravar no disco, igual ao Kafka.
+[se der tempo] E limitei a 300 as mensagens que ele manda ao consumidor sem confirmação. Isso é o prefetch.
 
 [números do meio]
 [se der tempo] São seis combinações, dois brokers vezes três modos. Cada combinação e cada carga tem 10 repetições, de 90 segundos de medição, em ordem sorteada, até 400 mil eventos por segundo.
@@ -233,9 +234,9 @@ O Kafka sustenta 400 mil, a maior carga que testei. O ponto de saturação dele 
 E o modo não mudou o ponto de saturação em nenhum dos dois.""",
 
 # 13 --- uso de recursos
-"""[1:05]
+"""[1:00]
 
-Nos recursos, os quatro gráficos: CPU e memória, do consumidor e do broker.
+[se der tempo] Nos recursos, os quatro gráficos: CPU e memória, do consumidor e do broker.
 
 [primeira mensagem; aponte para o gráfico de cima à esquerda]
 A CPU do consumidor é a única medida em que os modos se separam, e para pior.
@@ -273,9 +274,9 @@ E os mecanismos continuaram sem diferença de latência. A configuração muda o
 Ou seja: parte da diferença entre os brokers no cenário padrão vinha da configuração, e cada parâmetro troca latência por CPU.""",
 
 # 15 --- onde cada combinação ganha
-"""[0:55]
+"""[0:45]
 
-Juntando tudo numa tabela: onde cada combinação se sai melhor, o que ganha e o que custa.
+[se der tempo] Juntando tudo numa tabela: onde cada combinação se sai melhor, o que ganha e o que custa.
 
 [linhas do RabbitMQ]
 O RabbitMQ com Direct ganha em carga baixa, com a menor latência da bancada, P99 de 2,3 ms. O custo é saturar em 60 mil.
@@ -290,7 +291,7 @@ Com Channels e Pipelines, no Kafka, não houve carga em que ganhassem. Só custa
 Em resumo: o broker decide o desempenho. O mecanismo interno decide só o custo.""",
 
 # 16 --- conclusão
-"""[1:30]
+"""[1:20]
 
 Voltando às duas perguntas.
 
@@ -301,7 +302,7 @@ O motivo é que o processamento leva 0,12 microssegundo por evento. O consumidor
 [três colunas]
 A segunda: qual broker? O RabbitMQ para carga baixa, com latência mínima. O Kafka para carga alta, com menos CPU.
 [se der tempo] A configuração pesa muito: um único parâmetro mudou o P99 em até 76%. Uma comparação entre brokers precisa de configurações auditadas.
-E a literatura: o resultado confirma o Umam e o Dobbelaere, e, como o Fu defende, o ambiente pesou mais do que a arquitetura.
+[se der tempo] E a literatura: o resultado confirma o Umam e o Dobbelaere, e, como o Fu defende, o ambiente pesou mais do que a arquitetura.
 [se der tempo] Confirma também o Kamiński, que viu o Kafka melhor em .NET, mas só em carga alta.
 
 [caixa da esquerda — estudo preliminar]

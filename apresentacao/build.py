@@ -5,6 +5,7 @@ os slides de conteudo sobre o layout "Somente titulo", com o rodape, os logos
 e o titulo em vermelho do proprio modelo. As notas do apresentador ficam em
 notas.py e substituem, no fim, as escritas junto de cada slide."""
 import copy
+import re
 from pathlib import Path
 
 from lxml import etree
@@ -741,8 +742,44 @@ for blip in mestre.element.iter(qn("a:blip")):
 # notas do apresentador definitivas, escritas para leitura na hora (notas.py)
 from notas import NOTAS
 assert len(NOTAS) == len(prs.slides), (len(NOTAS), len(prs.slides))
+
+
+def escrever_notas(slide, texto):
+    """Uma linha em branco entre os topicos, para ler de relance; tempo e
+    dicas de onde apontar em negrito; trechos opcionais em italico e cinza."""
+    tf = slide.notes_slide.notes_text_frame
+    tf.text = ""
+    linhas = [l.strip() for l in texto.split("\n") if l.strip()]
+    primeiro = True
+    for linha in linhas:
+        if not primeiro:
+            tf.add_paragraph()                      # linha em branco
+        par = tf.paragraphs[0] if primeiro else tf.add_paragraph()
+        primeiro = False
+        opcional = linha.startswith("[se der tempo]")
+        if opcional:
+            linha = "(se der tempo) " + linha[len("[se der tempo]"):].strip()
+        if re.fullmatch(r"\[\d:\d\d\]", linha):
+            linha = "TEMPO: " + linha[1:-1]
+            partes = [(linha, True)]
+        else:
+            # separa as dicas [entre colchetes] do texto falado
+            partes = []
+            for pedaco in re.split(r"(\[[^\]]+\])", linha):
+                if pedaco:
+                    dica = pedaco.startswith("[") and pedaco.endswith("]")
+                    partes.append((pedaco.upper() if dica else pedaco, dica))
+        for txt, negrito in partes:
+            run = par.add_run()
+            run.text = txt
+            run.font.bold = negrito
+            if opcional:
+                run.font.italic = True
+                run.font.color.rgb = CINZA
+
+
 for slide, texto in zip(prs.slides, NOTAS):
-    slide.notes_slide.notes_text_frame.text = texto
+    escrever_notas(slide, texto)
 
 prs.save(SAIDA)
 print("salvo:", SAIDA, "slides:", len(prs.slides))
