@@ -40,7 +40,7 @@ Daí as duas perguntas do trabalho: o mecanismo interno melhora, piora ou não m
 O objetivo geral é avaliar experimentalmente essas arquiteturas compostas: o broker mais o mecanismo interno, em .NET.
 
 Para isso, foram quatro objetivos específicos.
-Um: implementar o consumidor para os dois brokers em três modos. Direct, Channels e Pipelines. O Direct é o grupo de controle, o modo sem mecanismo nenhum.
+Um: implementar o consumidor para os dois brokers em três modos. Direct, Channels e Pipelines. O Direct é o grupo de controle: o mesmo consumidor, sem mecanismo nenhum. É a referência contra a qual eu meço o Channels e o Pipelines.
 Dois: construir um gerador de carga reproduzível, em malha aberta, com dados reais da Fórmula 1, vindos da OpenF1.
 Três: configurar os brokers de forma equivalente, em dois cenários. Um com os valores de fábrica, outro com a recomendação de cada fornecedor.
 E quatro: medir latência, throughput, CPU e memória, e encontrar o ponto de saturação de cada uma das seis combinações.""",
@@ -82,7 +82,7 @@ E o Ortiz mostra que a camada de processamento acoplada ao broker afeta a latên
 Então a lacuna é esta: nenhum combina os dois brokers com Channels e Pipelines, e nenhum mede o mecanismo interno contra um grupo de controle sem ele. Esse é o papel do modo Direct neste trabalho.""",
 
 # 6 --- bancada
-"""[1:50]
+"""[2:05]
 
 Esta é a bancada. Ela tem cinco etapas, da esquerda para a direita.
 
@@ -103,6 +103,7 @@ Há um único leitor por faixa. Dois leitores poderiam processar fora de ordem o
 
 [etapa 4 — aponte para o quadro de baixo]
 No consumidor estão os três modos. No Direct, o callback processa ele mesmo. No Channels e no Pipelines, ele entrega a um leitor numa thread de trabalho e volta a receber.
+A única diferença entre as três linhas é essa entrega. Por isso o Direct é o grupo de controle: mesmo broker, mesma carga e mesmo código, só que sem o mecanismo. Então a diferença entre Channels e Direct é o efeito do Channels, e de nada mais.
 Os três chamam o mesmo código: janelas de um segundo por carro e detecção de frenagens e trocas de marcha.
 [se der tempo] São as operações de referência de benchmarks clássicos, como o Linear Road e o DEBS Grand Challenge.
 
@@ -160,7 +161,8 @@ Segundo, a mesma garantia de entrega: at-least-once nos dois. Nenhuma mensagem s
 Terceiro, as mesmas condições de execução: núcleos exclusivos, só o broker medido ligado, ordem das rodadas sorteada e o gerador em malha aberta.
 
 [cartão 4]
-E quarto, uma análise sem viés. As regras e o limite de relevância foram fixados antes de eu ver os dados, como recomendam Jain e Fu. O Direct como grupo de controle permite dizer se o mecanismo ajudou ou atrapalhou. [se der tempo] E dez repetições, com a regra de Tukey para tirar os discrepantes e a mediana para resumir.
+E quarto, uma análise sem viés. As regras e o limite de relevância foram fixados antes de eu ver os dados, como recomendam Jain e Fu. O Direct como grupo de controle permite dizer se o mecanismo ajudou ou atrapalhou: sem ele, eu só saberia qual mecanismo é melhor, não se vale a pena usar algum.
+[se der tempo] E dez repetições, com a regra de Tukey para tirar os discrepantes e a mediana para resumir.
 
 [rodapé]
 Cada decisão tem uma base: a documentação do fornecedor, a literatura ou uma medição da calibração. A lista completa está num slide de apoio, no final.""",

@@ -89,7 +89,7 @@ Pense em **duas camadas**. A camada de fora é o ***broker***, que leva o evento
 | **Channels** | mecanismo | **Fila de objetos** dentro do processo: quem recebe põe o evento na fila, e outra *thread* tira e processa. | Quem atende anota o pedido num papel e põe numa bandeja; outra pessoa pega da bandeja e resolve. |
 | **Pipelines** | mecanismo | **Fila de bytes:** quem recebe copia os bytes crus, e o leitor interpreta direto no *buffer*, sem criar um objeto por evento. | Igual à bandeja, mas em vez de papéis preenchidos vai uma fita contínua que o outro lê. |
 
-**Por que o Direct existe:** é o **grupo de controle**. Sem ele, se "Kafka com Channels" fosse melhor que "RabbitMQ com Channels", daria para concluir que o *broker* importa, mas **não** se o Channels ajudou ou atrapalhou. Comparando Channels com Direct no mesmo *broker*, isola-se o efeito do mecanismo.
+**Por que o Direct existe:** é o **grupo de controle** (detalhado no item 0.26). Sem ele, se "Kafka com Channels" fosse melhor que "RabbitMQ com Channels", daria para concluir que o *broker* importa, mas **não** se o Channels ajudou ou atrapalhou. Comparando Channels com Direct no mesmo *broker*, isola-se o efeito do mecanismo.
 
 ---
 
@@ -494,6 +494,47 @@ A combinação é feita com **soma e XOR**, operações em que **a ordem não mu
 **Números:**
 - RabbitMQ a 40 mil: Channels e Pipelines 6% abaixo do Direct, **p = 0,06**, ou seja, nem significativo nem relevante.
 - Cenário ajustado: maior diferença de 18%, **p > 0,7**.
+
+---
+
+### 0.26 Por que o Direct é o grupo de controle
+
+**Em uma frase:** o Direct é **o mesmo consumidor sem o mecanismo interno**. Comparando Channels ou Pipelines com ele, no mesmo broker e na mesma carga, a diferença que aparece **só pode vir do mecanismo**.
+
+**O que é um grupo de controle:** num experimento, é o grupo que **não recebe o tratamento** e fica igual em todo o resto. O exemplo clássico é o teste de remédio: um grupo toma o remédio e outro toma placebo. Se o primeiro melhora mais, a diferença é efeito do remédio, porque todo o resto era igual.
+
+**Trazendo para o TCC:**
+
+| No teste de remédio | No TCC |
+|---|---|
+| O tratamento | Acrescentar um mecanismo interno (Channels ou Pipelines) |
+| O grupo de controle | **Direct**: o callback chama o processamento ali mesmo, sem fila e sem troca de thread |
+| O que fica igual | O mesmo broker, a mesma carga, os mesmos dados, o mesmo código de processamento, as mesmas faixas e um leitor por faixa |
+| A medida do efeito | **Channels − Direct** e **Pipelines − Direct**, sempre no mesmo broker e na mesma carga |
+
+**O que daria errado sem ele:**
+- **Comparar Kafka + Channels com RabbitMQ + Channels** mostra que **o broker** importa, mas não diz nada sobre o Channels: ele está presente nos dois lados.
+- **Comparar Channels com Pipelines** mostra qual dos dois é melhor, mas **não se algum deles vale a pena**. Os dois podem ser piores que não usar nada, e foi o que aconteceu na CPU.
+- **Olhar o número absoluto** (por exemplo, "Kafka + Channels deu P99 de 6 ms") mistura tudo: broker, biblioteca cliente, rede local e mecanismo. Não dá para saber quanto desses 6 ms é do Channels.
+
+**Com ele, o resultado fica limpo:**
+- **Latência:** as linhas de Channels e Pipelines ficam em cima da linha do Direct. A maior diferença no P99 foi de 11%, abaixo do limite de 20%. **O mecanismo não mudou a latência.**
+- **CPU do consumidor:** 1,9 a 3,3 vezes a do Direct no Kafka. **O mecanismo só acrescentou custo.**
+- Essa é exatamente a resposta da pergunta 1. **Sem o Direct, ela não teria resposta.**
+
+**Por que o Direct é a base certa, e não outro modo:**
+1. **É o "não fazer nada".** A pergunta do trabalho é "vale a pena acrescentar um mecanismo?". A base natural é não acrescentar.
+2. **É o que já vem pronto.** A biblioteca do broker já chama o callback numa thread própria. Processar ali é o caminho mais simples, o que um desenvolvedor faria sem pensar em concorrência.
+3. **Muda uma coisa só.** Entre Direct e Channels, a única diferença é o passo de entrega (fila + troca de thread). O digest igual nas seis combinações prova que o trabalho feito foi o mesmo.
+
+**É também a lacuna da literatura:** nenhum dos trabalhos relacionados compara o mecanismo com a ausência dele. O Ortiz, por exemplo, mede a camada de processamento acoplada ao broker, mas sem um grupo de controle.
+
+**Perguntas que a banca pode fazer:**
+- **"O Direct não é também um mecanismo?"** Não. É a **ausência** de mecanismo: sem fila interna e sem troca de thread. O processamento roda na própria thread que recebe.
+- **"Mas o Direct não trava o recebimento enquanto processa?"** Trava, e esse é justamente o custo que Channels e Pipelines prometem eliminar. Aqui não fez diferença, porque processar leva 0,12 µs e o consumidor nunca acumulou trabalho. No **estudo preliminar**, em que o processamento espera a confirmação de uma republicação, isso muda: o Direct trava e para em **64 mil**, enquanto Channels e Pipelines chegam a **200 mil**. O grupo de controle é o que permite **ver** essa diferença também.
+- **"Por que não usou Channels como referência?"** Porque aí eu só mediria Pipelines contra Channels. A pergunta é se vale **acrescentar** um mecanismo, e a referência tem de ser **não ter** nenhum.
+
+**Se perguntarem, em uma frase:** "O Direct é o mesmo consumidor sem o mecanismo. Tudo o mais fica igual, então a diferença entre Channels e Direct é o efeito do Channels e de nada mais. Sem ele, eu só saberia qual mecanismo é melhor, não se vale a pena usar algum."
 
 ---
 
