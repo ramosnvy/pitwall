@@ -706,6 +706,38 @@ caixa(s, 0.6, 6.3, 12.1, 0.45,
         ("o RabbitMQ grava em disco antes de confirmar (custou 48% no P99 a 40 mil); o Kafka, não.", {})]],
       tam=13)
 
+# logo do curso no rodape: o modelo usa um PNG de fundo preto e esconde o preto
+# com "cor transparente" (a:clrChange), que o Google Slides e algumas versoes do
+# PowerPoint ignoram, deixando um retangulo preto. Troca por um PNG ja
+# transparente e tira o clrChange.
+def logo_transparente(blob, largura=640):
+    import io
+    from PIL import Image
+    im = Image.open(io.BytesIO(blob)).convert("RGB")
+    im = im.resize((largura, round(im.height * largura / im.width)), Image.LANCZOS)
+    saida = Image.new("RGBA", im.size)
+    px = []
+    for r, g, b in im.getdata():
+        a = min(255, max(r, g, b) * 255 // 70)   # preto -> transparente, bordas suaves
+        if a == 0:
+            px.append((0, 0, 0, 0))
+        else:
+            px.append((min(255, r * 255 // a), min(255, g * 255 // a), min(255, b * 255 // a), a))
+    saida.putdata(px)
+    buf = io.BytesIO()
+    saida.save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
+mestre = prs.slide_master
+for blip in mestre.element.iter(qn("a:blip")):
+    troca = blip.find(qn("a:clrChange"))
+    if troca is None:
+        continue
+    parte = mestre.part.related_part(blip.get(qn("r:embed")))
+    parte._blob = logo_transparente(parte.blob)
+    blip.remove(troca)
+
 # notas do apresentador definitivas, escritas para leitura na hora (notas.py)
 from notas import NOTAS
 assert len(NOTAS) == len(prs.slides), (len(NOTAS), len(prs.slides))
