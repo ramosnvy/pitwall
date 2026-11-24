@@ -2,8 +2,8 @@
 
 Mantem a capa e o slide final do modelo, apaga os slides de instrucao e cria
 os slides de conteudo sobre o layout "Somente titulo", com o rodape, os logos
-e o titulo em vermelho do proprio modelo. Cada slide tem notas do orador com o
-tempo sugerido (20 min no total)."""
+e o titulo em vermelho do proprio modelo. As notas do apresentador ficam em
+notas.py e substituem, no fim, as escritas junto de cada slide."""
 import copy
 from pathlib import Path
 
@@ -705,6 +705,12 @@ caixa(s, 0.6, 6.3, 12.1, 0.45,
       [[("Assimetria deliberada no padrão: ", {"negrito": True, "cor": VERMELHO}),
         ("o RabbitMQ grava em disco antes de confirmar (custou 48% no P99 a 40 mil); o Kafka, não.", {})]],
       tam=13)
+
+# notas do apresentador definitivas, escritas para leitura na hora (notas.py)
+from notas import NOTAS
+assert len(NOTAS) == len(prs.slides), (len(NOTAS), len(prs.slides))
+for slide, texto in zip(prs.slides, NOTAS):
+    slide.notes_slide.notes_text_frame.text = texto
 
 prs.save(SAIDA)
 print("salvo:", SAIDA, "slides:", len(prs.slides))
