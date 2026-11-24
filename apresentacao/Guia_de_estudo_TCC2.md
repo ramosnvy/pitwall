@@ -3,7 +3,7 @@
 **Avaliação Experimental de Arquiteturas Compostas de Processamento de Eventos em Alta Frequência Utilizando .NET**
 Pedro Augusto Ramos de Sousa · UTFPR Dois Vizinhos · Engenharia de Software
 
-> Como usar: leia a Parte 1 para ter a história inteira na cabeça; a Parte 2 para os conceitos; as Partes 3 a 8 acompanham o texto do TCC seção por seção, sempre com **o que foi feito, por que, e em que se baseia**; a Parte 9 é o banco de perguntas da banca; a Parte 10 é a cola de números.
+> Como usar: a Parte 0 explica, em linguagem simples, cada ponto que você anotou. Depois leia a Parte 1 para ter a história inteira na cabeça; a Parte 2 para os conceitos; as Partes 3 a 8 acompanham o texto do TCC seção por seção, sempre com **o que foi feito, por que, e em que se baseia**; a Parte 9 é o banco de perguntas da banca; a Parte 10 é a cola de números.
 >
 > Tudo o que está aqui vem do texto (`tcc2.tex`) ou do código do repositório. Onde eu sugiro uma resposta que **não está escrita no texto**, marquei com **[sugestão]** — use, mas saiba que é argumento seu, não dado medido.
 
@@ -11,6 +11,7 @@ Pedro Augusto Ramos de Sousa · UTFPR Dois Vizinhos · Engenharia de Software
 
 ## Sumário
 
+0. [Suas anotações, explicadas sem complicação](#0-suas-anotações-explicadas-sem-complicação)
 1. [A história do trabalho em 2 minutos](#1-a-história-do-trabalho-em-2-minutos)
 2. [Conceitos que você precisa dominar](#2-conceitos-que-você-precisa-dominar)
 3. [A bancada, etapa por etapa](#3-a-bancada-etapa-por-etapa)
@@ -22,6 +23,477 @@ Pedro Augusto Ramos de Sousa · UTFPR Dois Vizinhos · Engenharia de Software
 9. [Banco de perguntas da banca, com respostas](#9-banco-de-perguntas-da-banca-com-respostas)
 10. [Cola: números para saber de cor](#10-cola-números-para-saber-de-cor)
 11. [A apresentação, slide a slide](#11-a-apresentação-slide-a-slide)
+
+---
+
+## 0. Suas anotações, explicadas sem complicação
+
+> Cada item tem três partes. **Em uma frase** é o que você fala. **Explicando** é para entender. **Se perguntarem** é a resposta curta para a banca. A ordem é a das suas anotações. Os números da seção do TCC aparecem entre parênteses.
+
+---
+
+### 0.1 "Processamento de eventos em alta frequência é…" (2.1)
+
+**Em uma frase:** é receber, processar e responder a **muitos eventos por segundo**, em tempo **próximo do real**.
+
+**Explicando:** um evento é um fato pequeno que acontece num instante, como "o carro 44 estava a 312 km/h no instante t". Em alta frequência, chegam milhares ou centenas de milhares desses fatos por segundo, e eles precisam ser tratados conforme chegam, não guardados para processar depois. Exemplos são telemetria, IoT, monitoramento e o mercado financeiro.
+
+**Como esses sistemas são avaliados:** por três coisas.
+- **Latência:** quanto tempo cada evento demora.
+- **Throughput:** quantos eventos passam por segundo.
+- **Uso de recursos:** quanta CPU e memória isso custa.
+
+**Se perguntarem:** "É ingerir, processar e responder a grandes volumes de eventos em tempo próximo ao real; avalia-se por latência, *throughput* e uso de recursos (Luckham; Cugola; Jain; Fu)."
+
+---
+
+### 0.2 Entendendo a seção 2.1 inteira, parágrafo por parágrafo
+
+A 2.1 apresenta, em sequência, **as ferramentas de medição que o trabalho todo usa**. São seis ideias, nesta ordem:
+
+1. **O que é** processamento de eventos em alta frequência (item 0.1).
+2. **Como se mede:** latência, *throughput* e recursos.
+3. **Por que olhar a cauda (P99) e não a média.** O usuário não sente a média, sente o evento que atrasou. Imagine 100 eventos: 99 levam 1 ms e 1 leva 500 ms. A média dá cerca de 6 ms e parece ótima, mas esconde o problema. O **P99** é o valor abaixo do qual ficam 99% dos eventos, e mostra essa cauda.
+4. **Para medir a cauda, o gerador precisa ser de malha aberta** (item 0.6). Se não for, ocorre a *coordinated omission*: os piores atrasos somem da medição.
+5. **Ponto de saturação:** a maior carga que o sistema aguenta antes de a fila e a latência crescerem sem parar (item 0.5).
+6. **Operações de referência:** as operações que os *benchmarks* clássicos usam. O TCC usa as mesmas, para que o processamento não seja "inventado" (item 0.15).
+
+**Resumo para guardar:** a 2.1 diz **o que medir** (latência pela cauda, *throughput*, recursos), **como medir sem enganar** (malha aberta), **qual o limite** (saturação) e **que trabalho simular** (operações de referência).
+
+---
+
+### 0.3 Por que é importante estudar isso: os 3 motivos (Introdução)
+
+**Em uma frase:** porque ninguém tinha medido a **cadeia inteira** em .NET; porque Channels e Pipelines **têm um custo que ninguém mediu**; e porque comparar *brokers* **só é justo com ambiente controlado**.
+
+1. **As comparações olham o *broker* sozinho, e quase sempre em Java.** Numa aplicação .NET, o que o usuário sente é o desempenho da cadeia inteira: *broker* + biblioteca cliente + consumidor. Medir só o *broker* não responde à pergunta de quem escreve o sistema em .NET.
+2. **Channels e Pipelines são recomendados, mas não são de graça.** A Microsoft os indica para produtor-consumidor, mas eles **acrescentam uma fila e uma troca de *thread* a cada evento**. Sem medir, não se sabe se isso **reduz a latência ou só gasta CPU**.
+3. **Comparação entre *brokers* sem controle mede a máquina, não a arquitetura.** Fu et al. (2021) mostram isso. A diferença medida pode vir da configuração ou do ambiente, e por isso o TCC controla os dois.
+
+**Dica:** esses três motivos viram as três contribuições do trabalho.
+- (i) Seis combinações medidas com grupo de controle.
+- (ii) Um protocolo com regras fixadas antes da coleta.
+- (iii) Uma bancada aberta.
+
+---
+
+### 0.4 O que é cada coisa: Kafka, RabbitMQ, Channels, Pipelines, Direct
+
+Pense em **duas camadas**. A camada de fora é o ***broker***, que leva o evento do gerador até o consumidor. A camada de dentro é o **mecanismo interno**, que decide como o evento anda **dentro** do consumidor.
+
+| Nome | Camada | Em uma frase | Analogia |
+|---|---|---|---|
+| **Kafka** | *broker* | Um **log** (um caderno onde só se escreve no fim) dividido em partições. Trabalha em **lotes** e foi feito para volume alto. | Correio que junta cartas num malote e manda o malote inteiro. |
+| **RabbitMQ** | *broker* | *Broker* de uso geral com **filas**. Trata **cada mensagem individualmente**: roteia, confirma e grava. | Correio que entrega carta por carta, com recibo de cada uma. |
+| **Direct** | mecanismo | **Nenhum mecanismo:** a mesma *thread* que recebe a mensagem já a processa. | Quem atende o telefone resolve o pedido na hora. |
+| **Channels** | mecanismo | **Fila de objetos** dentro do processo: quem recebe põe o evento na fila, e outra *thread* tira e processa. | Quem atende anota o pedido num papel e põe numa bandeja; outra pessoa pega da bandeja e resolve. |
+| **Pipelines** | mecanismo | **Fila de bytes:** quem recebe copia os bytes crus, e o leitor interpreta direto no *buffer*, sem criar um objeto por evento. | Igual à bandeja, mas em vez de papéis preenchidos vai uma fita contínua que o outro lê. |
+
+**Por que o Direct existe:** é o **grupo de controle**. Sem ele, se "Kafka com Channels" fosse melhor que "RabbitMQ com Channels", daria para concluir que o *broker* importa, mas **não** se o Channels ajudou ou atrapalhou. Comparando Channels com Direct no mesmo *broker*, isola-se o efeito do mecanismo.
+
+---
+
+### 0.5 Saturou? Era limitado pela CPU?
+
+**Em uma frase:** o **RabbitMQ saturou em 60 mil eventos/s porque a CPU do *broker* acabou**. O **Kafka não saturou até 400 mil**, a maior carga testada.
+
+**Explicando "saturar":** um sistema satura quando chega mais trabalho do que ele consegue fazer. A fila cresce, a latência cresce junto e não para mais. No TCC, uma carga é **sustentada** se três condições valem:
+- a maioria das rodadas é válida;
+- o *throughput* chega a 99% da carga;
+- o **P99 fica abaixo de 50 ms**.
+
+O **ponto de saturação** é a maior carga sustentada, desde que todas as menores também sejam.
+
+**RabbitMQ: sim, limitado pela CPU do *broker*.**
+- O *broker* ocupou de **2,8 a 3,5 dos 4 núcleos** que tinha.
+- Ele trata cada mensagem sozinha (roteia, confirma, grava em disco), e isso custa CPU por mensagem.
+- Com a CPU no limite, a fila acumula e a cauda sobe: o P99 foi a **25 ms a 60 mil** e a **75 ms a 80 mil**, passando do limite de 50 ms.
+
+**Kafka: não saturou.**
+- Ocupou só **0,4 a 0,5 núcleo** até 400 mil, porque trabalha em lotes.
+- O ponto de saturação dele **fica acima do alcance da bancada**.
+- A 200 mil ou mais, algumas rodadas foram invalidadas porque o **gerador** atrasou o envio (episódios de disco da VM). O limite ali é da máquina, não do Kafka.
+
+**E o mecanismo interno?** Não mudou o ponto de saturação em nenhum *broker*. O consumidor nunca foi o gargalo.
+
+**Se perguntarem "como sabe que foi a CPU?":** "A CPU do *broker* RabbitMQ estava em 2,8 a 3,5 de 4 núcleos, e no cenário ajustado, ao tirar a gravação em disco, sobrou CPU e o ponto de saturação subiu de 60 para 80 mil."
+
+---
+
+### 0.6 Malha aberta
+
+**Em uma frase:** o gerador **envia cada evento no horário marcado**, sem esperar o sistema responder.
+
+**Explicando com analogia:** imagine medir a fila de um caixa de supermercado.
+- **Malha fechada:** você manda um cliente só quando o anterior saiu. Se o caixa ficar lento, você manda menos gente, a fila nunca cresce e o caixa parece ótimo. Você **escondeu o problema**.
+- **Malha aberta:** os clientes chegam no ritmo do mundo real, um a cada X segundos, aconteça o que acontecer. Se o caixa ficar lento, a fila cresce e você **vê** o atraso.
+
+Esse erro da malha fechada tem nome: ***coordinated omission*** (Tene, 2015). O gerador "combina" com o sistema e deixa de medir justamente os eventos mais atrasados.
+
+**Consequência no TCC:** como o gerador é de malha aberta, **o *throughput* sempre bate com a carga** enquanto o sistema aguenta, porque todos processam exatamente o que chega. Por isso o *throughput* não distingue as combinações. O que distingue é **a latência e o ponto de saturação**.
+
+---
+
+### 0.7 100 Hz
+
+**Em uma frase:** cada carro passa a gerar **100 eventos por segundo**, em vez dos **3,7 por segundo** que a OpenF1 fornece.
+
+**Explicando:**
+- "Hz" é "vezes por segundo". A telemetria real da OpenF1 vem a cerca de 3,7 Hz, ou seja, uma leitura a cada 270 ms por carro. É pouco para uma carga de alta frequência.
+- O gerador **reamostra** cada carro para 100 Hz, uma leitura a cada 10 ms, preenchendo as lacunas entre duas leituras reais:
+  - **Velocidade, rotação e acelerador** são **interpolados em linha reta**. Se a velocidade foi de 300 para 310 km/h, os pontos do meio ficam em 301, 302 e assim por diante.
+  - **Marcha, freio e DRS** ficam **em degrau**: mantêm o último valor real até a próxima leitura, porque não existe "marcha 4,5".
+- Resultado: **as frenagens e trocas de marcha são exatamente as da corrida original**, e não aparecem eventos inventados.
+
+**Se perguntarem "isso não distorce os dados?":** "Rodei uma bateria de sensibilidade **a 3,7 Hz, sem interpolação**. O P99 mudou menos de 10%, e as conclusões são as mesmas."
+
+---
+
+### 0.8 Frota multiplicada
+
+**Em uma frase:** para chegar a centenas de milhares de eventos por segundo, **cada carro real vira vários carros**, cada um com número próprio e começando num ponto diferente da volta.
+
+**Explicando:**
+- A 100 Hz, 20 carros dão só 2.000 eventos por segundo. Para 100 mil, são necessários **1.000 carros** (100 mil ÷ 100 Hz).
+- O gerador cria **réplicas** de cada carro real. Cada réplica recebe:
+  - **um número de carro próprio**, para ser um carro distinto, ir para sua faixa e ter suas próprias janelas;
+  - **um deslocamento de fase**: começa em outro ponto do trecho da corrida, para que nem todas as réplicas freiem no mesmo instante.
+- **Por que não acelerar o tempo?** Tocar a corrida 10× mais rápido também daria mais eventos por segundo, mas mudaria a física da carga: frenagens a cada poucos milissegundos e janelas de 1 s com dados de 10 s. Multiplicar a frota mantém **o tempo real** e cada carro se comporta como um carro de verdade.
+
+**Por que não liga compressão:** as réplicas têm conteúdo quase igual, e o Kafka comprime lotes. Comprimir daria uma vantagem artificial ao Kafka.
+
+---
+
+### 0.9 Como funciona o gerador
+
+Ele faz, em ordem:
+
+1. **Lê a cópia local** da telemetria do Bahrein 2024. A API **não** é chamada durante os experimentos.
+2. **Recorta 130 s da corrida, a partir do décimo minuto**, um trecho de corrida "normal", já sem a largada.
+3. **Reamostra de 3,7 para 100 Hz** (item 0.7).
+4. **Multiplica a frota** até a carga pedida (item 0.8).
+5. **Monta cada evento como um registro binário de 46 bytes, de tamanho fixo**, e grava nele o **instante da publicação**, lido de um relógio monotônico, para medir a latência depois.
+6. **Publica cada evento no instante previsto**, em malha aberta (item 0.6), na faixa do carro (CRC32 do número do carro).
+7. **Registra o maior atraso de envio**: quanto ficou atrás do horário previsto. Se passar de **50 ms**, a rodada é inválida, porque a carga pedida não foi de fato oferecida.
+
+Ele roda num *container* com **4 núcleos exclusivos** (0 a 3) e aceita até **100 mil mensagens sem confirmação** do *broker* (limite igual nos dois).
+
+---
+
+### 0.10 Diferença entre Channels e Pipelines
+
+**Em uma frase:** o **Channels transporta objetos**; o **Pipelines transporta bytes**.
+
+| | Channels | Pipelines |
+|---|---|---|
+| O que vai na fila | um **objeto** `TelemetryEvent` já pronto | os **46 bytes crus** da mensagem |
+| Quem desserializa | a *thread* do cliente, **antes** de pôr na fila | o leitor, **depois**, direto no *buffer* |
+| Cria objeto por evento? | sim | não |
+| Limite da fila | **10.000 eventos** por faixa | **460.000 bytes** (= 10.000 × 46, o mesmo volume) |
+| Quando a fila enche | o escritor espera (`FullMode.Wait`) | o escritor pausa (`pauseWriterThreshold`) e volta à metade |
+| Pensado para | passar **itens** entre *threads* | **fluxos de bytes** (rede, arquivos), com *buffers* reaproveitados |
+
+**O que é igual:** os dois tiram o processamento da *thread* do cliente e passam para uma *thread* de trabalho, com **um leitor por faixa** e contrapressão quando enchem.
+
+**Resultado:** latência igual à do Direct nos dois. No Kafka, o **Pipelines gastou sempre um pouco mais de CPU que o Channels**. A alocação também foi igual nos três modos (~950 B/evento no Kafka), porque **quem aloca é a biblioteca cliente**, antes de o evento chegar ao mecanismo. Por isso a vantagem teórica do Pipelines ("não cria objeto") não apareceu.
+
+---
+
+### 0.11 Por que Channels e Pipelines "distribuem o trabalho com pouco *overhead*"
+
+**Em uma frase:** porque são filas feitas para isso: **sem travar *threads*** enquanto esperam, com **pouca disputa** entre quem escreve e quem lê e, no Pipelines, **reaproveitando a memória**.
+
+**Explicando (conhecimento geral de .NET; a frase vem de Cleary, 2019):**
+- O jeito "na mão" seria uma `Queue` com `lock` e uma *thread* parada esperando item. Isso gasta uma *thread* bloqueada e gera disputa pelo *lock*.
+- **Channels:** quem lê **espera de forma assíncrona** (`await`). A *thread* fica livre enquanto não chega item. A implementação é otimizada para um escritor e um leitor (`SingleReader`/`SingleWriter`, que o TCC usa).
+- **Pipelines:** além disso, usa ***buffers* reaproveitados** de um *pool*, então não aloca memória nova a cada mensagem nem copia os dados para interpretar.
+
+**O ponto importante para a banca:** "pouco *overhead*" **não é zero**.
+- O TCC mediu o custo: **2,4 a 3,7 µs por evento** a mais de CPU no Kafka, mais ou menos o custo de acordar uma *thread* a cada evento.
+- O processamento em si custa **0,12 µs**. Diante disso, até "pouco" é **20 a 30 vezes o trabalho útil**. Por isso o mecanismo custou CPU sem trazer ganho.
+
+**Se perguntarem:** "Pouco *overhead* comparado a fazer a fila na mão, mas não é de graça: medi 2,4 a 3,7 µs por evento, e quando o trabalho útil é 0,12 µs, esse custo domina."
+
+---
+
+### 0.12 Critério de validade da rodada
+
+**Em uma frase:** antes de olhar os dados, defini **quatro motivos para jogar uma rodada fora**. Se qualquer um acontece, a rodada é inválida e **não é repetida**.
+
+| Regra | O que garante |
+|---|---|
+| **Atraso máximo de envio > 50 ms** | O gerador realmente ofereceu a carga pedida. Se ele atrasou, a rodada não mediu "60 mil/s". |
+| ***Digest* diferente do de referência** | O sistema processou **tudo certo**: sem perder, duplicar ou embaralhar evento (item 0.16). |
+| **Registro incompleto no `Pipe`** | O Pipelines não quebrou nenhuma mensagem no meio. |
+| **Persistência descartou janelas** | O banco não perdeu resultados. |
+
+**Por que "não repetir"?** Repetir até dar certo seria escolher o resultado. A rodada inválida fica registrada e conta contra a carga (a carga só é sustentada se **a maioria** das rodadas for válida).
+
+**O que aconteceu:** 12 inválidas em 390, **todas do Kafka a 200 mil ou mais, todas pelo atraso de envio**, que coincide com os episódios de disco da VM. **Nenhuma falhou no *digest*.**
+
+---
+
+### 0.13 *Brokers* com um único nó?
+
+**Em uma frase:** cada *broker* rodou **como um servidor só**, sem *cluster*, porque **a bancada é uma única máquina**.
+
+**Explicando:**
+- Em produção, Kafka e RabbitMQ costumam rodar em vários servidores (**nós**) que copiam as mensagens entre si (**replicação**), para não perder dados se um cair.
+- Aqui há **um nó**: então **não há replicação**. No Kafka, o `acks=all` significa "todas as réplicas confirmaram", e com um nó só a réplica é ele mesmo.
+- **Por que não simular vários nós na mesma máquina?** [sugestão] Os nós dividiriam a mesma CPU e o mesmo disco. Você mediria a **disputa entre eles**, não o custo real da replicação, que em produção passa pela rede entre máquinas.
+
+**Se perguntarem:** "É uma limitação declarada. O resultado vale para um nó por *broker*. Com vários nós, a replicação acrescenta rede e confirmação entre servidores, o que pode mudar as latências. Por isso está nos trabalhos futuros: vários nós com replicação."
+
+---
+
+### 0.14 *At-least-once*
+
+**Em uma frase:** **nenhuma mensagem se perde, mas uma pode chegar mais de uma vez**.
+
+**Explicando com analogia (carta registrada):** o correio só dá a carta como entregue quando recebe o seu recibo. Se o recibo se perder, ele manda de novo. Você nunca fica sem a carta, mas pode receber duas.
+
+**Como funciona nos dois lados:**
+1. **Gerador → *broker*:** o *broker* confirma que recebeu.
+   - Kafka: `acks=all`.
+   - RabbitMQ: *publisher confirms*, em lotes de 12.500, dois lotes "em voo" por faixa.
+   - Sem confirmação, o gerador reenviaria.
+2. ***Broker* → consumidor:** o consumidor só confirma **depois de entregar ao processamento**.
+   - Kafka: guarda o *offset* só depois disso.
+   - RabbitMQ: confirma em lotes de 100.
+   - Se o consumidor cair antes, o *broker* entrega de novo.
+
+**Por que essa garantia?** É a garantia comum para telemetria (perder dado é pior que receber repetido) e é a que **os dois *brokers* oferecem do mesmo jeito**. Comparar um *broker* que pode perder mensagem com outro que não pode seria injusto.
+
+---
+
+### 0.15 Operações de referência dos *benchmarks*
+
+**Em uma frase:** o processamento do consumidor faz **o mesmo tipo de trabalho que os *benchmarks* clássicos de fluxo de eventos usam**, em vez de algo inventado.
+
+**Os *benchmarks*:**
+- **Linear Road** (Arasu et al., 2004) simula pedágio em rodovias.
+- **DEBS 2013 Grand Challenge** (Mutschler et al., 2013) usa dados de sensores de um jogo de futebol.
+
+Os dois usam duas operações típicas:
+
+| Operação | O que é | No TCC |
+|---|---|---|
+| **Agregação em janela por chave** | Juntar os eventos de cada "coisa" num intervalo de tempo e resumir. | **Janelas de 1 s por carro**, em **tempo do evento** (pelo instante em que aconteceu, não em que chegou): velocidade máxima, contagem etc. |
+| **Detecção de padrões em eventos consecutivos** | Olhar um evento e o anterior da mesma chave para achar uma mudança. | **Frenagens** (freio passando o limiar) e **trocas de marcha** entre dois eventos seguidos do mesmo carro. |
+
+**Por que isso importa:** a detecção **depende da ordem** dos eventos de cada carro. Por isso há **um leitor por faixa**: dois leitores poderiam processar fora de ordem e criar ou perder frenagens.
+
+---
+
+### 0.16 *Digest*
+
+**Em uma frase:** é uma **"impressão digital" do resultado** de cada rodada. Se todas as combinações processaram a mesma entrada direito, **todas têm de dar o mesmo *digest***.
+
+**Explicando:** ao fim da rodada, o consumidor resume tudo o que calculou num conjunto de números:
+- quantas janelas;
+- quantos eventos;
+- quantas frenagens;
+- quantas trocas de marcha;
+- a soma das velocidades máximas;
+- um *hash* de cada janela, combinado com os outros.
+
+A combinação é feita com **soma e XOR**, operações em que **a ordem não muda o resultado** (5 + 3 = 3 + 5). Assim o *digest* não depende de qual janela fechou primeiro nem de quantas *threads* existiam.
+
+**O que ele pega:**
+- **Evento perdido:** a contagem cai.
+- **Evento duplicado:** a contagem sobe.
+- **Evento fora de ordem:** uma frenagem aparece ou some, e o *hash* muda.
+
+**Resultado:** **zero divergências** em todas as rodadas. Isso prova que **as seis combinações fizeram exatamente o mesmo trabalho**, condição para comparar desempenho.
+
+**Detalhe se perguntarem:** a velocidade **média** ficou de fora, porque é número com vírgula (ponto flutuante). Somar em outra ordem pode mudar o último dígito sem erro nenhum, e isso daria falso alarme.
+
+---
+
+### 0.17 Persistência e métricas (etapa 5)
+
+**Em uma frase:** os resultados vão para o **PostgreSQL de um jeito que não atrapalha a medição**, e as métricas vêm de **ferramentas separadas**, uma para cada coisa.
+
+**Persistência (guardar os resultados):**
+- As janelas são gravadas no **PostgreSQL 17**:
+  - **em lote**;
+  - com **`COPY` binário**, o jeito mais rápido de inserir muitas linhas;
+  - em tabelas **`UNLOGGED`**, que não gravam o diário de recuperação e por isso são mais rápidas.
+- Objetivo: **o banco não pode ser o gargalo**, senão você mediria o PostgreSQL em vez do *broker*.
+- **A latência termina antes da gravação.** O banco não entra no número.
+- Se a gravação descartar janelas, a rodada é inválida.
+
+**Métricas (como cada coisa foi medida):**
+
+| O quê | Com o quê |
+|---|---|
+| CPU e memória de cada *container* | **Prometheus + cAdvisor** |
+| Latência | O gerador grava na mensagem o instante de publicação (**relógio monotônico**, que só anda para frente). O consumidor compara com **o mesmo relógio** no fim do processamento. Tudo na mesma máquina, então **não precisa sincronizar relógios**. |
+| Distribuição da latência | **HdrHistogram**, feito para medir percentis altos com precisão |
+| Custo do .NET | **Contadores do *runtime***: bytes alocados por evento e coletas de lixo |
+
+---
+
+### 0.18 O que foi feito na calibração
+
+**Em uma frase:** antes da coleta oficial, fiz medições de teste e **descobri que o ambiente estava pesando mais que as arquiteturas**. Corrigi tudo e só então congelei o cenário.
+
+| O que apareceu | O que fiz |
+|---|---|
+| Gerador e consumidor **fora dos *containers***: o Kafka tinha latência "com dois picos" (bimodal) em **43%** das rodadas de carga baixa | Coloquei **tudo em *containers*** |
+| Com **cota de CPU**, o RabbitMQ era "estrangulado" | Dei **núcleos exclusivos** a cada componente: o P99 do RabbitMQ caiu **40% a 64%** |
+| Auditoria da configuração contra os valores de fábrica | Achei e corrigi **3 defeitos de configuração** e **3 assimetrias** entre os *brokers* |
+| A partir de 100 mil/s, o Kafka **travava de 200 ms a 2 s**, junto com a gravação de páginas no disco virtual. Logo depois de a VM parar esperando disco, a chance de latência > 50 ms era **126 vezes maior** | Criei o critério do **atraso de envio** e usei **10 repetições, mediana e Tukey**, para um episódio isolado não decidir o resultado |
+| `linger.ms` = 0 deu P50 de **400 ms** já a 10 mil | Descartei esse valor do cenário ajustado |
+| A gravação em disco do RabbitMQ custava **48%** no P99 a 40 mil | Declarei como assimetria e criei o cenário ajustado para igualar |
+
+**O ponto principal:** esses dados **não entram na análise**. A calibração serviu para **consertar a bancada**, não para tirar conclusão. É a origem da frase "o ambiente pesou mais que a arquitetura", que concorda com Fu et al.
+
+---
+
+### 0.19 Cenário ajustado
+
+**Em uma frase:** repeti os experimentos com **a configuração que cada fornecedor recomenda**, mantendo o *at-least-once*, para ver **quanto da diferença vinha da configuração**.
+
+**O que mudou:**
+- **RabbitMQ:**
+  - **mensagem transitória**: não grava em disco antes de confirmar, o que iguala a garantia à do Kafka (item 0.21);
+  - ***prefetch* 300** (item 0.22).
+- **Kafka:**
+  - **`linger.ms` de 5 para 1 ms**, a recomendação para latência (item 0.23);
+  - um **perfil para vazão** com **20 ms**.
+
+**O que aconteceu:**
+- **RabbitMQ melhorou muito:**
+  - **P99 caiu 43% a 76%** (2,3 → 0,65 ms a 10 mil; 25 → 10 ms a 60 mil);
+  - a saturação subiu de **60 para 80 mil**;
+  - sem a gravação em disco, sobrou CPU.
+- **Kafka foi uma troca:**
+  - **`linger.ms` 1:** o P50 caiu de 3 para 1 ms, provando que o "piso" de 3 ms era a espera para formar lotes. Mas com lotes menores o *broker* recebe mais pedidos: **a CPU dele dobrou** e o **P99 subiu** em carga alta (até 22 ms a 300 mil).
+  - **`linger.ms` 20:** o contrário. P99 perto de 21 ms, mas **30% menos CPU** no *broker*.
+- **Channels e Pipelines continuaram sem efeito** na latência e custando 1,9 a 2,3 vezes a CPU do consumidor no Kafka.
+
+**Conclusão do cenário:** parte da diferença entre os *brokers* no cenário padrão **vinha da configuração**. Um parâmetro mudou o P99 em até 76%, e **cada parâmetro troca latência por CPU**.
+
+---
+
+### 0.20 Uso de recursos (6.3), versão simples
+
+**A ideia em três frases:**
+1. **Channels e Pipelines fazem o consumidor trabalhar mais sem entregar nada a mais.**
+2. **O *broker* RabbitMQ gasta muita CPU e o Kafka pouca**, e é isso que explica quem satura.
+3. **Memória não depende do modo.**
+
+**Agora um por um:**
+
+**a) CPU do consumidor: é onde os modos se separam.**
+- **Kafka:**
+  - o Direct usa de **0,09 a 0,63** núcleo;
+  - Channels e Pipelines usam de **0,17 a 1,69**, ou **1,9 a 3,3 vezes mais**.
+  - O extra é de **2,4 a 3,7 µs por evento**, mais ou menos o custo de **acordar uma *thread*** a cada evento.
+- **RabbitMQ:**
+  - o consumidor já usa **perto de 1 núcleo** em qualquer carga;
+  - os mecanismos acrescentam só **4% a 9%**.
+  - [sugestão] A biblioteca do RabbitMQ entrega e confirma mensagem a mensagem, então a base já é alta e o extra do mecanismo fica pequeno em proporção.
+
+**b) CPU do *broker*: é o que separa os *brokers*.**
+- **RabbitMQ:** **2,8 a 3,5 de 4 núcleos**, perto do limite. Trata cada mensagem individualmente: roteia, confirma e grava em disco.
+- **Kafka:** **0,4 a 0,5 núcleo** até 400 mil. Trata lotes: junta, grava em sequência e entrega em lote.
+- O mesmo aparece no **gerador**: 3,1 núcleos para publicar no RabbitMQ a 60 mil, contra 1,1 no Kafka.
+
+**c) Memória.**
+- **Consumidor:** entre **87 e 117 MB** em todas as combinações. O modo não importa.
+- ***Broker*: aqui o Kafka perde.** Usa de **1,4 a 1,7 GB**, contra **0,2 a 0,3 GB** do RabbitMQ.
+- [sugestão] O Kafka roda na JVM e mantém o *log* e os índices em memória.
+
+**d) Alocação do .NET.**
+- Os três modos alocam **o mesmo**: ~950 B por evento no Kafka e 720 a 834 no RabbitMQ, cerca de **20 vezes o tamanho da mensagem**.
+- Quem aloca é **a biblioteca cliente**, antes de o evento chegar ao mecanismo.
+- Coletas de lixo pesadas (geração 2): **no máximo uma por rodada**.
+
+**O "porquê" que amarra tudo:** o processamento custa **0,12 µs por evento**, e o consumidor termina um evento muito antes de o *broker* entregar o próximo. **Não há fila de trabalho acumulada** para o mecanismo paralelizar. Então ele só acrescenta a fila interna e a troca de *thread*, isto é, CPU a mais.
+
+---
+
+### 0.21 Mensagem transitória (6.4)
+
+**Em uma frase:** no RabbitMQ, é a mensagem que **não é gravada em disco antes de o *broker* confirmar** ao produtor. Fica em memória.
+
+**Explicando:**
+- **Persistente**, o padrão usado: o RabbitMQ **grava em disco e só depois confirma**. É mais seguro contra queda do servidor, mas cada mensagem espera o disco. Na calibração, isso custou **48% no P99** a 40 mil.
+- **Transitória**, a do cenário ajustado: confirma **sem esperar o disco**.
+
+**Por que isso é justo e não "afrouxar" o RabbitMQ:** o **Kafka já fazia isso desde o começo**. Ele confirma com a mensagem no cache do sistema operacional, sem esperar o disco, e deixa a durabilidade para a **replicação entre nós**, como recomenda a própria documentação. Tornar a mensagem transitória **iguala a garantia dos dois**. A entrega continua *at-least-once*: o que muda é só a proteção contra a queda do servidor inteiro.
+
+**Se perguntarem "então o cenário padrão era injusto?":** "A assimetria foi deliberada e declarada: no padrão, cada *broker* está com seu valor de fábrica. O cenário ajustado existe exatamente para mostrar o efeito de igualar, e o RabbitMQ melhorou de 43% a 76% no P99."
+
+---
+
+### 0.22 *Prefetch*
+
+**Em uma frase:** no RabbitMQ, é **quantas mensagens o *broker* pode mandar ao consumidor sem receber confirmação**.
+
+**Explicando com analogia:** um garçom pode levar até N pratos para a mesa antes de você dizer "recebi". Com N pequeno, ele fica indo e voltando esperando. Com N ilimitado, ele pode encher a mesa.
+
+**No TCC:**
+- **Cenário padrão:** *prefetch* **0 = sem limite**, o valor de fábrica do RabbitMQ (está no código: `--prefetch 0`, "sem limite, padrão do RabbitMQ").
+- **Cenário ajustado:** ***prefetch* 300**, seguindo a recomendação do fornecedor de **limitar** o *prefetch*. Assim o *broker* não empurra mensagens sem controle para o consumidor e mantém um fluxo estável.
+- **Detalhe do código:** o consumidor confirma em lotes de 100, e o lote precisa caber com folga no *prefetch* (no máximo a metade dele). Senão o *broker* para de entregar esperando uma confirmação que só viria com mais mensagens: um impasse. Com 300 e lotes de 100, cabe.
+
+---
+
+### 0.23 `linger.ms`
+
+**Em uma frase:** no Kafka, é **quanto tempo o produtor espera para juntar mensagens num lote** antes de enviar.
+
+**Explicando com analogia:** o ônibus espera alguns minutos no ponto para encher. Esperar mais leva mais gente por viagem (menos viagens, menos CPU), mas cada passageiro demora mais a sair.
+
+| `linger.ms` | O que aconteceu |
+|---|---|
+| **5 ms** (fábrica, cenário padrão) | Explica o **piso de ~3 ms no P50** do Kafka em qualquer carga |
+| **1 ms** (ajustado, latência) | P50 cai de **3 para 1 ms**, mas lotes menores mandam mais requisições: **CPU do *broker* dobra** e o **P99 sobe** em carga alta |
+| **20 ms** (ajustado, vazão) | Lotes grandes: **P99 ≈ 21 ms**, mas **30% menos CPU** |
+| **0 ms** | **Descartado** na calibração: o P50 foi a **400 ms** já a 10 mil (sem espera nenhuma, o *broker* afoga em pedidos minúsculos) |
+
+**A lição:** é o exemplo mais claro de que **cada parâmetro troca latência por CPU**, e de que a configuração muda o resultado da comparação.
+
+---
+
+### 0.24 Regra de Tukey
+
+**Em uma frase:** é uma regra **objetiva, fixada antes**, para **tirar as rodadas muito fora da curva**.
+
+**Explicando passo a passo:** em cada combinação (por exemplo, "Kafka + Direct a 100 mil"), pegue o P99 das 10 rodadas.
+
+1. Ordene os 10 valores.
+2. **Q1** é o valor a 25% da lista e **Q3**, o valor a 75%. A "caixa do meio" tem metade das rodadas.
+3. **IQR = Q3 − Q1**, a largura dessa caixa.
+4. Tudo **abaixo de Q1 − 1,5 × IQR** ou **acima de Q3 + 1,5 × IQR** sai.
+5. A combinação é resumida pela **mediana** do que sobrou.
+
+**Exemplo:** P99 de 9 rodadas entre 5 e 7 ms e uma com 80 ms (um episódio de disco da VM). Q1 ≈ 5,5 e Q3 ≈ 6,5, então IQR = 1. O limite de cima é 6,5 + 1,5 = 8 ms. A rodada de 80 ms sai.
+
+**Por que usar:** a calibração mostrou que **um episódio da VM podia multiplicar a latência**. Sem a regra, uma rodada azarada decidiria o resultado. Como a regra foi **fixada antes de ver os dados**, não dá para dizer que escolhi o que tirar.
+
+**Números:** descartou **32 de 390 rodadas (~8%)**.
+
+---
+
+### 0.25 Kruskal-Wallis
+
+**Em uma frase:** é um **teste estatístico** que responde "**esses 3 grupos são diferentes de verdade ou é só variação aleatória?**", sem precisar que os dados sigam a curva normal.
+
+**Explicando:**
+- Os grupos são os **3 modos** (Direct, Channels, Pipelines) numa mesma carga e *broker*.
+- Em vez de usar os valores, ele **ordena todas as rodadas juntas** e vê se um grupo fica sistematicamente no topo ou no fundo da lista (usa **postos**, ou *ranks*).
+- **Por que esse e não o ANOVA?** O ANOVA supõe dados normais, e latência não é normal (tem cauda longa). Além disso as amostras são pequenas (10 rodadas). O Kruskal-Wallis não faz essa suposição.
+- **Nível de 5%:** se p < 0,05, a diferença dificilmente é sorte.
+
+**O detalhe mais importante:** no TCC ele **só acompanha** as diferenças grandes. O critério principal é o **tamanho do efeito**: **20% no P99, 10% no *throughput***. Com rodadas muito parecidas entre si, **até uma diferença de 2%, que não importa na prática, pode dar "estatisticamente significativa"**. Então primeiro pergunto "a diferença é grande o bastante para importar?" e só depois "ela é real?".
+
+**Números:**
+- RabbitMQ a 40 mil: Channels e Pipelines 6% abaixo do Direct, **p = 0,06**, ou seja, nem significativo nem relevante.
+- Cenário ajustado: maior diferença de 18%, **p > 0,7**.
 
 ---
 
