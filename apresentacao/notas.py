@@ -81,12 +81,12 @@ E o Ortiz mostra que a camada de processamento acoplada ao broker afeta a latên
 Então a lacuna é esta: nenhum combina os dois brokers com Channels e Pipelines, e nenhum mede o mecanismo interno contra um grupo de controle sem ele. Esse é o papel do modo Direct neste trabalho.""",
 
 # 6 --- bancada
-"""[2:40]
+"""[2:45]
 
 Esta é a bancada. Ela tem cinco etapas, da esquerda para a direita.
 
 [etapa 1]
-[se der tempo] Os dados: telemetria real da OpenF1, da corrida do Bahrein de 2024, baixada uma única vez para uma cópia local.
+Os dados são da OpenF1: telemetria real da corrida do Bahrein de 2024.
 A telemetria original vem a 3,7 leituras por segundo por carro. Eu reamostro para 100.
 [se der tempo] Velocidade, rotação e acelerador são interpolados em linha reta; marcha, freio e DRS ficam em degrau. Então as frenagens e trocas de marcha são as da corrida real.
 E, para chegar a centenas de milhares de eventos por segundo, eu multiplico a frota: cada cópia de carro ganha um número próprio e começa num ponto diferente da corrida.

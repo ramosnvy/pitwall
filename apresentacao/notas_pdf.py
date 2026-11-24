@@ -54,15 +54,22 @@ for k in range(deck.page_count):
     pg = out.new_page(width=W, height=H)
     # cabecalho
     pg.insert_text((M, M - 8), f"Notas do apresentador · slide {rotulos[k]}", fontsize=9, color=(0.45, 0.48, 0.52))
-    # miniatura do slide
+    # miniatura do slide; nas notas longas, a miniatura encolhe para a letra
+    # das notas nao precisar diminuir
     src = deck[k].rect
-    w_img = (W - 2 * M) * 0.62
-    h_img = w_img * src.height / src.width
+    for fator in (0.62, 0.5, 0.4, 0.32):
+        w_img = (W - 2 * M) * fator
+        h_img = w_img * src.height / src.width
+        area = pymupdf.Rect(M, M + h_img + 14, W - M, H - M)
+        teste = pymupdf.open()
+        tp = teste.new_page(width=W, height=H)
+        _, escala = tp.insert_htmlbox(area, formatar(NOTAS[k]), css=CSS, scale_low=0.6)
+        if escala >= 0.97:
+            break
     caixa_img = pymupdf.Rect(M, M, M + w_img, M + h_img)
     pg.show_pdf_page(caixa_img, deck, k)
     pg.draw_rect(caixa_img, color=(0.83, 0.85, 0.86), width=0.6)
     # notas
-    area = pymupdf.Rect(M, M + h_img + 14, W - M, H - M)
     pg.insert_htmlbox(area, formatar(NOTAS[k]), css=CSS, scale_low=0.6)
     pg.insert_text((W - M - 40, H - 18), f"{k + 1}/{deck.page_count}", fontsize=8, color=(0.6, 0.6, 0.6))
 
