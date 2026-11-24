@@ -14,10 +14,10 @@ Bom dia (boa tarde) a todos. Meu nome é Pedro Augusto, e vou apresentar o meu T
 
 O trabalho é uma avaliação experimental. Eu medi, na prática, como se comportam arquiteturas de processamento de eventos em .NET quando se combina um broker de mensageria, o RabbitMQ ou o Kafka, com um mecanismo de concorrência dentro do consumidor, o Channels ou o Pipelines.
 
-[Tempo previsto: cerca de 19 minutos sem os trechos marcados "se der tempo"; com todos eles, uns 22. Pule-os se estiver atrasado.]""",
+[Tempo previsto: cerca de 19 minutos e meio sem os trechos marcados "se der tempo"; com todos eles, uns 22. Pule-os se estiver atrasado.]""",
 
 # 2 --- contexto e problema
-"""[1:30]
+"""[1:20]
 
 Sistemas de telemetria, de IoT e de monitoramento recebem milhares de eventos por segundo, e precisam tratar cada um quase em tempo real.
 
@@ -26,16 +26,15 @@ Em .NET, essa arquitetura costuma ter duas camadas.
 A primeira é o broker: o RabbitMQ ou o Kafka. Ele recebe os eventos do gerador e entrega ao consumidor.
 A segunda fica dentro do consumidor: o mecanismo interno. Ele pode processar a mensagem ali mesmo, que é o que eu chamo de Direct, ou passar para outra thread com Channels ou Pipelines, que a Microsoft recomenda para esse tipo de cenário.
 
-E por que estudar isso? São três motivos.
+E por que estudar isso? São dois motivos.
 Primeiro, as comparações entre RabbitMQ e Kafka olham o broker sozinho, e quase sempre em Java. Mas numa aplicação .NET o que se sente é a cadeia inteira.
 Segundo, Channels e Pipelines acrescentam uma fila e uma troca de thread a cada evento. Ninguém tinha medido se isso ajuda ou só custa.
-Terceiro, uma comparação só é justa com ambiente e carga controlados. Senão, a gente mede a máquina, e não a arquitetura.
 
 [aponte para a caixa rosada]
 Daí as duas perguntas do trabalho: o mecanismo interno melhora, piora ou não muda o desempenho? E qual broker atende melhor cada faixa de carga, e quanto disso vem da configuração?""",
 
 # 3 --- objetivos
-"""[0:50]
+"""[0:55]
 
 O objetivo geral é avaliar experimentalmente essas arquiteturas compostas: o broker mais o mecanismo interno, em .NET.
 
@@ -60,11 +59,11 @@ O Pipelines faz o mesmo, mas com bytes, e sem criar um objeto por evento.
 Os dois tiram o processamento da thread que recebe.
 
 [caixa rosada, à direita]
-E, para medir, três ideias.
-Uso percentis. O P99 é o valor abaixo do qual ficam 99% dos eventos. Ele mostra a cauda, e é a cauda que limita esses sistemas, não a média.
-O gerador é de malha aberta: envia cada evento no horário marcado, sem esperar o sistema responder. Se esperasse, desaceleraria justamente quando o sistema atrasa e esconderia os piores atrasos.
-[se der tempo] É o que o Tene chama de coordinated omission.
-E o ponto de saturação é a maior carga que o sistema sustenta antes de a fila e a latência crescerem sem parar.""",
+E como eu meço? Três ideias.
+Primeiro, olho a cauda, não a média. O P99 é o tempo que 99% dos eventos não ultrapassam. É o evento atrasado que o usuário sente, e a média esconde ele.
+Segundo, o gerador é de malha aberta: ele manda cada evento na hora marcada, sem esperar o sistema. Se esperasse, ele iria mais devagar justo quando o sistema atrasa, e os piores atrasos sumiriam da medição.
+[se der tempo] O Tene chama esse erro de coordinated omission.
+Terceiro, o ponto de saturação: a maior carga que o sistema aguenta antes de a latência disparar.""",
 
 # 5 --- trabalhos relacionados
 """[0:55]
@@ -82,7 +81,7 @@ E o Ortiz mostra que a camada de processamento acoplada ao broker afeta a latên
 Então a lacuna é esta: nenhum combina os dois brokers com Channels e Pipelines, e nenhum mede o mecanismo interno contra um grupo de controle sem ele. Esse é o papel do modo Direct neste trabalho.""",
 
 # 6 --- bancada
-"""[2:05]
+"""[2:20]
 
 Esta é a bancada. Ela tem cinco etapas, da esquerda para a direita.
 
@@ -95,7 +94,8 @@ E, para chegar a centenas de milhares de eventos por segundo sem acelerar o temp
 
 [etapa 2]
 O gerador publica em malha aberta, até 400 mil eventos por segundo.
-[se der tempo] Cada evento é um registro binário de 46 bytes.
+Cada evento é um registro binário de 46 bytes, sempre do mesmo tamanho. Isso importa porque é uma mensagem pequena, como a de um sensor de IoT: o custo fica quase todo no transporte, e não no processamento. Isso ajuda a explicar os resultados.
+[se der tempo] Como o tamanho é fixo, o Pipelines lê um registro atrás do outro sem procurar separador. E é com esses 46 bytes que eu igualo as filas internas: 10 mil eventos no Channels são os mesmos 460 kB do Pipe.
 
 [etapa 3]
 O broker divide a carga em quatro faixas: quatro partições no Kafka, quatro filas no RabbitMQ. O carro define a faixa pela mesma função nos dois, o CRC32. Assim, cada carro cai sempre na mesma faixa, e os eventos dele chegam em ordem.
@@ -103,7 +103,8 @@ Há um único leitor por faixa. Dois leitores poderiam processar fora de ordem o
 
 [etapa 4 — aponte para o quadro de baixo]
 No consumidor estão os três modos. No Direct, o callback processa ele mesmo. No Channels e no Pipelines, ele entrega a um leitor numa thread de trabalho e volta a receber.
-A única diferença entre as três linhas é essa entrega. Por isso o Direct é o grupo de controle: mesmo broker, mesma carga e mesmo código, só que sem o mecanismo. Então a diferença entre Channels e Direct é o efeito do Channels, e de nada mais.
+A única diferença entre as três linhas é essa entrega. Por isso o Direct é o grupo de controle: mesmo broker, mesma carga e mesmo código, só que sem o mecanismo.
+[se der tempo] Então a diferença entre Channels e Direct é o efeito do Channels, e de nada mais.
 Os três chamam o mesmo código: janelas de um segundo por carro e detecção de frenagens e trocas de marcha.
 [se der tempo] São as operações de referência de benchmarks clássicos, como o Linear Road e o DEBS Grand Challenge.
 
