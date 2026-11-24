@@ -211,7 +211,9 @@ s = novo_slide("Contexto e problema",
                "RabbitMQ ou Kafka, e, dentro do consumidor, um mecanismo de concorrência: Channels ou "
                "Pipelines, que a Microsoft recomenda para produtor-consumidor. O problema é que as "
                "comparações de broker costumam ser isoladas e fora do .NET, e ninguém mede se o "
-               "mecanismo interno ajuda ou só custa recursos. Daí as duas perguntas do trabalho.")
+               "mecanismo interno ajuda ou só custa recursos. E uma comparação de brokers só é justa com "
+               "ambiente e carga controlados; sem isso, mede-se a máquina, e não a arquitetura. Daí as "
+               "duas perguntas do trabalho.")
 caixa(s, 0.6, 1.85, 12.1, 0.8,
       ["Telemetria, IoT e monitoramento processam milhares de eventos por segundo. Em .NET, a "
        "arquitetura costuma combinar duas camadas:"], tam=18, cor=GRAFITE)
@@ -538,12 +540,13 @@ resultado("Latência e throughput", "fig_latencia_throughput.png",
           "localizado: sei só que fica acima de 400 mil, a maior carga que o gerador sustentou.")
 
 resultado("Uso de recursos", "fig_recursos.png", "CPU e memória do consumidor e do broker", 7.3, 4.75,
-          [("CPU do consumidor", "É a única medida em que os modos se separam: Channels e Pipelines custam de 1,9 a 3,3 vezes a CPU do Direct no Kafka."),
+          [("CPU do consumidor", "Só aqui os modos se separam: no Kafka, Channels e Pipelines custam 1,9 a 3,3 vezes a CPU do Direct, 2,4 a 3,7 µs a mais por evento, contra 0,12 µs do processamento."),
            ("CPU do broker", "Explica a saturação: o RabbitMQ chega a 3,5 dos 4 núcleos; o Kafka fica em 0,5."),
            ("Memória e alocação", "Não dependem do modo: cerca de 950 bytes por evento no Kafka nos três, porque quem aloca é a biblioteca cliente.")],
           "[1:15] Nos recursos, a CPU do consumidor é a única medida em que os modos se separam, e "
           "para pior: no Kafka, Channels e Pipelines custam até 3,3 vezes a CPU do Direct, porque passar "
-          "cada evento para outra thread custa mais que processá-lo. A CPU do broker explica a "
+          "cada evento para outra thread custa mais que processá-lo: são 2,4 a 3,7 microssegundos a mais por evento, "
+          "mais ou menos o custo de acordar uma thread, contra 0,12 microssegundo do processamento. A CPU do broker explica a "
           "saturação: o RabbitMQ esgota os 4 núcleos, o Kafka quase não usa. A memória não depende do "
           "modo; no broker, o Kafka usa de 1,4 a 1,7 GB contra 0,2 a 0,3 GB do RabbitMQ, ou seja, troca "
           "CPU por memória. Um ponto que parece estranho: o Pipelines foi feito para não criar um objeto "
