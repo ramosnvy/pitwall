@@ -14,7 +14,7 @@ Bom dia (boa tarde) a todos. Meu nome é Pedro Augusto, e vou apresentar o meu T
 
 O trabalho é uma avaliação experimental. Eu medi, na prática, como se comportam arquiteturas de processamento de eventos em .NET quando se combina um broker de mensageria, o RabbitMQ ou o Kafka, com um mecanismo de concorrência dentro do consumidor, o Channels ou o Pipelines.
 
-[Tempo previsto: cerca de 19 minutos sem os trechos marcados "se der tempo"; com todos eles, uns 22. Pule-os se estiver atrasado.]""",
+[Tempo previsto: cerca de 18 minutos sem os trechos marcados "se der tempo"; com todos eles, uns 20. Pule-os se estiver atrasado.]""",
 
 # 2 --- contexto e problema
 """[1:10]
@@ -209,69 +209,40 @@ Doze inválidas, todas do Kafka a 200 mil eventos por segundo ou mais, todas por
 Como os pontos a 100 Hz são interpolados, repeti o Direct com os dados originais, a 3,7 Hz, sem interpolação. O P99 mudou menos de 10%, e as conclusões não mudam.""",
 
 # 12 --- latência e throughput
-"""[1:45]
-
+"""[1:00]
 Este é o resultado principal.
-[aponte para a legenda] Laranja é RabbitMQ, azul é Kafka. O traço e o marcador indicam o modo. O eixo de baixo é a carga, em escala logarítmica, e a linha pontilhada é o limite de 50 ms.
-
-[primeira mensagem — os brokers se cruzam]
-Entre os brokers, a comparação muda de sinal com a carga.
-Em carga baixa, o RabbitMQ é mais rápido: a 10 mil eventos por segundo, P99 de 2,3 ms, contra 5,8 do Kafka.
-Mas, conforme a carga sobe, a cauda do RabbitMQ cresce. No P99 ele só ganha até 20 mil.
-[se der tempo] Chega a 25 ms a 60 mil e a 75 ms a 80 mil.
-O Kafka fica com o P99 entre 5,5 e 6,7 ms até 400 mil. Ele tem um piso: a mediana fica perto de 3 ms em qualquer carga. Esse piso é a espera para formar lotes.
-[se der tempo] É o linger.ms, de 5 ms no padrão. Ele troca uns milissegundos de latência por lotes maiores e menos CPU.
-
-[segunda mensagem — os modos se sobrepõem]
-Agora reparem nas três linhas de cada cor. Elas ficam uma em cima da outra.
-Isso quer dizer que colocar Channels ou Pipelines não deixou nada mais rápido. Já é a primeira resposta do trabalho, do lado da latência.
-[se der tempo] A maior diferença foi de 11% no P99, abaixo do limite de 20% que eu tinha fixado.
-
-[terceira mensagem — saturação; aponte para o gráfico de throughput]
-O throughput é igual em todas as combinações, porque o gerador é de malha aberta: enquanto aguenta, cada uma processa exatamente o que chega. O que separa as combinações é até onde cada uma aguenta.
-O RabbitMQ sustenta 60 mil e falha a 80 mil, com P99 acima de 50 ms.
-O Kafka sustenta 400 mil, a maior carga que testei. O ponto de saturação dele fica acima do alcance da bancada.
-E o modo não mudou o ponto de saturação em nenhum dos dois.""",
+[aponte para a legenda] Laranja é RabbitMQ, azul é Kafka. Cada tipo de traço é um modo. Embaixo está a carga, e a linha pontilhada é o limite de 50 ms.
+[primeira mensagem]
+Primeiro, os brokers. Com pouca carga, o RabbitMQ é mais rápido: a 10 mil eventos por segundo, 2,3 ms contra 5,8 do Kafka.
+Mas, quando a carga sobe, a latência do RabbitMQ cresce. O Kafka fica estável, perto de 6 ms, até 400 mil.
+[segunda mensagem]
+Segundo, os modos. As três linhas de cada cor ficam uma em cima da outra. Ou seja: Channels e Pipelines não deixaram nada mais rápido.
+[terceira mensagem; aponte para o gráfico de throughput]
+Terceiro, até onde cada um aguenta. O RabbitMQ aguenta 60 mil e quebra em 80 mil. O Kafka aguentou 400 mil, o máximo que eu testei.
+E o modo não mudou isso em nenhum dos dois.""",
 
 # 13 --- uso de recursos
-"""[1:00]
-
-[se der tempo] Nos recursos, os quatro gráficos: CPU e memória, do consumidor e do broker.
-
+"""[0:40]
 [primeira mensagem; aponte para o gráfico de cima à esquerda]
-A CPU do consumidor é a única medida em que os modos se separam, e para pior.
-No Kafka, Channels e Pipelines custam de 1,9 a 3,3 vezes a CPU do Direct. São de 2,4 a 3,7 microssegundos a mais por evento, mais ou menos o custo de acordar uma thread.
-Para comparar: o processamento em si leva 0,12 microssegundo. Passar o evento para outra thread custa de 20 a 30 vezes o próprio trabalho.
-[se der tempo] No RabbitMQ, o acréscimo é pequeno, de 4 a 9%.
-
+Nos recursos, a CPU do consumidor é o único ponto em que os modos se separam, e para pior.
+No Kafka, Channels e Pipelines gastam de 1,9 a 3,3 vezes a CPU do Direct.
+O motivo: passar o evento de uma thread para outra custa mais do que processar o evento. Processar leva 0,12 microssegundo; passar, uns 3.
 [segunda mensagem; gráfico de cima à direita]
-A CPU do broker explica a saturação. O RabbitMQ ocupa até 3,5 dos 4 núcleos. O Kafka fica em meio núcleo.
-[se der tempo] O RabbitMQ trata cada mensagem sozinha: roteia, confirma e grava. O Kafka trabalha em lotes.
-
+No broker, o RabbitMQ usa quase os 4 núcleos, e o Kafka, só meio. Por isso o RabbitMQ satura antes.
 [terceira mensagem; gráficos de baixo]
-Na memória, o modo não muda nada: o consumidor fica perto de 100 MB em todos.
-Entre os brokers, o Kafka usa mais memória, perto de 1,5 GB, contra uns 0,3 do RabbitMQ. É a troca dele: gasta menos CPU e mais memória.
-[se der tempo] Um detalhe: o Pipelines promete criar menos objetos, mas aqui isso não apareceu. Quem cria a maior parte dos objetos é a biblioteca do broker, antes de o evento chegar ao mecanismo.""",
+Na memória, o modo não muda nada. E o Kafka usa mais memória que o RabbitMQ: ele troca memória por CPU.""",
 
 # 14 --- cenário ajustado
-"""[1:20]
-
-Agora o cenário ajustado, com a recomendação de cada fornecedor. O gráfico compara o modo Direct no padrão e no ajustado.
-
+"""[0:40]
+Agora o cenário ajustado, com a recomendação de cada fornecedor.
 [primeira mensagem — RabbitMQ]
-No RabbitMQ, a principal mudança foi parar de gravar cada mensagem no disco antes de confirmar. É o que o Kafka já fazia desde o começo, então agora os dois têm a mesma garantia.
-O resultado foi grande: a latência caiu quase pela metade, ou mais, em todas as cargas. E ele passou a aguentar 80 mil eventos por segundo, em vez de 60.
-O motivo é simples: sem esperar o disco, sobra CPU no broker para entregar mais rápido.
-[se der tempo] Os números: o P99 caiu de 43 a 76%. A 10 mil, de 2,3 para 0,65 ms. E também limitei o prefetch a 300 mensagens, como o fornecedor recomenda.
-
+No RabbitMQ, parei de gravar cada mensagem no disco antes de confirmar, como o Kafka já fazia.
+A latência caiu pela metade ou mais, e ele passou a aguentar 80 mil eventos por segundo, em vez de 60.
 [segunda mensagem — Kafka]
-No Kafka, é uma troca.
-Com o linger.ms de 1, a mediana caiu de 3 para 1 ms em todas as cargas. Isso confirma que o piso vinha da formação de lotes. Mas, com lotes menores, o broker recebe mais requisições: a CPU dele dobrou, e o P99 subiu nas cargas altas.
-[se der tempo] O perfil para vazão, com 20 ms, faz o contrário: P99 perto de 21 ms e 30% menos CPU.
-
+No Kafka, baixei o linger.ms para 1 ms. A mediana caiu de 3 para 1 ms.
+Mas o broker passou a trabalhar mais: a CPU dobrou e, com carga alta, o P99 subiu. É uma troca.
 [terceira mensagem — mecanismos]
-E os mecanismos continuaram sem diferença de latência. A configuração muda os brokers, não os modos.
-Ou seja: parte da diferença entre os brokers no cenário padrão vinha da configuração, e cada parâmetro troca latência por CPU.""",
+E os modos continuaram iguais. A configuração muda os brokers, não os modos.""",
 
 # 15 --- onde cada combinação ganha
 """[0:45]
